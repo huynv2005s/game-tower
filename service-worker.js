@@ -1,5 +1,5 @@
 // Alien Apocalypse - PWA Service Worker for Offline Play & Standalone App
-const CACHE_NAME = 'alien-apocalypse-v1';
+const CACHE_NAME = 'alien-apocalypse-v6';
 
 const ASSETS_TO_CACHE = [
   '/',
@@ -20,26 +20,7 @@ const ASSETS_TO_CACHE = [
   '/js/mobile.js',
   '/js/game.js',
   '/assets/icons/icon-192.png',
-  '/assets/icons/icon-512.png',
-  // Absolute paths support according to User Rules
-  '/c:/Go/demo/index.html',
-  '/c:/Go/demo/css/style.css',
-  '/c:/Go/demo/manifest.json',
-  '/c:/Go/demo/js/constants.js',
-  '/c:/Go/demo/js/audio.js',
-  '/c:/Go/demo/js/pixelart.js',
-  '/c:/Go/demo/js/buildings.js',
-  '/c:/Go/demo/js/world.js',
-  '/c:/Go/demo/js/entities.js',
-  '/c:/Go/demo/js/weapons.js',
-  '/c:/Go/demo/js/inventory.js',
-  '/c:/Go/demo/js/lab.js',
-  '/c:/Go/demo/js/daynight.js',
-  '/c:/Go/demo/js/savegame.js',
-  '/c:/Go/demo/js/mobile.js',
-  '/c:/Go/demo/js/game.js',
-  '/c:/Go/demo/assets/icons/icon-192.png',
-  '/c:/Go/demo/assets/icons/icon-512.png'
+  '/assets/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {

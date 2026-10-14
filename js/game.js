@@ -78,6 +78,7 @@ class GameEngine {
 
     // Bind Controls
     this.bindInputs();
+    window.unstuckPlayer = () => this.unstuckPlayer();
 
     // Auto-load saved game if present
     if (this.saveManager.hasSave()) {
@@ -103,10 +104,13 @@ class GameEngine {
   }
 
   spawnTestEntities() {
-    // 1. Training Dummies in Plains (Near player spawn)
-    this.monsters.push(new Monster(this.player.x + 120, this.player.y - 30, 'dummy', 'Bù Nhìn Thử Vũ Khí', 150));
-    this.monsters.push(new Monster(this.player.x + 140, this.player.y + 60, 'dummy', 'Bù Nhìn Thử Vũ Khí', 150));
-    this.monsters.push(new Monster(this.player.x + 180, this.player.y + 10, 'dummy', 'Bù Nhìn Thử Vũ Khí', 150));
+    // 1. Training Dummies in Plains - Dedicated Weapon Training Grounds (Southwest of Base)
+    // Completely separated from doors, bridges, and waterways
+    const trainCol = 29;
+    const trainRow = 39;
+    this.monsters.push(new Monster(trainCol * CONSTANTS.TILE_SIZE, trainRow * CONSTANTS.TILE_SIZE, 'dummy', 'Bù Nhìn Thử Vũ Khí', 150));
+    this.monsters.push(new Monster((trainCol + 1.5) * CONSTANTS.TILE_SIZE, (trainRow + 1.5) * CONSTANTS.TILE_SIZE, 'dummy', 'Bù Nhìn Thử Vũ Khí', 150));
+    this.monsters.push(new Monster((trainCol - 0.8) * CONSTANTS.TILE_SIZE, (trainRow + 2.2) * CONSTANTS.TILE_SIZE, 'dummy', 'Bù Nhìn Thử Vũ Khí', 150));
 
     // 2. Alien Crawlers in Mountain biome near eggs
     for (let i = 0; i < 12; i++) {
@@ -218,6 +222,11 @@ class GameEngine {
         if (this.saveManager) {
           this.saveManager.saveGame(false);
         }
+      }
+
+      // Emergency Unstuck Key [KeyU]
+      if (e.code === 'KeyU') {
+        this.unstuckPlayer();
       }
     });
 
@@ -364,8 +373,8 @@ class GameEngine {
   render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // 1. Render World Map Tiles
-    this.world.render(this.ctx, this.camera);
+    // 1. Render World Map Tiles, Mountains & Forests
+    this.world.render(this.ctx, this.camera, this.player);
 
     // 2. Render Placed Defenses & Build Ghost Preview (Walls, Traps, Turrets, Mortars)
     if (this.buildingManager) {
@@ -417,36 +426,101 @@ class GameEngine {
   updateHUD() {
     if (!this.player) return;
 
-    // HP Bar
+    // HP Bar & Horror Panic Overlay
     const hpBar = document.getElementById('hp-bar-fill');
     const hpText = document.getElementById('hp-bar-text');
     const hpPercent = Math.max(0, Math.min(100, (this.player.hp / this.player.maxHp) * 100));
     if (hpBar) hpBar.style.width = `${hpPercent}%`;
     if (hpText) hpText.innerText = `${Math.round(this.player.hp)} / ${this.player.maxHp}`;
 
-    // Infection Bar
+    // Low HP Panic Blood Screen Edge Vignette
+    const bloodOverlay = document.getElementById('blood-screen-overlay');
+    if (bloodOverlay) {
+      if (hpPercent < 38) {
+        bloodOverlay.classList.add('active-panic');
+      } else {
+        bloodOverlay.classList.remove('active-panic');
+      }
+    }
+
+    // Infection / Mutagen Bar & Toxic Screen Overlay
     const toxinBar = document.getElementById('toxin-bar-fill');
     const toxinText = document.getElementById('toxin-bar-text');
+    const dangerBadge = document.getElementById('toxin-danger-level');
+    const toxicOverlay = document.getElementById('toxic-screen-overlay');
+
     if (toxinBar) toxinBar.style.width = `${this.player.infection}%`;
     if (toxinText) toxinText.innerText = `${Math.round(this.player.infection)}%`;
 
-    // Biome Indicator
-    const biome = this.world.getBiomeAt(this.player.x, this.player.y);
-    const biomeBadge = document.getElementById('current-biome-badge');
-    if (biomeBadge) {
-      biomeBadge.innerText = biome.name;
-      biomeBadge.style.borderColor = biome.color;
+    if (toxicOverlay) {
+      if (this.player.infection > 40) {
+        toxicOverlay.classList.add('active-toxic');
+      } else {
+        toxicOverlay.classList.remove('active-toxic');
+      }
     }
 
-    // Day/Night Clock Widget
+    if (dangerBadge) {
+      if (this.player.infection < 25) {
+        dangerBadge.innerText = 'AN TOÀN';
+        dangerBadge.className = 'toxin-badge-safe';
+        dangerBadge.style.color = '#86efac';
+        dangerBadge.style.borderColor = '#22c55e';
+        dangerBadge.style.background = 'rgba(34, 197, 94, 0.15)';
+      } else if (this.player.infection < 65) {
+        dangerBadge.innerText = 'NHIỄM ĐỘC';
+        dangerBadge.className = 'toxin-badge-safe';
+        dangerBadge.style.color = '#facc15';
+        dangerBadge.style.borderColor = '#eab308';
+        dangerBadge.style.background = 'rgba(234, 179, 8, 0.2)';
+      } else {
+        dangerBadge.innerText = 'ĐỘT BIẾN GẦN KỀ';
+        dangerBadge.className = 'toxin-badge-safe';
+        dangerBadge.style.color = '#ef4444';
+        dangerBadge.style.borderColor = '#ef4444';
+        dangerBadge.style.background = 'rgba(239, 68, 68, 0.25)';
+      }
+    }
+
+    // Biome Indicator (Tactical GPS Wasteland)
+    const biome = this.world.getBiomeAt(this.player.x, this.player.y);
+    const biomeText = document.getElementById('biome-text-label');
+    const biomeBadge = document.getElementById('current-biome-badge');
+    if (biomeBadge && biomeText) {
+      if (biome.id === 'mountain') {
+        biomeText.innerText = 'NÚI TỬ THẦN - VÙNG ĐỈNH NÚI';
+        biomeBadge.style.borderColor = '#64748b';
+        biomeBadge.style.color = '#94a3b8';
+      } else if (biome.id === 'ocean') {
+        biomeText.innerText = 'BỜ BIỂN NHIỄM XẠ - VÙNG NƯỚC ĐỘC';
+        biomeBadge.style.borderColor = '#0ea5e9';
+        biomeBadge.style.color = '#38bdf8';
+      } else {
+        biomeText.innerText = 'ĐỒNG BẰNG HOANG TÀN - CĂN CỨ';
+        biomeBadge.style.borderColor = '#22c55e';
+        biomeBadge.style.color = '#86efac';
+      }
+    }
+
+    // Day/Night Doomsday Clock Widget
     const clockTime = document.getElementById('clock-time');
     const clockDay = document.getElementById('clock-day');
     const clockPhase = document.getElementById('clock-phase');
+    const phaseIcon = document.getElementById('phase-icon');
+    const phaseDesc = document.getElementById('phase-desc');
+
     if (clockTime) clockTime.innerText = this.dayNight.getTimeFormatted();
-    if (clockDay) clockDay.innerText = `NGÀY ${this.dayNight.dayCount}`;
+    if (clockDay) clockDay.innerText = `NGÀY SINH TỒN ${this.dayNight.dayCount}`;
     if (clockPhase) {
-      clockPhase.innerText = this.dayNight.isNight ? '🌙 ĐÊM TẤN CÔNG' : '☀ BÌNH YÊN';
-      clockPhase.style.color = this.dayNight.isNight ? '#ef4444' : '#38bdf8';
+      if (this.dayNight.isNight) {
+        if (phaseIcon) phaseIcon.innerText = '💀';
+        if (phaseDesc) phaseDesc.innerText = 'HUYẾT NGUYỆT: TẬN DIỆT!';
+        clockPhase.style.color = '#ef4444';
+      } else {
+        if (phaseIcon) phaseIcon.innerText = '☀';
+        if (phaseDesc) phaseDesc.innerText = 'BÌNH MINH HOANG TÀN';
+        clockPhase.style.color = '#38bdf8';
+      }
     }
 
     // Weapon Action Slots & Skill Cooldowns
@@ -565,14 +639,52 @@ class GameEngine {
     const modal = document.getElementById('gameover-modal');
     if (modal) modal.style.display = 'none';
 
-    // Respawn in front of Bio-Lab
-    const biolab = this.world.structures.find(s => s.type === 'biolab');
-    const rx = biolab ? biolab.doorX : (35 * CONSTANTS.TILE_SIZE);
-    const ry = biolab ? biolab.doorY + 25 : (38 * CONSTANTS.TILE_SIZE);
+    // Respawn in spacious open central plaza in front of Bio-Lab
+    const rx = 35 * CONSTANTS.TILE_SIZE;
+    const ry = 38 * CONSTANTS.TILE_SIZE;
 
     this.player.respawn(rx, ry);
-    this.floatingTexts.push(new FloatingText(rx, ry - 30, 'HỒI SINH TẠI PHÒNG LAB VÔ TRÙNG!', '#22c55e', 14, 2.5));
+    this.player.invulnerableTimer = 3.5; // 3.5s shield against spawn camp
+    this.player.immunityTimer = 5.0; // 5.0s toxin immunity
+    this.floatingTexts.push(new FloatingText(rx, ry - 30, '⚡ HỒI SINH: KHIÊN VÔ TRÙNG KÍCH HOẠT (3.5s)!', '#38bdf8', 14, 2.5));
     window.audioManager.playDayGong();
+
+    // Bio-Lab EMP Disinfection Shockwave: Blast and stun any nearby hostile monsters
+    for (let m of this.monsters) {
+      if (m.species === 'dummy') continue;
+      const dist = Math.hypot(m.x - rx, m.y - ry);
+      if (dist < 190) {
+        const a = Math.atan2(m.y - ry, m.x - rx);
+        m.x += Math.cos(a) * 110;
+        m.y += Math.sin(a) * 110;
+        m.applyStun(2.0, this.floatingTexts);
+      }
+    }
+  }
+
+  unstuckPlayer() {
+    const safeX = 35 * CONSTANTS.TILE_SIZE;
+    const safeY = 38 * CONSTANTS.TILE_SIZE;
+    this.player.x = safeX;
+    this.player.y = safeY;
+    this.player.isVaulting = false;
+    this.player.isDashing = false;
+    this.player.invulnerableTimer = 3.5;
+    this.player.immunityTimer = 5.0;
+    this.floatingTexts.push(new FloatingText(safeX, safeY - 30, '⚡ CỨU HỘ KHẨN CẤP: ĐÃ ĐƯA VỀ KHU AN TOÀN!', '#38bdf8', 13, 2.5));
+    if (window.audioManager) window.audioManager.playEquip();
+
+    // Disinfection Shockwave
+    for (let m of this.monsters) {
+      if (m.species === 'dummy') continue;
+      const dist = Math.hypot(m.x - safeX, m.y - safeY);
+      if (dist < 190) {
+        const a = Math.atan2(m.y - safeY, m.x - safeX);
+        m.x += Math.cos(a) * 120;
+        m.y += Math.sin(a) * 120;
+        m.applyStun(2.0, this.floatingTexts);
+      }
+    }
   }
 
   renderMinimap() {

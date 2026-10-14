@@ -12,9 +12,13 @@ class WorldMap {
     this.height = this.rows * this.tileSize; // 2560px
 
     this.tiles = [];
-    this.harvestables = []; // Interactive world objects (Ores, Herbs, Eggs, Debris)
+    this.harvestables = []; // Interactive world objects (Ores, Herbs, Eggs, Debris, Trees)
     this.structures = [];   // Bio-Lab, Furnace
     this.wildFlora = [];    // Wild plants that get blighted overnight
+    this.mountainPeaks = []; // Majestic multi-tile mountain pinnacles & spires
+    this.cliffBorders = [];  // Vertical cliff walls along mountain edge
+    this.mountainMists = []; // Soft drifting mountain mist clouds
+    this.ambientSpores = []; // Drifting forest spores & embers
   }
 
   generate() {
@@ -23,12 +27,18 @@ class WorldMap {
       this.tiles[r] = new Array(this.cols).fill(CONSTANTS.TILES.GRASS);
     }
     this.harvestables = [];
+    this.mountainPeaks = [];
+    this.cliffBorders = [];
 
     // 1. Generate Biome Base Layers
+    const mountainBorders = new Array(this.cols);
+    for (let c = 0; c < this.cols; c++) {
+      mountainBorders[c] = CONSTANTS.BIOME_MOUNTAIN_END + Math.floor(Math.sin(c * 0.15) * 2.5 + Math.cos(c * 0.08) * 1.5);
+    }
+
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
-        // Natural jagged biome borders using sine waves
-        const mountainBorder = CONSTANTS.BIOME_MOUNTAIN_END + Math.floor(Math.sin(c * 0.15) * 2.5 + Math.cos(c * 0.08) * 1.5);
+        const mountainBorder = mountainBorders[c];
         const oceanBorder = CONSTANTS.BIOME_PLAINS_END + Math.floor(Math.sin(c * 0.12) * 2.0 + Math.cos(c * 0.05) * 2.0);
 
         if (r <= mountainBorder) {
@@ -67,10 +77,14 @@ class WorldMap {
     }
 
     // 2. Carve River from Mountains down to Ocean
-    // River flows from col 50 (top) down to col 58 (bottom) with curves
-    let riverCol = 48;
+    // River flows smoothly to the East of the central base settlement
+    let riverCol = 54;
     for (let r = 12; r < this.rows; r++) {
-      riverCol += Math.sin(r * 0.18) * 0.8 + (Math.random() - 0.5) * 0.5;
+      riverCol += Math.sin(r * 0.16) * 0.6 + (Math.random() - 0.5) * 0.3;
+      // Guarantee wide clearance around central base (rows 26 to 45)
+      if (r >= 26 && r <= 45) {
+        riverCol = Math.max(54, riverCol);
+      }
       const centerCol = Math.round(riverCol);
       for (let dc = -2; dc <= 2; dc++) {
         const c = centerCol + dc;
@@ -82,7 +96,7 @@ class WorldMap {
       }
     }
 
-    // 3. Wooden Bridges across the River in Plains
+    // 3. Wooden Bridges across the River in Plains (Connecting Base to Eastern Wilderness)
     const bridgeRows = [34, 48];
     bridgeRows.forEach(br => {
       for (let c = 0; c < this.cols; c++) {
@@ -115,7 +129,58 @@ class WorldMap {
       }
     });
 
-    // 5. Populate Mountain Resources & Alien Eggs
+    // 5. Populate Mountain Cliff Borders, Majestic Peaks & Volcanic Fissures
+    for (let c = 0; c < this.cols; c++) {
+      const mb = mountainBorders[c];
+      this.cliffBorders.push({
+        col: c,
+        row: mb,
+        x: c * this.tileSize,
+        y: mb * this.tileSize
+      });
+    }
+
+    // Majestic Alpine Snow Pinnacles across the highest summits
+    const snowPinnacleCols = [6, 18, 30, 46, 62, 74, 88];
+    snowPinnacleCols.forEach((col, idx) => {
+      const row = 2 + (idx % 3);
+      this.mountainPeaks.push({
+        x: col * this.tileSize,
+        y: row * this.tileSize,
+        type: 'mountain_peak_snow_large',
+        width: 64,
+        height: 64
+      });
+    });
+
+    // Dark Granite Crag Spires across middle mountain ridges
+    const cragCols = [12, 24, 40, 56, 68, 82, 94];
+    cragCols.forEach((col, idx) => {
+      const row = 9 + (idx % 4) * 2;
+      this.mountainPeaks.push({
+        x: col * this.tileSize,
+        y: row * this.tileSize,
+        type: 'mountain_crag_spire',
+        width: 64,
+        height: 64
+      });
+    });
+
+    // Active Volcanic Sulfur Fissures
+    const sulfurFissures = [
+      { c: 16, r: 16 }, { c: 36, r: 18 }, { c: 66, r: 17 }, { c: 80, r: 19 }
+    ];
+    sulfurFissures.forEach(f => {
+      this.mountainPeaks.push({
+        x: f.c * this.tileSize,
+        y: f.r * this.tileSize,
+        type: 'sulfur_fissure_active',
+        width: 32,
+        height: 32
+      });
+    });
+
+    // Populate Mountain Resources & Alien Eggs
     for (let r = 4; r <= CONSTANTS.BIOME_MOUNTAIN_END; r++) {
       for (let c = 2; c < this.cols - 2; c++) {
         const tile = this.tiles[r][c];
@@ -141,17 +206,73 @@ class WorldMap {
       }
     }
 
-    // 6. Populate Plains with Trees & Alien Plants
+    // 6. Populate Deep, Majestic, Realistic Forests (Ancient Pines, Alien Spores, Charred Trees)
     for (let r = CONSTANTS.BIOME_MOUNTAIN_END + 2; r < CONSTANTS.BIOME_PLAINS_END; r++) {
       for (let c = 2; c < this.cols - 2; c++) {
-        if (this.tiles[r][c] === CONSTANTS.TILES.GRASS || this.tiles[r][c] === CONSTANTS.TILES.GRASS_TALL) {
-          // Avoid river and lakes
-          if (Math.random() < 0.08) {
+        const tile = this.tiles[r][c];
+        if (tile === CONSTANTS.TILES.GRASS || tile === CONSTANTS.TILES.GRASS_TALL) {
+          // Avoid river, lakes, and central base
+          const distToLab = Math.hypot(c - 38, r - 34);
+          if (distToLab < 8) continue;
+
+          let spawnChance = 0.04;
+          let variant = 'ancient_pine';
+          let treeName = 'Cây Thông Đại Ngàn';
+
+          // A. Western Ancient Fir Grove (Dense woodland biome)
+          if (c >= 4 && c <= 30 && r >= 29 && r <= 58) {
+            spawnChance = 0.17;
+            variant = 'ancient_pine';
+            treeName = 'Cây Thông Cổ Thụ';
+          }
+          // B. Eastern Alien Spore Forest (Extraterrestrial bioluminescent forest)
+          else if (c >= 66 && c <= 95 && r >= 29 && r <= 55) {
+            spawnChance = 0.18;
+            variant = 'alien_pine';
+            treeName = 'Cây Đại Thụ Bào Tử';
+          }
+          // C. Northern Foothills Charred Wasteland (Apocalyptic burned forest)
+          else if (r >= CONSTANTS.BIOME_MOUNTAIN_END + 1 && r <= CONSTANTS.BIOME_MOUNTAIN_END + 4) {
+            spawnChance = 0.15;
+            variant = 'dead_apoc';
+            treeName = 'Cây Tận Thế Cháy Khô';
+          }
+
+          if (Math.random() < spawnChance) {
             this.tiles[r][c] = CONSTANTS.TILES.TREE_ALIEN_PINE;
-            this.addHarvestable(c, r, 'alien_tree', 'Cây Thông Biến Dị', 'wood', 4);
+            this.addHarvestable(c, r, 'alien_tree', treeName, 'wood', 4, 25, {
+              treeVariant: variant,
+              swayOffset: Math.random() * 6.28
+            });
           }
         }
       }
+    }
+
+    // Initialize Atmospheric Mountain Mist & Valley Fog Clouds
+    this.mountainMists = [];
+    for (let i = 0; i < 20; i++) {
+      this.mountainMists.push({
+        x: Math.random() * this.width,
+        y: 10 + Math.random() * (CONSTANTS.BIOME_MOUNTAIN_END * this.tileSize - 40),
+        width: 110 + Math.random() * 110,
+        height: 38 + Math.random() * 32,
+        speed: 8 + Math.random() * 12,
+        opacity: 0.18 + Math.random() * 0.12
+      });
+    }
+
+    // Initialize Drifting Forest Spores & Embers
+    this.ambientSpores = [];
+    for (let i = 0; i < 35; i++) {
+      this.ambientSpores.push({
+        x: Math.random() * this.width,
+        y: Math.random() * this.height,
+        vx: (Math.random() - 0.3) * 16,
+        vy: (Math.random() - 0.5) * 8,
+        radius: 1 + Math.random() * 2,
+        color: Math.random() < 0.5 ? 'rgba(74, 222, 128, 0.65)' : 'rgba(192, 132, 252, 0.65)'
+      });
     }
 
     // 7. Populate Beach with Tech Debris & Ocean Resources
@@ -180,14 +301,14 @@ class WorldMap {
       isolationRadius: 150
     });
 
-    // Clear tiles under Bio-Lab
-    for (let dr = 0; dr < 3; dr++) {
-      for (let dc = 0; dc < 3; dc++) {
-        this.tiles[33 + dr][37 + dc] = CONSTANTS.TILES.DIRT_PATH;
+    // Clear tiles & pave spacious connected plaza across Central Base (Workbench, Bio-Lab, Furnace, Workshop)
+    for (let r = 32; r <= 38; r++) {
+      for (let c = 32; c <= 50; c++) {
+        this.tiles[r][c] = CONSTANTS.TILES.DIRT_PATH;
       }
     }
 
-    // Furnace: 48x48 px, near Bio-Lab
+    // Furnace: 48x48 px, to the right of Bio-Lab
     this.structures.push({
       id: 'furnace',
       name: 'Lò Nung Khử Trùng (Furnace)',
@@ -199,12 +320,6 @@ class WorldMap {
       doorX: 42 * this.tileSize + 24,
       doorY: 34 * this.tileSize + 40
     });
-
-    // Clear tiles under Furnace
-    this.tiles[34][42] = CONSTANTS.TILES.DIRT_PATH;
-    this.tiles[34][43] = CONSTANTS.TILES.DIRT_PATH;
-    this.tiles[35][42] = CONSTANTS.TILES.DIRT_PATH;
-    this.tiles[35][43] = CONSTANTS.TILES.DIRT_PATH;
 
     // Workbench: 48x32 px, to the left of Bio-Lab
     this.structures.push({
@@ -218,8 +333,6 @@ class WorldMap {
       doorX: 33 * this.tileSize + 24,
       doorY: 34 * this.tileSize + 30
     });
-    this.tiles[34][33] = CONSTANTS.TILES.DIRT_PATH;
-    this.tiles[34][34] = CONSTANTS.TILES.DIRT_PATH;
 
     // Workshop: 64x48 px, to the right of Furnace
     this.structures.push({
@@ -233,9 +346,11 @@ class WorldMap {
       doorX: 46 * this.tileSize + 32,
       doorY: 33 * this.tileSize + 44
     });
-    for (let dr = 0; dr < 2; dr++) {
-      for (let dc = 0; dc < 2; dc++) {
-        this.tiles[33 + dr][46 + dc] = CONSTANTS.TILES.DIRT_PATH;
+
+    // Pave Dedicated Weapon Training Grounds (Southwest of Base)
+    for (let r = 38; r <= 42; r++) {
+      for (let c = 27; c <= 31; c++) {
+        this.tiles[r][c] = CONSTANTS.TILES.DIRT_PATH;
       }
     }
 
@@ -299,7 +414,7 @@ class WorldMap {
     }
   }
 
-  addHarvestable(col, row, type, name, dropItemId, dropCount, hp = 20) {
+  addHarvestable(col, row, type, name, dropItemId, dropCount, hp = 20, metadata = {}) {
     this.harvestables.push({
       col,
       row,
@@ -311,7 +426,8 @@ class WorldMap {
       dropCount,
       hp,
       maxHp: hp,
-      isDestroyed: false
+      isDestroyed: false,
+      ...metadata
     });
   }
 
@@ -473,16 +589,21 @@ class WorldMap {
     return false;
   }
 
-  render(ctx, camera) {
+  render(ctx, camera, player = null) {
     const startCol = Math.max(0, Math.floor(camera.x / this.tileSize));
     const endCol = Math.min(this.cols - 1, Math.ceil((camera.x + camera.width) / this.tileSize));
     const startRow = Math.max(0, Math.floor(camera.y / this.tileSize));
     const endRow = Math.min(this.rows - 1, Math.ceil((camera.y + camera.height) / this.tileSize));
 
-    // 1. Render Base Tiles
+    // 1. Render Base Ground Tiles
     for (let r = startRow; r <= endRow; r++) {
       for (let c = startCol; c <= endCol; c++) {
-        const tileId = this.tiles[r][c];
+        let tileId = this.tiles[r][c];
+        // If it's a tree tile, render grass underneath so ground is beautiful
+        if (tileId === CONSTANTS.TILES.TREE_ALIEN_PINE || tileId === CONSTANTS.TILES.TREE_POST_APOC) {
+          tileId = CONSTANTS.TILES.GRASS;
+        }
+
         const sprite = window.pixelArt.get('tile_' + tileId);
         const screenX = c * this.tileSize - camera.x;
         const screenY = r * this.tileSize - camera.y;
@@ -490,13 +611,43 @@ class WorldMap {
         if (sprite) {
           ctx.drawImage(sprite, screenX, screenY);
         } else {
-          ctx.fillStyle = '#222';
+          ctx.fillStyle = '#1e293b';
           ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
         }
       }
     }
 
-    // 2. Render Wild Flora (Berry Bushes)
+    // 2. Render Vertical Mountain Cliff Walls (Demarcating Mountain Plateau & Plains)
+    const cliffWallSprite = window.pixelArt.get('cliff_face_vertical');
+    if (cliffWallSprite && this.cliffBorders) {
+      for (let cb of this.cliffBorders) {
+        if (cb.col >= startCol - 1 && cb.col <= endCol + 1) {
+          const sx = cb.x - camera.x;
+          const sy = cb.y - camera.y;
+          // Render cliff facade
+          ctx.drawImage(cliffWallSprite, sx, sy);
+          // Drop shadow cast onto the plains below
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.fillRect(sx, sy + this.tileSize, this.tileSize, 8);
+        }
+      }
+    }
+
+    // 3. Render Majestic Mountain Peaks, Spires & Sulfur Fissures
+    if (this.mountainPeaks) {
+      for (let peak of this.mountainPeaks) {
+        const sx = peak.x - camera.x;
+        const sy = peak.y - camera.y;
+        if (sx + peak.width >= -64 && sx <= camera.width + 64 && sy + peak.height >= -64 && sy <= camera.height + 64) {
+          const sprite = window.pixelArt.get(peak.type);
+          if (sprite) {
+            ctx.drawImage(sprite, sx, sy);
+          }
+        }
+      }
+    }
+
+    // 4. Render Wild Flora (Berry Bushes)
     for (let f of this.wildFlora) {
       if (f.isHarvested) continue;
       const sx = f.x - this.tileSize / 2 - camera.x;
@@ -508,7 +659,7 @@ class WorldMap {
       }
     }
 
-    // 3. Render Structures (Bio-Lab & Furnace)
+    // 5. Render Structures (Bio-Lab & Furnace, Workbench, Workshop)
     for (let s of this.structures) {
       const sx = s.x - camera.x;
       const sy = s.y - camera.y;
@@ -548,6 +699,117 @@ class WorldMap {
           ctx.drawImage(sprite, sx, sy);
         }
       }
+    }
+
+    // 6. Render Majestic Multi-tier Trees with Cast Shadows & Wind Sway
+    const now = Date.now();
+    for (let h of this.harvestables) {
+      if (h.type !== 'alien_tree') continue;
+      const screenX = h.x - camera.x;
+      const screenY = h.y - camera.y;
+
+      // Viewport culling with generous margin for tall trees
+      if (screenX < -64 || screenX > camera.width + 64 || screenY < -100 || screenY > camera.height + 64) {
+        continue;
+      }
+
+      if (h.isDestroyed) {
+        // Render Cut Tree Stump
+        const stumpSprite = window.pixelArt.get('tree_stump');
+        if (stumpSprite) {
+          ctx.drawImage(stumpSprite, screenX - 16, screenY - 12);
+        }
+      } else {
+        // Determine tree variant & dimensions
+        const variant = h.treeVariant || 'ancient_pine';
+        let spriteKey = 'tree_ancient_pine';
+        let treeW = 48, treeH = 72;
+
+        if (variant === 'alien_pine') {
+          spriteKey = 'tree_alien_pine';
+          treeH = 76;
+        } else if (variant === 'dead_apoc') {
+          spriteKey = 'tree_dead_apoc';
+          treeH = 68;
+        }
+
+        const treeSprite = window.pixelArt.get(spriteKey) || window.pixelArt.get('tree_ancient_pine');
+        if (treeSprite) {
+          // Subtle natural wind sway
+          const sway = Math.sin(now * 0.0016 + (h.swayOffset || 0)) * 1.5;
+          const drawX = screenX - 24 + sway;
+          const drawY = screenY - (treeH - 14); // Ground trunk root aligns with h.y
+
+          // Check if player is standing behind/underneath this tree's canopy
+          let isPlayerUnder = false;
+          if (player) {
+            const dx = Math.abs(player.x - h.x);
+            const dy = player.y - (h.y - 28);
+            if (dx < 26 && dy > -38 && dy < 18) {
+              isPlayerUnder = true;
+            }
+          }
+
+          if (isPlayerUnder) {
+            ctx.save();
+            ctx.globalAlpha = 0.62;
+            ctx.drawImage(treeSprite, drawX, drawY);
+            ctx.restore();
+          } else {
+            ctx.drawImage(treeSprite, drawX, drawY);
+          }
+        }
+      }
+    }
+
+    // 7. Render Atmospheric Mountain Mist & Valley Clouds across Mountain Zone
+    if (this.mountainMists && camera.y < CONSTANTS.BIOME_MOUNTAIN_END * this.tileSize + 200) {
+      ctx.save();
+      for (let mist of this.mountainMists) {
+        mist.x += mist.speed * 0.016;
+        if (mist.x > this.width + mist.width) mist.x = -mist.width;
+
+        const mx = mist.x - camera.x;
+        const my = mist.y - camera.y;
+        if (mx + mist.width >= 0 && mx <= camera.width && my + mist.height >= 0 && my <= camera.height) {
+          const grad = ctx.createRadialGradient(
+            mx + mist.width / 2, my + mist.height / 2, 8,
+            mx + mist.width / 2, my + mist.height / 2, mist.width / 2
+          );
+          grad.addColorStop(0, `rgba(224, 242, 254, ${mist.opacity})`);
+          grad.addColorStop(0.55, `rgba(186, 230, 253, ${mist.opacity * 0.55})`);
+          grad.addColorStop(1, 'rgba(186, 230, 253, 0)');
+
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.ellipse(mx + mist.width / 2, my + mist.height / 2, mist.width / 2, mist.height / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
+    // 8. Render Drifting Ambient Forest Spores & Embers
+    if (this.ambientSpores) {
+      ctx.save();
+      for (let spore of this.ambientSpores) {
+        spore.x += spore.vx * 0.016;
+        spore.y += spore.vy * 0.016;
+        if (spore.x < 0) spore.x = this.width;
+        if (spore.x > this.width) spore.x = 0;
+        if (spore.y < 0) spore.y = this.height;
+        if (spore.y > this.height) spore.y = 0;
+
+        const sx = spore.x - camera.x;
+        const sy = spore.y - camera.y;
+        if (sx >= 0 && sx <= camera.width && sy >= 0 && sy <= camera.height) {
+          ctx.fillStyle = spore.color;
+          ctx.beginPath();
+          ctx.arc(sx, sy, spore.radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
     }
   }
 }

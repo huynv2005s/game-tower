@@ -8,6 +8,7 @@ class PixelArt {
 
   init() {
     this.generateTileSprites();
+    this.generateMountainAndForestSprites();
     this.generatePlayerSprites();
     this.generateWeaponSprites();
     this.generateItemIcons();
@@ -43,91 +44,184 @@ class PixelArt {
   generateTileSprites() {
     const S = CONSTANTS.TILE_SIZE; // 32
 
-    // 1. Grass Tile
+    // 1. Grass Tile (Rich deep woodland meadow)
     {
       const { canvas, ctx } = this.createCanvas(S, S);
-      ctx.fillStyle = '#2d5a27';
+      // Dark earth underbed
+      ctx.fillStyle = '#1c3d19';
       ctx.fillRect(0, 0, S, S);
-      // Highlights & grass blades
-      ctx.fillStyle = '#3a6e32';
-      for (let i = 0; i < 18; i++) {
-        const rx = (i * 7) % 30;
+      // Base grass gradient patches
+      ctx.fillStyle = '#265322';
+      ctx.fillRect(1, 1, 30, 30);
+      ctx.fillStyle = '#2e6329';
+      ctx.fillRect(3, 4, 12, 10);
+      ctx.fillRect(16, 12, 13, 14);
+      // Fine grass tufts & highlights
+      ctx.fillStyle = '#3d7e36';
+      for (let i = 0; i < 22; i++) {
+        const rx = (i * 9) % 30;
         const ry = (i * 13) % 30;
         ctx.fillRect(rx, ry, 2, 3);
+        ctx.fillRect(rx + 1, ry - 1, 1, 2);
       }
-      ctx.fillStyle = '#1e401a';
-      for (let i = 0; i < 12; i++) {
-        const rx = (i * 11) % 28 + 2;
-        const ry = (i * 17) % 28 + 2;
+      ctx.fillStyle = '#529e49';
+      for (let i = 0; i < 10; i++) {
+        const rx = (i * 13 + 5) % 29;
+        const ry = (i * 17 + 3) % 29;
+        ctx.fillRect(rx, ry, 1, 2);
+      }
+      ctx.fillStyle = '#142c12';
+      for (let i = 0; i < 8; i++) {
+        const rx = (i * 11 + 2) % 28;
+        const ry = (i * 19 + 7) % 28;
         ctx.fillRect(rx, ry, 2, 2);
       }
       this.cache['tile_' + CONSTANTS.TILES.GRASS] = canvas;
     }
 
-    // 2. Grass Flowers
+    // 2. Grass Flowers (Bioluminescent Alien Flora)
     {
       const { canvas, ctx } = this.createCanvas(S, S);
       ctx.drawImage(this.cache['tile_' + CONSTANTS.TILES.GRASS], 0, 0);
-      // Little alien wildflowers
-      ctx.fillStyle = '#ff6b81';
-      ctx.fillRect(6, 8, 3, 3);
-      ctx.fillRect(20, 22, 3, 3);
-      ctx.fillStyle = '#ffd166';
-      ctx.fillRect(7, 9, 1, 1);
-      ctx.fillRect(21, 23, 1, 1);
-      ctx.fillStyle = '#9b5de5';
+      // Luminescent flowers & alien spore blooms
+      ctx.fillStyle = '#f43f5e'; // Crimson alien rose
+      ctx.fillRect(6, 8, 4, 4);
+      ctx.fillStyle = '#fda4af';
+      ctx.fillRect(7, 9, 2, 2);
+
+      ctx.fillStyle = '#a855f7'; // Toxic purple orchid
+      ctx.fillRect(20, 20, 4, 4);
+      ctx.fillStyle = '#e9d5ff';
+      ctx.fillRect(21, 21, 2, 2);
+
+      ctx.fillStyle = '#06b6d4'; // Cyan spore blossom
       ctx.fillRect(18, 6, 3, 3);
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillRect(19, 7, 1, 1);
+
+      ctx.fillStyle = '#eab308'; // Amber pollen head
+      ctx.fillRect(8, 22, 3, 3);
       this.cache['tile_' + CONSTANTS.TILES.GRASS_FLOWERS] = canvas;
     }
 
     // 3. Dirt Path
     {
       const { canvas, ctx } = this.createCanvas(S, S);
-      ctx.fillStyle = '#614835';
+      ctx.fillStyle = '#453023';
       ctx.fillRect(0, 0, S, S);
-      ctx.fillStyle = '#7a5c43';
-      for (let i = 0; i < 14; i++) {
+      ctx.fillStyle = '#5c402f';
+      ctx.fillRect(2, 2, 28, 28);
+      ctx.fillStyle = '#73523d';
+      for (let i = 0; i < 16; i++) {
         ctx.fillRect((i * 9) % 29, (i * 15) % 29, 3, 2);
       }
-      ctx.fillStyle = '#453224';
-      ctx.fillRect(5, 12, 4, 3);
-      ctx.fillRect(22, 8, 3, 3);
-      ctx.fillRect(14, 25, 3, 2);
+      ctx.fillStyle = '#36241a';
+      ctx.fillRect(5, 12, 5, 3);
+      ctx.fillRect(20, 8, 4, 3);
+      ctx.fillRect(12, 24, 6, 2);
+      // Small pebbles
+      ctx.fillStyle = '#8c7365';
+      ctx.fillRect(8, 6, 2, 2);
+      ctx.fillRect(24, 18, 2, 2);
+      ctx.fillRect(15, 15, 1, 1);
       this.cache['tile_' + CONSTANTS.TILES.DIRT_PATH] = canvas;
     }
 
-    // 4. Mountain Rock
+    // 4. Mountain Rock (Majestic Chiseled Granite with Strata & Fissures)
     {
       const { canvas, ctx } = this.createCanvas(S, S);
-      ctx.fillStyle = '#3c4048';
+      // Deep rock bedrock base
+      ctx.fillStyle = '#1e222a';
       ctx.fillRect(0, 0, S, S);
-      ctx.fillStyle = '#4a505a';
-      ctx.fillRect(2, 2, 28, 28);
-      ctx.fillStyle = '#2b2d33';
-      // jagged cracks
-      ctx.fillRect(6, 6, 20, 2);
-      ctx.fillRect(18, 6, 2, 16);
-      ctx.fillRect(10, 16, 12, 2);
-      ctx.fillStyle = '#59606d';
-      ctx.fillRect(2, 2, 28, 2);
-      ctx.fillRect(2, 2, 2, 28);
+      // Granite mass
+      ctx.fillStyle = '#2f3542';
+      ctx.fillRect(1, 1, 30, 30);
+      ctx.fillStyle = '#404856';
+      ctx.fillRect(3, 2, 26, 12);
+      ctx.fillRect(2, 16, 27, 13);
+      // Chiseled highlights & bevels (top-left lighting)
+      ctx.fillStyle = '#647084';
+      ctx.fillRect(3, 2, 26, 2);
+      ctx.fillRect(2, 16, 27, 2);
+      ctx.fillRect(3, 2, 2, 12);
+      ctx.fillStyle = '#8392a8';
+      ctx.fillRect(4, 3, 8, 2);
+      ctx.fillRect(18, 17, 7, 2);
+      // Deep angular geological fissure cracks
+      ctx.fillStyle = '#14171d';
+      ctx.fillRect(8, 6, 14, 2);
+      ctx.fillRect(20, 8, 2, 14);
+      ctx.fillRect(12, 18, 10, 2);
+      ctx.fillRect(6, 20, 2, 8);
+      // Quartz/mineral flecks
+      ctx.fillStyle = '#a0aec0';
+      ctx.fillRect(10, 10, 2, 2);
+      ctx.fillRect(22, 24, 2, 2);
+      ctx.fillRect(16, 8, 1, 1);
       this.cache['tile_' + CONSTANTS.TILES.MOUNTAIN_ROCK] = canvas;
     }
 
-    // 5. Snow Peak
+    // 4b. Mountain Slate (Dark Stratified Basalt Cliff Surface)
     {
       const { canvas, ctx } = this.createCanvas(S, S);
-      ctx.fillStyle = '#d0e1fd';
+      ctx.fillStyle = '#14171e';
       ctx.fillRect(0, 0, S, S);
+      // Horizontal slate cleavage layers
+      ctx.fillStyle = '#242a35';
+      ctx.fillRect(1, 1, 30, 7);
+      ctx.fillRect(1, 9, 30, 8);
+      ctx.fillRect(1, 18, 30, 7);
+      ctx.fillRect(1, 26, 30, 5);
+      // Slate shelf highlights
+      ctx.fillStyle = '#3d4657';
+      ctx.fillRect(2, 1, 28, 2);
+      ctx.fillRect(2, 9, 28, 2);
+      ctx.fillRect(2, 18, 28, 2);
+      ctx.fillStyle = '#56627a';
+      ctx.fillRect(4, 2, 12, 1);
+      ctx.fillRect(18, 10, 10, 1);
+      // Crevices and shadows
+      ctx.fillStyle = '#0b0d11';
+      ctx.fillRect(0, 8, S, 1);
+      ctx.fillRect(0, 17, S, 1);
+      ctx.fillRect(0, 25, S, 1);
+      ctx.fillRect(14, 2, 1, 6);
+      ctx.fillRect(22, 11, 1, 6);
+      // Ancient highland lichen
+      ctx.fillStyle = '#3f6212';
+      ctx.fillRect(5, 5, 3, 2);
+      ctx.fillRect(19, 21, 4, 2);
+      this.cache['tile_' + CONSTANTS.TILES.MOUNTAIN_SLATE] = canvas;
+    }
+
+    // 5. Snow Peak (Majestic Alpine Glacial Crest)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Dark rock bedrock
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, 0, S, S);
+      // Glacial ice base
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillRect(2, 2, 28, 28);
+      ctx.fillStyle = '#60a5fa';
+      ctx.fillRect(3, 3, 26, 26);
+      // Wind-swept snow drifts
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(2, 2, 20, 20);
+      ctx.fillRect(8, 12, 22, 16);
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(4, 4, 24, 24);
-      ctx.fillStyle = '#a6c8f5';
-      ctx.fillRect(0, 28, 32, 4);
-      ctx.fillRect(28, 0, 4, 32);
-      // Ice crystal sheen
-      ctx.fillStyle = '#e8f4fd';
-      ctx.fillRect(8, 8, 6, 4);
-      ctx.fillRect(18, 16, 8, 4);
+      ctx.fillRect(3, 3, 14, 12);
+      ctx.fillRect(12, 15, 14, 10);
+      // Shaded eastern ice crevasse
+      ctx.fillStyle = '#1d4ed8';
+      ctx.fillRect(22, 4, 6, 24);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(26, 6, 4, 22);
+      // Glistening diamond frost
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(6, 6, 3, 3);
+      ctx.fillRect(16, 18, 3, 3);
+      ctx.fillRect(8, 24, 2, 2);
       this.cache['tile_' + CONSTANTS.TILES.SNOW_PEAK] = canvas;
     }
 
@@ -261,26 +355,54 @@ class PixelArt {
       this.cache['tile_' + CONSTANTS.TILES.WOODEN_BRIDGE] = canvas;
     }
 
-    // 14. Tree Alien Pine
+    // 14. Tree Alien Pine (Fallback 32x32)
     {
       const { canvas, ctx } = this.createCanvas(S, S);
       ctx.drawImage(this.cache['tile_' + CONSTANTS.TILES.GRASS], 0, 0);
+      // Soft shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(16, 29, 10, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
       // Trunk
-      ctx.fillStyle = '#4a2810';
-      ctx.fillRect(14, 20, 4, 12);
-      // Foliage layers with mutant purple sheen
-      ctx.fillStyle = '#183a27';
-      ctx.fillRect(6, 16, 20, 7);
-      ctx.fillRect(9, 10, 14, 7);
-      ctx.fillRect(12, 4, 8, 7);
-      ctx.fillStyle = '#295a3d';
-      ctx.fillRect(8, 17, 16, 3);
-      ctx.fillRect(11, 11, 10, 3);
-      ctx.fillRect(13, 5, 6, 3);
-      // Alien spore tip
-      ctx.fillStyle = '#9d4edd';
-      ctx.fillRect(15, 2, 2, 3);
+      ctx.fillStyle = '#26150d';
+      ctx.fillRect(14, 18, 4, 12);
+      // Dense tiered foliage
+      ctx.fillStyle = '#0f2f1d';
+      ctx.fillRect(5, 14, 22, 7);
+      ctx.fillRect(8, 8, 16, 7);
+      ctx.fillRect(11, 2, 10, 7);
+      ctx.fillStyle = '#1e5e38';
+      ctx.fillRect(7, 15, 18, 3);
+      ctx.fillRect(10, 9, 12, 3);
+      ctx.fillRect(12, 3, 8, 3);
+      ctx.fillStyle = '#38a169';
+      ctx.fillRect(15, 1, 2, 2);
       this.cache['tile_' + CONSTANTS.TILES.TREE_ALIEN_PINE] = canvas;
+    }
+
+    // 14b. Tree Post Apocalypse (Fallback 32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.drawImage(this.cache['tile_' + CONSTANTS.TILES.GRASS], 0, 0);
+      // Ash shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.ellipse(16, 29, 9, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Charred trunk
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect(14, 12, 4, 18);
+      ctx.fillRect(10, 16, 4, 3);
+      ctx.fillRect(18, 18, 5, 3);
+      ctx.fillRect(8, 11, 3, 5);
+      ctx.fillRect(22, 13, 3, 5);
+      // Glowing embers
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(15, 16, 2, 4);
+      ctx.fillStyle = '#f97316';
+      ctx.fillRect(15, 18, 1, 2);
+      this.cache['tile_' + CONSTANTS.TILES.TREE_POST_APOC] = canvas;
     }
 
     // 15. Sand Beach
@@ -1288,6 +1410,498 @@ class PixelArt {
       ctx.fillRect(23, 12, 2, 2);
       ctx.fillRect(27, 12, 2, 2);
       this.cache['monster_behemoth'] = canvas;
+    }
+  }
+
+  generateMountainAndForestSprites() {
+    // =========================================================================
+    // 1. MAJESTIC TALL TREES (48x72 & 48x76 Multi-tier Foliage with Cast Shadow)
+    // =========================================================================
+
+    // A. Tree Ancient Pine (Cây Thông Đại Ngàn Cổ Thụ 48x72)
+    {
+      const W = 48, H = 72;
+      const { canvas, ctx } = this.createCanvas(W, H);
+
+      // Soft Ground Cast Shadow under the tree
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+      ctx.beginPath();
+      ctx.ellipse(24, 67, 18, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Textured Pine Trunk & Gnarled Roots
+      ctx.fillStyle = '#26150d'; // Deep bark shadow
+      ctx.fillRect(20, 46, 8, 22);
+      ctx.fillRect(17, 63, 14, 5); // Spreading base roots
+      ctx.fillStyle = '#422818'; // Mid bark
+      ctx.fillRect(21, 46, 6, 20);
+      ctx.fillRect(18, 64, 12, 3);
+      ctx.fillStyle = '#613c23'; // Bark highlights & ridges
+      ctx.fillRect(22, 48, 2, 16);
+      ctx.fillRect(25, 52, 1, 12);
+      // Moss on trunk base
+      ctx.fillStyle = '#164e2d';
+      ctx.fillRect(19, 62, 3, 3);
+      ctx.fillRect(26, 63, 2, 3);
+
+      // Helper function to draw a rich pine needle bough tier
+      const drawPineBough = (cx, topY, width, height, isTip = false) => {
+        const halfW = width / 2;
+        // 1. Deep inner shadow layer
+        ctx.fillStyle = '#081c10';
+        ctx.beginPath();
+        ctx.moveTo(cx, topY);
+        ctx.lineTo(cx + halfW, topY + height);
+        ctx.lineTo(cx - halfW, topY + height);
+        ctx.closePath();
+        ctx.fill();
+
+        // 2. Main pine foliage body (jagged pine needle clusters)
+        ctx.fillStyle = '#133e23';
+        ctx.beginPath();
+        ctx.moveTo(cx, topY + 2);
+        ctx.lineTo(cx + halfW - 2, topY + height - 1);
+        ctx.lineTo(cx - halfW + 2, topY + height - 1);
+        ctx.closePath();
+        ctx.fill();
+
+        // 3. Sunlit needle shelves & highlights (top-left light source)
+        ctx.fillStyle = '#1e5e36';
+        ctx.fillRect(cx - halfW + 4, topY + height - 4, width - 8, 3);
+        ctx.fillStyle = '#2d8a50';
+        for (let x = cx - halfW + 6; x < cx + halfW - 6; x += 3) {
+          ctx.fillRect(x, topY + height - 3, 2, 2);
+        }
+        ctx.fillStyle = '#4ade80'; // Sunlit needle tips
+        for (let x = cx - halfW + 8; x < cx + 2; x += 4) {
+          ctx.fillRect(x, topY + height - 5, 2, 1);
+        }
+
+        // Pinecone clusters on lower boughs
+        if (!isTip && width > 28) {
+          ctx.fillStyle = '#78350f';
+          ctx.fillRect(cx - halfW + 6, topY + height - 1, 2, 3);
+          ctx.fillRect(cx + halfW - 8, topY + height - 1, 2, 3);
+        }
+      };
+
+      // 5 Tiered cascading fir needle boughs from bottom to top
+      drawPineBough(24, 38, 42, 18, false); // Bottom tier (broadest)
+      drawPineBough(24, 28, 36, 17, false); // Tier 4
+      drawPineBough(24, 18, 30, 16, false); // Tier 3
+      drawPineBough(24, 10, 22, 14, false); // Tier 2
+      drawPineBough(24, 3, 14, 12, true);   // Top summit tip
+
+      // High pinnacle evergreen needle tip
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(23, 2, 2, 3);
+
+      this.cache['tree_ancient_pine'] = canvas;
+    }
+
+    // B. Tree Alien Spore Pine (Cây Đại Thụ Bào Tử Ngoài Hành Tinh 48x76)
+    {
+      const W = 48, H = 76;
+      const { canvas, ctx } = this.createCanvas(W, H);
+
+      // Bioluminescent Ground Shadow
+      ctx.fillStyle = 'rgba(20, 10, 35, 0.48)';
+      ctx.beginPath();
+      ctx.ellipse(24, 71, 19, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Twisted extraterrestrial trunk with bioluminescent veins
+      ctx.fillStyle = '#1e112a';
+      ctx.fillRect(20, 48, 8, 24);
+      ctx.fillRect(16, 66, 16, 6);
+      ctx.fillStyle = '#3b1d54';
+      ctx.fillRect(21, 48, 6, 22);
+      // Pulsing cyan & magenta organic vein lines
+      ctx.fillStyle = '#a855f7';
+      ctx.fillRect(22, 50, 2, 18);
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillRect(25, 54, 1, 14);
+
+      // Extraterrestrial boughs helper
+      const drawAlienBough = (cx, topY, width, height) => {
+        const halfW = width / 2;
+        // Deep cosmic void shadow
+        ctx.fillStyle = '#0b1320';
+        ctx.beginPath();
+        ctx.moveTo(cx, topY);
+        ctx.lineTo(cx + halfW, topY + height);
+        ctx.lineTo(cx - halfW, topY + height);
+        ctx.closePath();
+        ctx.fill();
+
+        // Alien twilight violet/teal foliage body
+        ctx.fillStyle = '#1e1b4b';
+        ctx.beginPath();
+        ctx.moveTo(cx, topY + 2);
+        ctx.lineTo(cx + halfW - 2, topY + height - 1);
+        ctx.lineTo(cx - halfW + 2, topY + height - 1);
+        ctx.closePath();
+        ctx.fill();
+
+        // Shimmering alien fronds
+        ctx.fillStyle = '#4338ca';
+        ctx.fillRect(cx - halfW + 4, topY + height - 4, width - 8, 3);
+        ctx.fillStyle = '#818cf8';
+        for (let x = cx - halfW + 6; x < cx + halfW - 6; x += 3) {
+          ctx.fillRect(x, topY + height - 3, 2, 2);
+        }
+
+        // Weeping bioluminescent spore pods
+        ctx.fillStyle = '#c084fc';
+        ctx.fillRect(cx - halfW + 4, topY + height, 2, 4);
+        ctx.fillRect(cx + halfW - 6, topY + height, 2, 4);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(cx - 3, topY + height + 1, 2, 3);
+        ctx.fillRect(cx + 3, topY + height + 1, 2, 3);
+      };
+
+      // 5 Tiered Alien Boughs
+      drawAlienBough(24, 40, 44, 20);
+      drawAlienBough(24, 29, 38, 18);
+      drawAlienBough(24, 19, 30, 16);
+      drawAlienBough(24, 10, 22, 14);
+      drawAlienBough(24, 3, 14, 12);
+
+      // Glowing Spore Bulb Summit
+      ctx.fillStyle = '#ec4899';
+      ctx.fillRect(23, 1, 2, 4);
+      ctx.fillStyle = '#f472b6';
+      ctx.fillRect(22, 2, 4, 2);
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillRect(23, 2, 2, 2);
+
+      this.cache['tree_alien_pine'] = canvas;
+    }
+
+    // C. Tree Post-Apocalypse Charred (Cây Cháy Khô Tận Thế 48x68)
+    {
+      const W = 48, H = 68;
+      const { canvas, ctx } = this.createCanvas(W, H);
+
+      // Soot / ash ground shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(24, 63, 15, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Charred, split trunk
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect(21, 30, 6, 34);
+      ctx.fillRect(17, 58, 14, 6);
+      ctx.fillStyle = '#18181b';
+      ctx.fillRect(22, 30, 4, 32);
+      ctx.fillStyle = '#27272a';
+      ctx.fillRect(23, 32, 2, 30);
+
+      // Twisted bare skeletal branches reaching outward
+      ctx.fillStyle = '#09090b';
+      // Branch Left 1
+      ctx.fillRect(12, 40, 10, 3);
+      ctx.fillRect(8, 34, 5, 7);
+      ctx.fillRect(6, 28, 3, 7);
+      // Branch Right 1
+      ctx.fillRect(26, 42, 12, 3);
+      ctx.fillRect(36, 36, 4, 8);
+      ctx.fillRect(39, 30, 3, 7);
+      // Branch Left 2
+      ctx.fillRect(14, 24, 8, 3);
+      ctx.fillRect(10, 18, 5, 7);
+      // Branch Right 2
+      ctx.fillRect(26, 22, 10, 3);
+      ctx.fillRect(34, 15, 4, 8);
+      // Jagged broken lightning-struck top spire
+      ctx.fillRect(22, 10, 4, 20);
+      ctx.fillRect(21, 6, 3, 5);
+
+      // Internal glowing thermal embers & radioactive fractures
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(23, 44, 2, 8);
+      ctx.fillRect(24, 36, 1, 6);
+      ctx.fillRect(16, 41, 3, 1);
+      ctx.fillRect(30, 43, 4, 1);
+      ctx.fillStyle = '#f97316';
+      ctx.fillRect(23, 46, 2, 4);
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(24, 47, 1, 2);
+
+      this.cache['tree_dead_apoc'] = canvas;
+    }
+
+    // D. Tree Stump (Gốc Cây Đã Chặt 32x24)
+    {
+      const { canvas, ctx } = this.createCanvas(32, 24);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(16, 19, 12, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Stump bark body
+      ctx.fillStyle = '#2b1810';
+      ctx.fillRect(9, 9, 14, 10);
+      ctx.fillRect(6, 15, 20, 5);
+      ctx.fillStyle = '#4a2810';
+      ctx.fillRect(10, 9, 12, 9);
+      // Cut surface with wood rings
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath();
+      ctx.ellipse(16, 9, 7, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#d97706';
+      ctx.beginPath();
+      ctx.ellipse(16, 9, 5, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(15, 8, 2, 2); // Center heartwood
+      // Moss on sides
+      ctx.fillStyle = '#15803d';
+      ctx.fillRect(8, 14, 2, 3);
+      ctx.fillRect(22, 15, 2, 2);
+      this.cache['tree_stump'] = canvas;
+    }
+
+    // E. Dense Forest Undergrowth & Ferns (32x24)
+    {
+      const { canvas, ctx } = this.createCanvas(32, 24);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.beginPath();
+      ctx.ellipse(16, 18, 10, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Lush forest ferns
+      ctx.fillStyle = '#14532d';
+      ctx.fillRect(8, 8, 16, 10);
+      ctx.fillStyle = '#16a34a';
+      ctx.fillRect(6, 10, 8, 4);
+      ctx.fillRect(18, 10, 8, 4);
+      ctx.fillRect(10, 5, 12, 5);
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(14, 3, 4, 3);
+      // Wild forest mushrooms
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillRect(7, 14, 4, 3);
+      ctx.fillRect(22, 13, 3, 3);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(8, 14, 1, 1);
+      ctx.fillRect(23, 13, 1, 1);
+      this.cache['foliage_bush_dense'] = canvas;
+    }
+
+    // =========================================================================
+    // 2. MAJESTIC MOUNTAIN SPRITES (Towering Peaks, Crags & Stratified Cliffs)
+    // =========================================================================
+
+    // A. Majestic Large Snow Peak (64x64 Alpine Pinnacle)
+    {
+      const S = 64;
+      const { canvas, ctx } = this.createCanvas(S, S);
+
+      // Deep alpine bedrock foundation
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 32, S, 32);
+
+      // Jagged mountain silhouette polygon
+      ctx.beginPath();
+      ctx.moveTo(32, 2);   // Mountain summit peak
+      ctx.lineTo(60, 62);  // Right base
+      ctx.lineTo(4, 62);   // Left base
+      ctx.closePath();
+      ctx.fillStyle = '#1e293b';
+      ctx.fill();
+
+      // Right slope in deep glacial azure shadow (East Face)
+      ctx.beginPath();
+      ctx.moveTo(32, 2);
+      ctx.lineTo(60, 62);
+      ctx.lineTo(32, 62);
+      ctx.closePath();
+      ctx.fillStyle = '#1e3a8a';
+      ctx.fill();
+
+      // Left slope in brilliant sunlit glacial snow (West Face)
+      ctx.beginPath();
+      ctx.moveTo(32, 2);
+      ctx.lineTo(32, 62);
+      ctx.lineTo(4, 62);
+      ctx.closePath();
+      ctx.fillStyle = '#93c5fd';
+      ctx.fill();
+
+      // Pristine snowpack cascading down western ridge
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(32, 2);
+      ctx.lineTo(34, 18);
+      ctx.lineTo(26, 26);
+      ctx.lineTo(30, 40);
+      ctx.lineTo(18, 54);
+      ctx.lineTo(10, 62);
+      ctx.lineTo(4, 62);
+      ctx.lineTo(24, 20);
+      ctx.closePath();
+      ctx.fill();
+
+      // Summit needle & diamond frost
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(31, 2, 2, 8);
+      ctx.fillRect(29, 6, 6, 4);
+
+      // Glacial ice crevasse fissures in deep blue
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(34, 18, 2, 16);
+      ctx.fillRect(38, 28, 2, 20);
+      ctx.fillRect(44, 40, 2, 18);
+
+      // Rugged granite ribs piercing through the snow
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(16, 28, 4, 8);
+      ctx.fillRect(24, 42, 5, 10);
+      ctx.fillRect(12, 48, 6, 8);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(16, 28, 4, 2);
+      ctx.fillRect(24, 42, 5, 2);
+
+      this.cache['mountain_peak_snow_large'] = canvas;
+    }
+
+    // B. Majestic Dark Granite Crag Spire (64x64 Jagged Mountain Horn)
+    {
+      const S = 64;
+      const { canvas, ctx } = this.createCanvas(S, S);
+
+      // Base shadow
+      ctx.fillStyle = '#0a0d14';
+      ctx.fillRect(0, 40, S, 24);
+
+      // Jagged twin horn rock mass
+      ctx.fillStyle = '#1c2028';
+      ctx.beginPath();
+      ctx.moveTo(26, 4);  // Main spire
+      ctx.lineTo(42, 18); // Sub horn
+      ctx.lineTo(60, 62); // Right foot
+      ctx.lineTo(4, 62);  // Left foot
+      ctx.closePath();
+      ctx.fill();
+
+      // Chiseled granite strata (Midtone)
+      ctx.fillStyle = '#2d3340';
+      ctx.fillRect(12, 22, 26, 38);
+      ctx.fillRect(36, 28, 18, 32);
+
+      // Sharp bevel highlights on ridges (Sunlit edges)
+      ctx.fillStyle = '#546076';
+      ctx.fillRect(25, 4, 3, 20);
+      ctx.fillRect(22, 24, 3, 24);
+      ctx.fillRect(41, 18, 3, 16);
+      ctx.fillStyle = '#7a89a3';
+      ctx.fillRect(25, 4, 1, 16);
+      ctx.fillRect(22, 24, 1, 18);
+
+      // Deep vertical geological faults & fissures
+      ctx.fillStyle = '#0b0d12';
+      ctx.fillRect(28, 12, 2, 28);
+      ctx.fillRect(34, 26, 2, 30);
+      ctx.fillRect(18, 36, 2, 22);
+      ctx.fillRect(46, 32, 2, 26);
+
+      // High mountain lichen & alpine moss
+      ctx.fillStyle = '#365314';
+      ctx.fillRect(14, 44, 6, 3);
+      ctx.fillRect(38, 48, 8, 3);
+
+      this.cache['mountain_crag_spire'] = canvas;
+    }
+
+    // C. Vertical Cliff Wall (32x32 Stratified Rock Facade with Shadow)
+    {
+      const S = CONSTANTS.TILE_SIZE; // 32
+      const { canvas, ctx } = this.createCanvas(S, S);
+
+      // Deep rock bedrock
+      ctx.fillStyle = '#0f1218';
+      ctx.fillRect(0, 0, S, S);
+
+      // 4 Horizontal strata bands (Geological sedimentary layers)
+      ctx.fillStyle = '#1e232d';
+      ctx.fillRect(0, 0, S, 7);
+      ctx.fillStyle = '#282f3c';
+      ctx.fillRect(0, 8, S, 8);
+      ctx.fillStyle = '#1e232d';
+      ctx.fillRect(0, 17, S, 7);
+      ctx.fillStyle = '#141820';
+      ctx.fillRect(0, 25, S, 7);
+
+      // Ledge top highlights
+      ctx.fillStyle = '#4d596e';
+      ctx.fillRect(0, 0, S, 2);
+      ctx.fillRect(0, 8, S, 2);
+      ctx.fillRect(0, 17, S, 2);
+      ctx.fillStyle = '#6e7d98';
+      ctx.fillRect(4, 0, 12, 1);
+      ctx.fillRect(18, 8, 10, 1);
+
+      // Vertical fault fissures & cracks
+      ctx.fillStyle = '#080a0e';
+      ctx.fillRect(10, 0, 2, 16);
+      ctx.fillRect(22, 9, 2, 23);
+      ctx.fillRect(6, 18, 2, 14);
+
+      // Hanging cliff creepers / dark moss
+      ctx.fillStyle = '#15803d';
+      ctx.fillRect(4, 2, 2, 6);
+      ctx.fillRect(16, 10, 3, 7);
+      ctx.fillRect(26, 3, 2, 5);
+
+      this.cache['cliff_face_vertical'] = canvas;
+    }
+
+    // D. Cliff Top Ridge (32x32 Plateau Edge Overhang)
+    {
+      const S = CONSTANTS.TILE_SIZE; // 32
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Plateau ground top half
+      ctx.fillStyle = '#2f3542';
+      ctx.fillRect(0, 0, S, 18);
+      ctx.fillStyle = '#404856';
+      ctx.fillRect(0, 0, S, 14);
+      // Jagged edge overhanging the sheer drop
+      ctx.fillStyle = '#647084';
+      ctx.fillRect(0, 14, S, 4);
+      ctx.fillStyle = '#8392a8';
+      ctx.fillRect(2, 15, 12, 2);
+      ctx.fillRect(18, 15, 10, 2);
+      // Underneath sheer shadow drop
+      ctx.fillStyle = '#0f1218';
+      ctx.fillRect(0, 18, S, 14);
+      ctx.fillStyle = '#1a1f29';
+      ctx.fillRect(0, 22, S, 10);
+      this.cache['cliff_top_ridge'] = canvas;
+    }
+
+    // E. Active Volcanic / Sulfur Fissure (32x32)
+    {
+      const S = CONSTANTS.TILE_SIZE;
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.drawImage(this.cache['tile_' + CONSTANTS.TILES.MOUNTAIN_ROCK], 0, 0);
+
+      // Scorched rift
+      ctx.fillStyle = '#1a0505';
+      ctx.fillRect(6, 10, 20, 12);
+      // Boiling glowing sulfur & magma fissure
+      ctx.fillStyle = '#f97316';
+      ctx.fillRect(8, 12, 16, 8);
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(10, 14, 12, 4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(14, 15, 4, 2);
+      // Glowing green/yellow toxic fumes
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.4)';
+      ctx.fillRect(4, 6, 24, 6);
+      this.cache['sulfur_fissure_active'] = canvas;
     }
   }
 

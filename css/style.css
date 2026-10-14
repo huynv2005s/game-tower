@@ -1,18 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700;800&family=Press+Start+2P&display=swap');
 
 :root {
-  --bg-dark: #0a0d14;
-  --panel-bg: rgba(15, 23, 42, 0.88);
-  --panel-border: #1e293b;
+  --bg-dark: #05080f;
+  --panel-bg: rgba(11, 15, 22, 0.94);
+  --panel-border: #27272a;
+  --bunker-steel: #3f3f46;
+  --bunker-plate: #18181b;
+  --blood-red: #ef4444;
+  --blood-crimson: #dc2626;
+  --blood-dark: #7f1d1d;
+  --blood-coagulated: #450a0a;
+  --toxic-virulent: #a855f7;
+  --toxic-acid: #84cc16;
+  --toxic-glow: #d946ef;
+  --hazard-amber: #f59e0b;
+  --hazard-yellow: #eab308;
   --accent-cyan: #06b6d4;
   --accent-blue: #38bdf8;
   --accent-green: #22c55e;
-  --accent-purple: #a855f7;
-  --accent-orange: #f97316;
-  --accent-red: #ef4444;
-  --accent-yellow: #facc15;
   --text-main: #f8fafc;
   --text-dim: #94a3b8;
+  --text-dark: #64748b;
 }
 
 * {
@@ -51,11 +59,62 @@ body, html {
 }
 
 /* =========================================
-   TOP HUD BAR
+   APOCALYPTIC HORROR SCREEN OVERLAYS
+   ========================================= */
+#apocalypse-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.92), inset 0 0 45px rgba(20, 5, 5, 0.75);
+}
+
+#blood-screen-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  box-shadow: inset 0 0 120px rgba(220, 38, 38, 0.7), inset 0 0 50px rgba(127, 29, 29, 0.85);
+}
+
+#blood-screen-overlay.active-panic {
+  opacity: 1;
+  animation: bloodPulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes bloodPulse {
+  0% { box-shadow: inset 0 0 100px rgba(220, 38, 38, 0.6), inset 0 0 40px rgba(69, 10, 10, 0.8); }
+  100% { box-shadow: inset 0 0 160px rgba(220, 38, 38, 0.95), inset 0 0 70px rgba(127, 29, 29, 0.95); }
+}
+
+#toxic-screen-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  box-shadow: inset 0 0 110px rgba(168, 85, 247, 0.55), inset 0 0 40px rgba(132, 204, 22, 0.45);
+}
+
+#toxic-screen-overlay.active-toxic {
+  opacity: 1;
+  animation: toxicPulse 1.8s infinite alternate ease-in-out;
+}
+
+@keyframes toxicPulse {
+  0% { box-shadow: inset 0 0 80px rgba(168, 85, 247, 0.45); }
+  100% { box-shadow: inset 0 0 140px rgba(168, 85, 247, 0.8), inset 0 0 60px rgba(217, 70, 239, 0.6); }
+}
+
+/* =========================================
+   TOP HUD BAR - GRIM APOCALYPTIC BUNKER STYLE
    ========================================= */
 #top-hud {
   position: absolute;
-  top: 14px;
+  top: 12px;
   left: 16px;
   right: 16px;
   display: flex;
@@ -68,104 +127,275 @@ body, html {
 .hud-panel {
   pointer-events: auto;
   background: var(--panel-bg);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
   border: 2px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 10px 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
 }
 
-/* Left: Survival Status Panel */
+/* Hazard tag across panels */
+.panel-hazard-tag {
+  position: absolute;
+  top: -9px;
+  left: 14px;
+  background: repeating-linear-gradient(-45deg, #e11d48, #e11d48 6px, #18181b 6px, #18181b 12px);
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* Left: Combat Bio-Monitor Status Panel */
 #status-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 250px;
+  gap: 9px;
+  min-width: 270px;
+  border-color: #3f3f46;
+  background: linear-gradient(180deg, #131720 0%, #0a0d14 100%);
+  border-top: 2px solid #ef4444;
 }
 
 .bar-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .bar-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 11px;
+}
+
+.bar-label-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skull-vital-icon {
+  font-size: 13px;
+  filter: drop-shadow(0 0 6px #ef4444);
+  animation: skullThrob 2s infinite ease-in-out;
+}
+
+@keyframes skullThrob {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px #ef4444); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 0 10px #dc2626); }
+}
+
+.toxin-vital-icon {
+  font-size: 13px;
+  filter: drop-shadow(0 0 6px #a855f7);
+  animation: toxinSpin 6s infinite linear;
+}
+
+@keyframes toxinSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.vital-monitor-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Real-time Heartbeat EKG Monitor */
+.ekg-monitor {
+  width: 44px;
+  height: 12px;
+  background: #05080e;
+  border: 1px solid #1e293b;
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.ekg-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ekg-path {
+  fill: none;
+  stroke: #22c55e;
+  stroke-width: 1.5;
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  animation: ekgBeat 1.4s infinite linear;
+  filter: drop-shadow(0 0 3px #22c55e);
+}
+
+@keyframes ekgBeat {
+  0% { stroke-dashoffset: 60; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.bar-num-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.5px;
 }
 
+/* Blood & Toxin Tube Containers */
 .bar-container {
   position: relative;
   width: 100%;
-  height: 14px;
-  background: #090d16;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  height: 16px;
+  background: #090a0f;
+  border-radius: 3px;
+  border: 1px solid #27272a;
   overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.blood-tube {
+  border-color: #450a0a;
+  background: #180505;
 }
 
 #hp-bar-fill {
   height: 100%;
   width: 100%;
-  background: linear-gradient(90deg, #dc2626, #ef4444);
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+  background: linear-gradient(90deg, #7f1d1d 0%, #b91c1c 45%, #ef4444 85%, #fca5a5 100%);
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.7);
   transition: width 0.15s ease-out;
+  position: relative;
+}
+
+.vital-bubble-highlight {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.05));
+  border-radius: 2px;
+}
+
+.toxin-tube {
+  border-color: #2e1065;
+  background: #0f051d;
 }
 
 #toxin-bar-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #10b981, #a855f7, #ec4899);
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+  background: linear-gradient(90deg, #15803d 0%, #84cc16 35%, #a855f7 75%, #ec4899 100%);
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.7);
   transition: width 0.15s ease-out;
+  position: relative;
+}
+
+.toxin-glow-head {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: #ffffff;
+  box-shadow: 0 0 8px #d946ef;
+}
+
+.toxin-badge-safe {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid #22c55e;
+  border-radius: 2px;
+  padding: 1px 4px;
 }
 
 .current-biome {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 11px;
-  padding: 3px 8px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--panel-border);
-  border-radius: 4px;
+  font-weight: 700;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid var(--bunker-steel);
+  border-radius: 3px;
   width: fit-content;
-  color: var(--accent-yellow);
+  color: var(--hazard-yellow);
+  letter-spacing: 0.8px;
 }
 
-/* Center: Day / Night Cycle Chronometer */
-#chronometer-panel {
+.radar-blip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: radarBlink 1.5s infinite;
+}
+
+@keyframes radarBlink {
+  0%, 100% { opacity: 0.3; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* Center: Doomsday Chronometer Panel (Đồng Hồ Tận Thế) */
+#chronometer-panel.doomsday-plate {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  min-width: 200px;
+  gap: 3px;
+  min-width: 220px;
+  background: linear-gradient(180deg, #181414 0%, #0a0808 100%);
+  border-color: #52525b;
+  border-top: 2px solid var(--hazard-amber);
+}
+
+.doomsday-subhead {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #ef4444;
+  letter-spacing: 1px;
+  text-shadow: 0 0 6px rgba(239, 68, 68, 0.7);
 }
 
 #clock-day {
   font-family: 'Press Start 2P', monospace;
-  font-size: 11px;
-  color: var(--accent-yellow);
-  text-shadow: 0 0 8px rgba(250, 204, 21, 0.5);
+  font-size: 10px;
+  color: var(--hazard-yellow);
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.6);
+  letter-spacing: 1px;
 }
 
 #clock-time {
   font-family: 'Press Start 2P', monospace;
-  font-size: 15px;
-  color: #ffffff;
-  letter-spacing: 1px;
+  font-size: 16px;
+  color: #f8fafc;
+  letter-spacing: 2px;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+  background: #000;
+  padding: 2px 10px;
+  border-radius: 3px;
+  border: 1px solid #27272a;
 }
 
 #clock-phase {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 800;
   letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* Right: Minimap & Quick Control Buttons */
+/* Right: Radar Plate (Minimap) & Tactical Actions */
 #right-hud {
   display: flex;
   flex-direction: column;
@@ -173,44 +403,98 @@ body, html {
   gap: 8px;
 }
 
-#minimap-container {
+#minimap-container.radar-plate {
   padding: 6px;
+  position: relative;
+  background: #020408;
+  border: 2px solid #334155;
+  overflow: hidden;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.9), inset 0 0 15px rgba(6, 182, 212, 0.2);
+}
+
+.radar-compass-n, .radar-compass-s, .radar-compass-e, .radar-compass-w {
+  position: absolute;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: rgba(6, 182, 212, 0.6);
+  pointer-events: none;
+  z-index: 2;
+}
+.radar-compass-n { top: 7px; left: 50%; transform: translateX(-50%); }
+.radar-compass-s { bottom: 7px; left: 50%; transform: translateX(-50%); }
+.radar-compass-w { left: 8px; top: 50%; transform: translateY(-50%); }
+.radar-compass-e { right: 8px; top: 50%; transform: translateY(-50%); }
+
+/* 360-degree rotating radar scan beam */
+.radar-scan-line {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140px;
+  height: 140px;
+  margin-top: -70px;
+  margin-left: -70px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(34, 197, 94, 0.35) 0deg, rgba(34, 197, 94, 0) 60deg);
+  pointer-events: none;
+  animation: radarSweep 3.5s infinite linear;
+  z-index: 2;
+}
+
+@keyframes radarSweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.radar-grid-reticle {
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  border-radius: 3px;
+  pointer-events: none;
+  background-image: 
+    linear-gradient(to right, rgba(6, 182, 212, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+  z-index: 1;
 }
 
 #minimap-canvas {
   display: block;
   width: 140px;
   height: 112px;
-  border-radius: 4px;
-  background: #000;
+  border-radius: 3px;
+  background: #050a12;
 }
 
 .hud-actions {
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 
-.hud-btn {
-  background: var(--panel-bg);
+.hud-btn.tactical-btn {
+  background: linear-gradient(180deg, #18202c 0%, #0d131a 100%);
   color: var(--text-main);
-  border: 1px solid var(--panel-border);
-  border-radius: 4px;
-  padding: 6px 10px;
+  border: 1px solid #334155;
+  border-radius: 3px;
+  padding: 6px 9px;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   pointer-events: auto;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
 }
 
-.hud-btn:hover {
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+.hud-btn.tactical-btn:hover {
+  border-color: var(--hazard-amber);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
   transform: translateY(-1px);
 }
 
 /* =========================================
-   BOTTOM ACTION & SKILL BAR
+   BOTTOM ACTION & SKILL BAR - TACTICAL ARMORY
    ========================================= */
 #bottom-hud {
   position: absolute;
@@ -227,27 +511,28 @@ body, html {
 
 #action-bar {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   pointer-events: auto;
 }
 
 .hud-group {
   display: flex;
   gap: 6px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(8px);
-  border: 2px solid var(--panel-border);
-  border-radius: 8px;
-  padding: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  background: linear-gradient(180deg, #131720 0%, #080b10 100%);
+  backdrop-filter: blur(10px);
+  border: 2px solid #334155;
+  border-radius: 6px;
+  padding: 7px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+  position: relative;
 }
 
 .action-slot {
   position: relative;
   width: 52px;
   height: 52px;
-  background: #0f172a;
-  border: 2px solid #334155;
+  background: #0a0e17;
+  border: 2px solid #27272a;
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -258,15 +543,37 @@ body, html {
 }
 
 .action-slot:hover {
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 12px rgba(6, 182, 212, 0.5);
+  border-color: var(--hazard-amber);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.5);
+  background: #141b26;
 }
 
 .action-slot.active-weapon {
-  border-color: var(--accent-cyan);
-  background: #083344;
-  box-shadow: 0 0 14px rgba(6, 182, 212, 0.7);
+  border-color: #ef4444;
+  background: linear-gradient(180deg, #2b0808 0%, #150404 100%);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.8), inset 0 0 8px rgba(239, 68, 68, 0.4);
   transform: translateY(-2px);
+}
+
+.action-slot.unstuck-slot {
+  border-color: #0284c7;
+  background: linear-gradient(180deg, #0c2340 0%, #061320 100%);
+  animation: unstuckPulse 2.5s infinite ease-in-out;
+}
+
+.action-slot.unstuck-slot:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
+  transform: translateY(-2px);
+}
+
+@keyframes unstuckPulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(2, 132, 199, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.8), inset 0 0 6px rgba(56, 189, 248, 0.3);
+  }
 }
 
 .slot-key {
@@ -275,13 +582,15 @@ body, html {
   left: 4px;
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
-  color: var(--accent-yellow);
+  color: var(--hazard-yellow);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
 }
 
 .slot-label {
   position: absolute;
   bottom: 2px;
   font-size: 8px;
+  font-weight: 700;
   color: var(--text-dim);
   text-align: center;
   white-space: nowrap;
@@ -296,7 +605,7 @@ body, html {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.78);
+  background: repeating-linear-gradient(-45deg, rgba(15, 15, 20, 0.92), rgba(15, 15, 20, 0.92) 5px, rgba(220, 38, 38, 0.45) 5px, rgba(220, 38, 38, 0.45) 10px);
   border-radius: 4px;
   display: none;
   align-items: center;
@@ -304,11 +613,12 @@ body, html {
   font-family: 'Press Start 2P', monospace;
   font-size: 11px;
   color: #ffffff;
-  text-shadow: 0 0 6px #ef4444;
+  text-shadow: 0 0 8px #ef4444;
+  border: 1px solid #ef4444;
 }
 
 /* =========================================
-   INVENTORY & EQUIPMENT MODAL
+   INVENTORY & EQUIPMENT MODAL (BIO-TERMINAL)
    ========================================= */
 .modal-backdrop {
   position: absolute;
@@ -316,8 +626,8 @@ body, html {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(4, 7, 13, 0.75);
-  backdrop-filter: blur(6px);
+  background: rgba(4, 7, 13, 0.82);
+  backdrop-filter: blur(8px);
   z-index: 100;
   display: none;
   align-items: center;
@@ -325,10 +635,11 @@ body, html {
 }
 
 .modal-window {
-  background: #0b1120;
-  border: 2px solid var(--accent-cyan);
-  border-radius: 12px;
-  box-shadow: 0 0 35px rgba(6, 182, 212, 0.35);
+  background: linear-gradient(180deg, #131720 0%, #0a0d14 100%);
+  border: 2px solid #3f3f46;
+  border-top: 3px solid var(--hazard-amber);
+  border-radius: 8px;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   width: 680px;
   max-width: 95vw;
   padding: 20px;
@@ -342,14 +653,15 @@ body, html {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #1e293b;
+  border-bottom: 2px solid #27272a;
   padding-bottom: 10px;
 }
 
 .modal-title {
   font-family: 'Press Start 2P', monospace;
-  font-size: 13px;
-  color: var(--accent-cyan);
+  font-size: 11px;
+  color: var(--hazard-yellow);
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
   letter-spacing: 1px;
 }
 
@@ -827,50 +1139,117 @@ body, html {
 /* =========================================
    PHASE 2: GAME OVER MODAL
    ========================================= */
-#gameover-modal .modal-window {
-  border-color: #ef4444;
-  box-shadow: 0 0 45px rgba(239, 68, 68, 0.6);
+#gameover-modal .gameover-horror-window {
+  background: radial-gradient(circle at center, #260707 0%, #0d0202 70%, #050101 100%);
+  border: 2px solid #ef4444;
+  box-shadow: 0 0 60px rgba(239, 68, 68, 0.8), inset 0 0 35px rgba(220, 38, 38, 0.35);
   text-align: center;
   align-items: center;
+  padding: 30px 24px;
+}
+
+.gameover-danger-tape {
+  background: repeating-linear-gradient(-45deg, #e11d48, #e11d48 10px, #18181b 10px, #18181b 20px);
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  padding: 4px 12px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.9);
+  margin-bottom: 12px;
+}
+
+.gameover-skull-icon {
+  font-size: 52px;
+  filter: drop-shadow(0 0 20px #ef4444);
+  animation: skullDeathPulse 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes skullDeathPulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 15px #dc2626); }
+  100% { transform: scale(1.1); filter: drop-shadow(0 0 35px #ef4444); }
 }
 
 #gameover-title {
   font-family: 'Press Start 2P', monospace;
-  font-size: 14px;
+  font-size: 15px;
   color: #ef4444;
-  margin-bottom: 8px;
+  margin: 12px 0 8px 0;
+  text-shadow: 0 0 16px rgba(239, 68, 68, 0.9);
+  letter-spacing: 1px;
+}
+
+.gameover-flatline-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  max-width: 320px;
+  margin: 8px 0;
+  background: #090a0f;
+  border: 1px solid #3f3f46;
+  border-radius: 4px;
+  padding: 6px 12px;
+}
+
+.flatline-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #ef4444;
+  letter-spacing: 0.8px;
+}
+
+.flatline-svg {
+  width: 100%;
+  height: 14px;
+}
+
+.flatline-path {
+  fill: none;
+  stroke: #ef4444;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px #ef4444);
 }
 
 #gameover-desc {
   font-size: 13px;
   line-height: 1.6;
   color: #cbd5e1;
-  max-width: 480px;
+  max-width: 460px;
+  margin: 10px 0;
 }
 
 #gameover-days {
   font-family: 'Press Start 2P', monospace;
-  font-size: 12px;
-  color: var(--accent-yellow);
-  margin: 10px 0;
+  font-size: 11px;
+  color: var(--hazard-yellow);
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid var(--hazard-yellow);
+  padding: 5px 14px;
+  border-radius: 4px;
+  margin-bottom: 14px;
 }
 
-.respawn-btn {
-  background: linear-gradient(90deg, #059669, #10b981);
+.respawn-btn.tactical-respawn {
+  background: linear-gradient(90deg, #15803d, #22c55e);
   color: #ffffff;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid #4ade80;
+  border-radius: 6px;
   padding: 12px 24px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  letter-spacing: 0.8px;
+  box-shadow: 0 0 25px rgba(34, 197, 94, 0.6);
   transition: all 0.2s ease;
 }
 
-.respawn-btn:hover {
+.respawn-btn.tactical-respawn:hover {
+  background: linear-gradient(90deg, #16a34a, #4ade80);
   transform: translateY(-2px);
-  box-shadow: 0 0 30px rgba(16, 185, 129, 0.9);
+  box-shadow: 0 0 35px rgba(34, 197, 94, 0.9);
 }
 
 /* =========================================

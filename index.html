@@ -8,12 +8,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Alien Apocalypse - 2D Pixel Art Survival & Tower Defense</title>
   
-  <!-- PWA Manifest & App Icons - Import đường dẫn tuyệt đối theo User Rule -->
-  <link rel="manifest" href="/c:/Go/demo/manifest.json">
-  <link rel="apple-touch-icon" href="/c:/Go/demo/assets/icons/icon-192.png">
+  <!-- PWA Manifest & App Icons -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
 
-  <!-- CSS Stylesheet - Import file đường dẫn tuyệt đối theo User Rule -->
-  <link rel="stylesheet" href="/c:/Go/demo/css/style.css">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css?v=6">
 </head>
 <body>
 
@@ -22,62 +22,98 @@
     <canvas id="gameCanvas"></canvas>
   </div>
 
+  <!-- APOCALYPTIC HORROR SCREEN OVERLAYS -->
+  <div id="apocalypse-vignette"></div>
+  <div id="blood-screen-overlay"></div>
+  <div id="toxic-screen-overlay"></div>
+
   <!-- TOP HUD BAR -->
   <div id="top-hud">
-    <!-- Left: Survival & Health Status -->
-    <div id="status-panel" class="hud-panel">
-      <!-- Health Bar -->
+    <!-- Left: Survival & Health Status (Combat Bio-Monitor) -->
+    <div id="status-panel" class="hud-panel combat-plate">
+      <div class="panel-hazard-tag">⚠ KHU VỰC TỬ ĐỊA</div>
+
+      <!-- Health Bar (Vital Blood Gauge) -->
       <div class="bar-wrapper">
         <div class="bar-header">
-          <span style="color: #ef4444;">❤ MÁU (HP)</span>
-          <span id="hp-bar-text" style="color: #fca5a5;">100 / 100</span>
+          <div class="bar-label-group">
+            <span class="skull-vital-icon">💀</span>
+            <span style="color: #ef4444; font-weight: 800; letter-spacing: 0.8px;">SINH MỆNH (HP)</span>
+          </div>
+          <div class="vital-monitor-group">
+            <!-- Animated SVG EKG Heartbeat Line -->
+            <div class="ekg-monitor">
+              <svg class="ekg-svg" viewBox="0 0 44 12" preserveAspectRatio="none">
+                <path class="ekg-path" d="M0,6 L10,6 L13,1 L16,11 L19,3 L22,8 L25,6 L44,6"/>
+              </svg>
+            </div>
+            <span id="hp-bar-text" class="bar-num-text" style="color: #fca5a5;">100 / 100</span>
+          </div>
         </div>
-        <div class="bar-container">
-          <div id="hp-bar-fill"></div>
+        <div class="bar-container blood-tube">
+          <div id="hp-bar-fill">
+            <div class="vital-bubble-highlight"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Infection / Toxin Meter -->
+      <!-- Infection / Toxin Meter (Mutagenic Contamination) -->
       <div class="bar-wrapper">
         <div class="bar-header">
-          <span style="color: #a855f7;">☣ ĐỘC TỐ / KÝ SINH</span>
-          <div style="display: flex; align-items: center;">
-            <span id="toxin-bar-text" style="color: #d8b4fe;">0%</span>
+          <div class="bar-label-group">
+            <span class="toxin-vital-icon">☣</span>
+            <span style="color: #a855f7; font-weight: 800; letter-spacing: 0.8px;">KÝ SINH ĐỘT BIẾN</span>
+          </div>
+          <div class="vital-monitor-group">
+            <span id="toxin-danger-level" class="toxin-badge-safe">AN TOÀN</span>
+            <span id="toxin-bar-text" class="bar-num-text" style="color: #d8b4fe;">0%</span>
             <span id="immunity-badge">🛡 KHÁNG ĐỘC: 0s</span>
           </div>
         </div>
-        <div class="bar-container">
-          <div id="toxin-bar-fill"></div>
+        <div class="bar-container toxin-tube">
+          <div id="toxin-bar-fill">
+            <div class="toxin-glow-head"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Current Biome Indicator -->
+      <!-- Current Biome Indicator (Tactical GPS Recon) -->
       <div class="current-biome" id="current-biome-badge">
-        ĐỒNG BẰNG TRUNG TÂM
+        <span class="radar-blip-dot"></span>
+        <span id="biome-text-label">ĐỒNG BẰNG HOANG TÀN</span>
       </div>
     </div>
 
-    <!-- Center: Day / Night Chronometer -->
-    <div id="chronometer-panel" class="hud-panel">
-      <div id="clock-day">NGÀY 1</div>
+    <!-- Center: Doomsday Chronometer (Đồng Hồ Tận Thế) -->
+    <div id="chronometer-panel" class="hud-panel doomsday-plate">
+      <div class="doomsday-subhead">☠ ĐỒNG HỒ TẬN THẾ ☠</div>
+      <div id="clock-day">NGÀY SINH TỒN 1</div>
       <div id="clock-time">08:00</div>
-      <div id="clock-phase" style="color: #38bdf8;">☀ BÌNH YÊN</div>
+      <div id="clock-phase" style="color: #38bdf8;">
+        <span id="phase-icon">☀</span> <span id="phase-desc">BÌNH MINH HOANG TÀN</span>
+      </div>
     </div>
 
-    <!-- Right: Minimap & Quick Actions -->
+    <!-- Right: Minimap Tactical Sonar & Bunker Command Actions -->
     <div id="right-hud">
-      <div id="minimap-container" class="hud-panel">
+      <div id="minimap-container" class="hud-panel radar-plate">
+        <div class="radar-compass-n">N</div>
+        <div class="radar-compass-w">W</div>
+        <div class="radar-compass-e">E</div>
+        <div class="radar-compass-s">S</div>
+        <div class="radar-scan-line"></div>
+        <div class="radar-grid-reticle"></div>
         <canvas id="minimap-canvas" width="140" height="112"></canvas>
       </div>
       <div class="hud-actions">
-        <button id="btn-toggle-touch" class="hud-btn" onclick="window.mobileController.toggleControls()">📱 CẢM ỨNG</button>
-        <button id="btn-save-game" class="hud-btn" onclick="window.saveManager.saveGame(false)">💾 LƯU [K]</button>
-        <button id="btn-biolab" class="hud-btn" onclick="window.labSystem.open('lab')">🧬 PHÒNG LAB [F]</button>
-        <button id="btn-workbench" class="hud-btn" onclick="window.labSystem.open('workbench')">🔨 BÀN CHẾ TẠO</button>
-        <button id="btn-workshop" class="hud-btn" onclick="window.labSystem.open('workshop')">⚙ XƯỞNG THỦ THÀNH</button>
-        <button id="btn-inventory" class="hud-btn" onclick="window.gameEngine.inventory.toggleUI()">🎒 KHO ĐỒ [I]</button>
-        <button id="btn-help" class="hud-btn" onclick="toggleHelpModal()">❓ TRỢ GIÚP [H]</button>
-        <button id="btn-sound" class="hud-btn" onclick="window.audioManager.toggleMute()">🔊 ÂM THANH [M]</button>
+        <button id="btn-toggle-touch" class="hud-btn tactical-btn" onclick="window.mobileController.toggleControls()">📱 CẢM ỨNG</button>
+        <button id="btn-save-game" class="hud-btn tactical-btn" onclick="window.saveManager.saveGame(false)">💾 LƯU [K]</button>
+        <button id="btn-biolab" class="hud-btn tactical-btn" onclick="window.labSystem.open('lab')">🧬 PHÒNG LAB [F]</button>
+        <button id="btn-workbench" class="hud-btn tactical-btn" onclick="window.labSystem.open('workbench')">🔨 BÀN CHẾ TẠO</button>
+        <button id="btn-workshop" class="hud-btn tactical-btn" onclick="window.labSystem.open('workshop')">⚙ XƯỞNG THỦ THÀNH</button>
+        <button id="btn-inventory" class="hud-btn tactical-btn" onclick="window.gameEngine.inventory.toggleUI()">🎒 KHO ĐỒ [I]</button>
+        <button id="btn-help" class="hud-btn tactical-btn" onclick="toggleHelpModal()">❓ TRỢ GIÚP [H]</button>
+        <button id="btn-sound" class="hud-btn tactical-btn" onclick="window.audioManager.toggleMute()">🔊 ÂM THANH [M]</button>
       </div>
     </div>
   </div>
@@ -136,6 +172,13 @@
           <span style="font-size: 18px;">💥</span>
           <span id="skill-2-name" class="slot-label">Chống Sào</span>
           <div id="skill-2-cd" class="slot-cd-overlay">0.0</div>
+        </div>
+
+        <!-- Emergency Unstuck [U] -->
+        <div class="action-slot unstuck-slot" title="Cứu hộ khẩn cấp: Thoát kẹt địa hình hoặc quái vật [Phím U]" onclick="window.unstuckPlayer()">
+          <span class="slot-key">U</span>
+          <span style="font-size: 18px;">🆘</span>
+          <span class="slot-label" style="color: #38bdf8;">Thoát Kẹt</span>
         </div>
       </div>
 
@@ -237,6 +280,7 @@
           <p><span class="guide-key">SPACE</span>: <strong>Lướt nhanh (Dash)</strong> - Tăng tốc tức thì, né đòn tấn công</p>
           <p><span class="guide-key">1, 2, 3, 4</span>: Đổi nhanh 4 loại vũ khí (Giáo, Gậy, Dao, Cung)</p>
           <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 12 ô & 5 ô Trang bị</p>
+          <p><span class="guide-key">U</span>: <strong>Cứu Hộ Khẩn Cấp (Thoát Kẹt)</strong> - Dịch chuyển về an toàn khi bị kẹt địa hình / kẹt quái vật</p>
           <p><span class="guide-key">M</span>: Bật / Tắt âm thanh</p>
         </div>
 
@@ -328,15 +372,26 @@
     </div>
   </div>
 
-  <!-- GAME OVER MODAL -->
+  <!-- GAME OVER MODAL (VISCERAL APOCALYPTIC HORROR) -->
   <div id="gameover-modal" class="modal-backdrop">
-    <div class="modal-window" style="width: 520px;">
+    <div class="modal-window gameover-horror-window" style="width: 540px;">
+      <div class="gameover-danger-tape">⚠ CẢNH BÁO TỬ VONG SINH HỌC // BIOCONTAMINATION LEVEL 4 ⚠</div>
+      <div class="gameover-skull-icon">💀</div>
       <div id="gameover-title">☣ KÝ SINH ĐỘT BIẾN TOÀN DIỆN! ☣</div>
+      
+      <!-- Heartbeat Flatline Visual -->
+      <div class="gameover-flatline-container">
+        <span class="flatline-label">NHỊP TIM: 0 BPM [FLATLINE]</span>
+        <svg class="flatline-svg" viewBox="0 0 220 16" preserveAspectRatio="none">
+          <path class="flatline-path" d="M0,8 L50,8 L56,1 L62,15 L68,8 L220,8"/>
+        </svg>
+      </div>
+
       <div id="gameover-desc">
         Độc tố ký sinh trong cơ thể đã đạt mức tử vong 100%! Bạn đã không còn là con người.
       </div>
       <div id="gameover-days">Số ngày sống sót: 1 ngày</div>
-      <button class="respawn-btn" onclick="window.gameEngine.respawnPlayer()">
+      <button class="respawn-btn tactical-respawn" onclick="window.gameEngine.respawnPlayer()">
         ♻ HỒI SINH TẠI PHÒNG LAB CÁCH LY
       </button>
     </div>
@@ -414,26 +469,26 @@
     }
   </script>
 
-  <!-- Import Scripts - Import file đường dẫn tuyệt đối theo User Rule -->
-  <script src="/c:/Go/demo/js/constants.js?v=4"></script>
-  <script src="/c:/Go/demo/js/audio.js?v=4"></script>
-  <script src="/c:/Go/demo/js/pixelart.js?v=4"></script>
-  <script src="/c:/Go/demo/js/buildings.js?v=4"></script>
-  <script src="/c:/Go/demo/js/world.js?v=4"></script>
-  <script src="/c:/Go/demo/js/entities.js?v=4"></script>
-  <script src="/c:/Go/demo/js/weapons.js?v=4"></script>
-  <script src="/c:/Go/demo/js/inventory.js?v=4"></script>
-  <script src="/c:/Go/demo/js/lab.js?v=4"></script>
-  <script src="/c:/Go/demo/js/daynight.js?v=4"></script>
-  <script src="/c:/Go/demo/js/savegame.js?v=4"></script>
-  <script src="/c:/Go/demo/js/mobile.js?v=4"></script>
-  <script src="/c:/Go/demo/js/game.js?v=4"></script>
+  <!-- Import Scripts -->
+  <script src="/js/constants.js?v=6"></script>
+  <script src="/js/audio.js?v=6"></script>
+  <script src="/js/pixelart.js?v=6"></script>
+  <script src="/js/buildings.js?v=6"></script>
+  <script src="/js/world.js?v=6"></script>
+  <script src="/js/entities.js?v=6"></script>
+  <script src="/js/weapons.js?v=6"></script>
+  <script src="/js/inventory.js?v=6"></script>
+  <script src="/js/lab.js?v=6"></script>
+  <script src="/js/daynight.js?v=6"></script>
+  <script src="/js/savegame.js?v=6"></script>
+  <script src="/js/mobile.js?v=6"></script>
+  <script src="/js/game.js?v=6"></script>
 
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js')
+        navigator.serviceWorker.register('/service-worker.js')
           .then((reg) => console.log('✅ PWA Service Worker Registered! Scope:', reg.scope))
           .catch((err) => console.warn('PWA Service Worker Warning:', err));
       });
