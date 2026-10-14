@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/c\\:/Go/demo/:path*", "destination": "/:path*" },
+    { "source": "/c%3A/Go/demo/:path*", "destination": "/:path*" },
+    { "source": "/c\\:/:path*", "destination": "/:path*" },
+    { "source": "/c%3A/:path*", "destination": "/:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/service-worker.js",
+      "headers": [
+        { "key": "Service-Worker-Allowed", "value": "/" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json" }
+      ]
+    }
+  ]
+}
