@@ -1,0 +1,12 @@
+{
+  "name": "alien-apocalypse-survival",
+  "version": "1.0.0",
+  "description": "2D Pixel Art Survival + Adventure + Tower Defense Web Game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["survival", "tower-defense", "pixel-art", "game"],
+  "author": "",
+  "license": "MIT"
+}

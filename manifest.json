@@ -1,0 +1,26 @@
+{
+  "name": "Alien Apocalypse: 2D Pixel Art Survival & Tower Defense",
+  "short_name": "AlienApocalypse",
+  "description": "Game 2D Pixel Art phong cách Sinh tồn, Phiêu lưu và Thủ thành lấy bối cảnh Tận thế Quái vật Ngoài hành tinh.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0f19",
+  "theme_color": "#10b981",
+  "categories": ["games", "action", "strategy"],
+  "icons": [
+    {
+      "src": "/c:/Go/demo/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/c:/Go/demo/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

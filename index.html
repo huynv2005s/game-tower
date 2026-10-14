@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#10b981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Alien Apocalypse - 2D Pixel Art Survival & Tower Defense</title>
+  
+  <!-- PWA Manifest & App Icons - Import đường dẫn tuyệt đối theo User Rule -->
+  <link rel="manifest" href="/c:/Go/demo/manifest.json">
+  <link rel="apple-touch-icon" href="/c:/Go/demo/assets/icons/icon-192.png">
+
+  <!-- CSS Stylesheet - Import file đường dẫn tuyệt đối theo User Rule -->
+  <link rel="stylesheet" href="/c:/Go/demo/css/style.css">
+</head>
+<body>
+
+  <!-- Fullscreen Game Canvas -->
+  <div id="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <!-- TOP HUD BAR -->
+  <div id="top-hud">
+    <!-- Left: Survival & Health Status -->
+    <div id="status-panel" class="hud-panel">
+      <!-- Health Bar -->
+      <div class="bar-wrapper">
+        <div class="bar-header">
+          <span style="color: #ef4444;">❤ MÁU (HP)</span>
+          <span id="hp-bar-text" style="color: #fca5a5;">100 / 100</span>
+        </div>
+        <div class="bar-container">
+          <div id="hp-bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- Infection / Toxin Meter -->
+      <div class="bar-wrapper">
+        <div class="bar-header">
+          <span style="color: #a855f7;">☣ ĐỘC TỐ / KÝ SINH</span>
+          <div style="display: flex; align-items: center;">
+            <span id="toxin-bar-text" style="color: #d8b4fe;">0%</span>
+            <span id="immunity-badge">🛡 KHÁNG ĐỘC: 0s</span>
+          </div>
+        </div>
+        <div class="bar-container">
+          <div id="toxin-bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- Current Biome Indicator -->
+      <div class="current-biome" id="current-biome-badge">
+        ĐỒNG BẰNG TRUNG TÂM
+      </div>
+    </div>
+
+    <!-- Center: Day / Night Chronometer -->
+    <div id="chronometer-panel" class="hud-panel">
+      <div id="clock-day">NGÀY 1</div>
+      <div id="clock-time">08:00</div>
+      <div id="clock-phase" style="color: #38bdf8;">☀ BÌNH YÊN</div>
+    </div>
+
+    <!-- Right: Minimap & Quick Actions -->
+    <div id="right-hud">
+      <div id="minimap-container" class="hud-panel">
+        <canvas id="minimap-canvas" width="140" height="112"></canvas>
+      </div>
+      <div class="hud-actions">
+        <button id="btn-toggle-touch" class="hud-btn" onclick="window.mobileController.toggleControls()">📱 CẢM ỨNG</button>
+        <button id="btn-save-game" class="hud-btn" onclick="window.saveManager.saveGame(false)">💾 LƯU [K]</button>
+        <button id="btn-biolab" class="hud-btn" onclick="window.labSystem.open('lab')">🧬 PHÒNG LAB [F]</button>
+        <button id="btn-workbench" class="hud-btn" onclick="window.labSystem.open('workbench')">🔨 BÀN CHẾ TẠO</button>
+        <button id="btn-workshop" class="hud-btn" onclick="window.labSystem.open('workshop')">⚙ XƯỞNG THỦ THÀNH</button>
+        <button id="btn-inventory" class="hud-btn" onclick="window.gameEngine.inventory.toggleUI()">🎒 KHO ĐỒ [I]</button>
+        <button id="btn-help" class="hud-btn" onclick="toggleHelpModal()">❓ TRỢ GIÚP [H]</button>
+        <button id="btn-sound" class="hud-btn" onclick="window.audioManager.toggleMute()">🔊 ÂM THANH [M]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ACTION & SKILL BAR -->
+  <div id="bottom-hud">
+    <!-- Interaction Prompt Banner -->
+    <div id="interaction-prompt"></div>
+
+    <div id="action-bar">
+      <!-- 4 Weapons Group -->
+      <div class="hud-group" title="Chuyển đổi vũ khí [1, 2, 3, 4]">
+        <div id="weapon-slot-1" class="action-slot active-weapon" onclick="window.gameEngine.weapons.switchWeapon('SPEAR')">
+          <span class="slot-key">1</span>
+          <span style="font-size: 18px;">🗡</span>
+          <span class="slot-label">Giáo</span>
+        </div>
+        <div id="weapon-slot-2" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('STAFF')">
+          <span class="slot-key">2</span>
+          <span style="font-size: 18px;">🪄</span>
+          <span class="slot-label">Gậy</span>
+        </div>
+        <div id="weapon-slot-3" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('DAGGER')">
+          <span class="slot-key">3</span>
+          <span style="font-size: 18px;">🔪</span>
+          <span class="slot-label">Dao</span>
+        </div>
+        <div id="weapon-slot-4" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('BOW')">
+          <span class="slot-key">4</span>
+          <span style="font-size: 18px;">🏹</span>
+          <span class="slot-label">Cung</span>
+        </div>
+      </div>
+
+      <!-- Skills Group: Dash [Space], Skill 1 [Q], Skill 2 [E] -->
+      <div class="hud-group">
+        <!-- Dash [Space] -->
+        <div class="action-slot" title="Lướt nhanh [Phím SPACE]" onclick="window.gameEngine.player.triggerDash(window.gameEngine.keys, window.gameEngine.mouse.worldX, window.gameEngine.mouse.worldY, window.gameEngine.particles, window.gameEngine.floatingTexts)">
+          <span class="slot-key">SPC</span>
+          <span style="font-size: 18px;">⚡</span>
+          <span class="slot-label">Lướt</span>
+          <div id="dash-cd" class="slot-cd-overlay">0.0</div>
+        </div>
+
+        <!-- Skill 1 [Q] -->
+        <div class="action-slot" title="Kỹ năng Giải Vây 1 [Phím Q]" onclick="window.gameEngine.weapons.triggerSkill1(window.gameEngine.player, window.gameEngine.mouse.worldX, window.gameEngine.mouse.worldY)">
+          <span class="slot-key">Q</span>
+          <span style="font-size: 18px;">🌀</span>
+          <span id="skill-1-name" class="slot-label">Quét Ngang</span>
+          <div id="skill-1-cd" class="slot-cd-overlay">0.0</div>
+        </div>
+
+        <!-- Skill 2 [E] -->
+        <div class="action-slot" title="Kỹ năng Giải Vây 2 [Phím E]" onclick="window.gameEngine.weapons.triggerSkill2(window.gameEngine.player, window.gameEngine.mouse.worldX, window.gameEngine.mouse.worldY)">
+          <span class="slot-key">E</span>
+          <span style="font-size: 18px;">💥</span>
+          <span id="skill-2-name" class="slot-label">Chống Sào</span>
+          <div id="skill-2-cd" class="slot-cd-overlay">0.0</div>
+        </div>
+      </div>
+
+      <!-- Phase 3: Quick Defense Construction Group [5, 6, 7, 8] -->
+      <div class="hud-group" title="Công trình Thủ thành [5, 6, 7, 8]">
+        <div id="def-slot-1" class="action-slot" onclick="window.buildingManager.enterBuildMode('wall')" title="Xây Tường Chắn [Phím 5]">
+          <span class="slot-key">5</span>
+          <span style="font-size: 17px;">🧱</span>
+          <span class="slot-label">Tường</span>
+        </div>
+        <div id="def-slot-2" class="action-slot" onclick="window.buildingManager.enterBuildMode('trap')" title="Đặt Bẫy Gai Sinh Học [Phím 6]">
+          <span class="slot-key">6</span>
+          <span style="font-size: 17px;">⚙</span>
+          <span class="slot-label">Bẫy Gai</span>
+        </div>
+        <div id="def-slot-3" class="action-slot" onclick="window.buildingManager.enterBuildMode('turret')" title="Đặt Tháp Canh Tự Động [Phím 7]">
+          <span class="slot-key">7</span>
+          <span style="font-size: 17px;">🗼</span>
+          <span class="slot-label">Tháp Canh</span>
+        </div>
+        <div id="def-slot-4" class="action-slot" onclick="window.buildingManager.enterBuildMode('mortar')" title="Đặt Súng Cối Hạng Nặng [Phím 8]">
+          <span class="slot-key">8</span>
+          <span style="font-size: 17px;">💣</span>
+          <span class="slot-label">Súng Cối</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVENTORY & EQUIPMENT MODAL [I / Tab] -->
+  <div id="inventory-modal" class="modal-backdrop">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title">🎒 KHO ĐỒ & TRANG BỊ SINH TỒN</div>
+        <button class="close-btn" onclick="window.gameEngine.inventory.toggleUI()">✕</button>
+      </div>
+
+      <div class="inventory-layout">
+        <!-- 5 Armor Slots Column -->
+        <div class="equip-column">
+          <div class="inv-section-title">5 Ô TRANG BỊ GIÁP</div>
+          <div class="equip-slots-container">
+            <div class="equip-slot-row">
+              <div id="armor-slot-helmet" class="equip-slot"></div>
+              <div class="equip-slot-title">Mũ Chống Độc</div>
+            </div>
+            <div class="equip-slot-row">
+              <div id="armor-slot-chestplate" class="equip-slot"></div>
+              <div class="equip-slot-title">Áo Giáp Sinh Tồn</div>
+            </div>
+            <div class="equip-slot-row">
+              <div id="armor-slot-leggings" class="equip-slot"></div>
+              <div class="equip-slot-title">Quần Bảo Hộ</div>
+            </div>
+            <div class="equip-slot-row">
+              <div id="armor-slot-boots" class="equip-slot"></div>
+              <div class="equip-slot-title">Giày Thám Hiểm</div>
+            </div>
+            <div class="equip-slot-row">
+              <div id="armor-slot-gloves" class="equip-slot"></div>
+              <div class="equip-slot-title">Găng Tay Khai Khoáng</div>
+            </div>
+          </div>
+
+          <!-- Character Stats Panel -->
+          <div class="stats-box">
+            <div class="stat-item"><span>Máu tối đa:</span><span id="stat-display-hp" class="stat-val">100 / 100</span></div>
+            <div class="stat-item"><span>Giáp bảo vệ:</span><span id="stat-display-armor" class="stat-val">0</span></div>
+            <div class="stat-item"><span>Kháng độc tố:</span><span id="stat-display-toxin" class="stat-val">0%</span></div>
+            <div class="stat-item"><span>Tốc độ chạy:</span><span id="stat-display-speed" class="stat-val">180 px/s</span></div>
+          </div>
+        </div>
+
+        <!-- 12 Inventory Slots Column (Max Stack 20) -->
+        <div class="inv-column">
+          <div class="inv-section-title">KHO ĐỒ 12 Ô (MAX STACK: 20)</div>
+          <div id="inventory-grid"></div>
+          <div style="font-size: 11px; color: #94a3b8; line-height: 1.4;">
+            💡 <em>Gợi ý:</em> Click vào vật phẩm để Trang bị giáp, Đổi vũ khí, hoặc Sử dụng thuốc/nước tinh khiết.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HELP & GUIDE MODAL [H] -->
+  <div id="help-modal" class="modal-backdrop">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title">📖 HƯỚNG DẪN ĐIỀU KHIỂN & KỸ NĂNG</div>
+        <button class="close-btn" onclick="toggleHelpModal()">✕</button>
+      </div>
+
+      <div class="guide-content">
+        <div class="guide-section">
+          <div class="guide-heading">🎮 PHÍM ĐIỀU KHIỂN CƠ BẢN</div>
+          <p><span class="guide-key">W A S D</span> hoặc Mũi tên: Di chuyển nhân vật</p>
+          <p><span class="guide-key">Chuột Trái</span>: Tấn công thường / Thu hoạch quặng, thảo dược, đập trứng quái vật</p>
+          <p><span class="guide-key">SPACE</span>: <strong>Lướt nhanh (Dash)</strong> - Tăng tốc tức thì, né đòn tấn công</p>
+          <p><span class="guide-key">1, 2, 3, 4</span>: Đổi nhanh 4 loại vũ khí (Giáo, Gậy, Dao, Cung)</p>
+          <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 12 ô & 5 ô Trang bị</p>
+          <p><span class="guide-key">M</span>: Bật / Tắt âm thanh</p>
+        </div>
+
+        <div class="guide-section">
+          <div class="guide-heading">🗡 4 BỘ VŨ KHÍ & 8 KỸ NĂNG GIẢI VÂY</div>
+          <p><strong>1. Giáo (Spear):</strong> Tầm đánh xa, giữ khoảng cách tốt.</p>
+          <p>• <span class="guide-key">Q</span> <em>Quét Ngang:</em> Hất văng quái vật phía trước theo hình nón rộng 120°.</p>
+          <p>• <span class="guide-key">E</span> <em>Chống Sào Nhảy Vọt:</em> Cắm giáo bật nhảy qua đầu bầy quái vật và vật cản.</p>
+
+          <br>
+          <p><strong>2. Gậy (Staff):</strong> Chuyên khống chế diện rộng và phòng vệ.</p>
+          <p>• <span class="guide-key">Q</span> <em>Chấn Động:</em> Đập mạnh xuống đất phát sóng xung kích làm choáng (Stun) quái 1.5 giây.</p>
+          <p>• <span class="guide-key">E</span> <em>Lốc Xoáy Đẩy Lùi:</em> Tạo cơn lốc đẩy lùi toàn bộ quái áp sát và tăng 30% tốc độ chạy 2s.</p>
+
+          <br>
+          <p><strong>3. Dao (Dagger):</strong> Tốc độ cực nhanh, ám sát và thoát hiểm.</p>
+          <p>• <span class="guide-key">Q</span> <em>Bom Khói Sinh Học:</em> Tung khói độc, nhân vật tàng hình và đi xuyên quái vật 2s.</p>
+          <p>• <span class="guide-key">E</span> <em>Đâm Xuyên Bóng Tối:</em> Lướt xuyên qua đám quái vật và làm chậm chúng 50% trong 3s.</p>
+
+          <br>
+          <p><strong>4. Cung (Bow):</strong> Tầm xa cơ động, khống chế từ xa.</p>
+          <p>• <span class="guide-key">Q</span> <em>Tên Lưới Năng Lượng:</em> Bắn tấm lưới trói chân (Root) cả một cụm quái vật 2.5s.</p>
+          <p>• <span class="guide-key">E</span> <em>Bắn Giật Lùi:</em> Bắn đạn nổ làm chậm quái, đồng thời hất văng bản thân về phía sau.</p>
+        </div>
+
+        <div class="guide-section">
+          <div class="guide-heading">🗺 BẢN ĐỒ 3 VÙNG ĐỊA HÌNH</div>
+          <p>• <strong>Núi (Phía trên):</strong> Đầy mỏ Lưu huỳnh, Thạch anh, Tuyết liên, Rêu bạc và các ổ Trứng quái vật.</p>
+          <p>• <strong>Đồng bằng (Ở giữa):</strong> Căn cứ an toàn gồm Bio-Lab, Lò nung, Bàn chế tạo, Xưởng cơ khí và sông hồ.</p>
+          <p>• <strong>Bờ biển (Phía dưới):</strong> Bãi cát vàng, biển sâu và các mảnh vỡ phi thuyền công nghệ.</p>
+        </div>
+
+        <div class="guide-section">
+          <div class="guide-heading">🏰 HỆ THỐNG THỦ THÀNH & ĐÊM TẤN CÔNG (PHASE 3)</div>
+          <p>• <span class="guide-key">5, 6, 7, 8</span>: Đặt nhanh <strong>Tường Chắn (250 HP)</strong>, <strong>Bẫy Gai (-50% Tốc)</strong>, <strong>Tháp Canh (Bắn tỉa)</strong>, <strong>Súng Cối (AoE Nổ)</strong>.</p>
+          <p>• <span class="guide-key">Chuột Trái</span> để đặt vào ô xanh hợp lệ / <span class="guide-key">ESC</span> hoặc <span class="guide-key">Chuột Phải</span> để hủy.</p>
+          <p>• <strong>Bàn Chế Tạo [F] & Xưởng Cơ Khí [F]</strong>: Đặt tại căn cứ để đúc tường, bẫy, tháp và nâng cấp Balo lên 18 ô!</p>
+          <p>• <strong>Cơ chế đêm tấn công</strong>: Quái vật tấn công theo đợt mạnh dần theo số ngày sống sót và số lượng Trứng Quái chưa đập vỡ trên núi!</p>
+          <p>• <strong>4 Chủng Loài Quái Vật</strong>: Xenomorph Crawler (nhanh nhẹn), Kamikaze Exploder (lao nổ tung phá tường), Acid Spitter (bắn axit ăn mòn), Titan Behemoth (khổng lồ phá hoại).</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIO-LAB & FURNACE MODAL -->
+  <div id="lab-modal" class="modal-backdrop">
+    <div class="modal-window" style="width: 760px;">
+      <div class="modal-header">
+        <div class="modal-title">🧬 TRUNG TÂM CHẾ TẠO, BÀO CHẾ & CÔNG TRÌNH THỦ THÀNH</div>
+        <button class="close-btn" onclick="window.labSystem.close()">✕</button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="lab-tabs">
+        <button class="lab-tab-btn active" data-tab="lab" onclick="window.labSystem.switchTab('lab')">🧬 BÀO CHẾ THUỐC</button>
+        <button class="lab-tab-btn" data-tab="furnace" onclick="window.labSystem.switchTab('furnace')">🔥 LÒ NUNG KHỬ TRÙNG</button>
+        <button class="lab-tab-btn" data-tab="workbench" onclick="window.labSystem.switchTab('workbench')">🔨 BÀN CHẾ TẠO</button>
+        <button class="lab-tab-btn" data-tab="workshop" onclick="window.labSystem.switchTab('workshop')">⚙ XƯỞNG THỦ THÀNH</button>
+        <button class="lab-tab-btn" data-tab="hydroponics" onclick="window.labSystem.switchTab('hydroponics')">🌱 LỒNG CẤY CÁCH LY</button>
+      </div>
+
+      <!-- Tab Content 1: Bio-Lab Antidote Alchemy -->
+      <div id="tab-content-lab">
+        <div class="recipe-list" id="lab-recipe-list"></div>
+      </div>
+
+      <!-- Tab Content 2: Furnace & Purifier -->
+      <div id="tab-content-furnace" style="display: none;">
+        <div class="recipe-list" id="furnace-recipe-list"></div>
+      </div>
+
+      <!-- Tab Content 3: Workbench Recipes -->
+      <div id="tab-content-workbench" style="display: none;">
+        <div class="recipe-list" id="workbench-recipe-list"></div>
+      </div>
+
+      <!-- Tab Content 4: Workshop Tower Defense Recipes -->
+      <div id="tab-content-workshop" style="display: none;">
+        <div class="recipe-list" id="workshop-recipe-list"></div>
+      </div>
+
+      <!-- Tab Content 5: Isolated Hydroponics -->
+      <div id="tab-content-hydro" style="display: none;">
+        <div style="font-size: 11px; color: #a7f3d0; margin-bottom: 8px;">
+          🛡 <em>Vùng vô trùng cách ly:</em> Cây cấy nuôi trong lồng kính không bao giờ bị biến mất hay nhiễm bệnh qua đêm!
+        </div>
+        <div id="hydroponics-pods"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER MODAL -->
+  <div id="gameover-modal" class="modal-backdrop">
+    <div class="modal-window" style="width: 520px;">
+      <div id="gameover-title">☣ KÝ SINH ĐỘT BIẾN TOÀN DIỆN! ☣</div>
+      <div id="gameover-desc">
+        Độc tố ký sinh trong cơ thể đã đạt mức tử vong 100%! Bạn đã không còn là con người.
+      </div>
+      <div id="gameover-days">Số ngày sống sót: 1 ngày</div>
+      <button class="respawn-btn" onclick="window.gameEngine.respawnPlayer()">
+        ♻ HỒI SINH TẠI PHÒNG LAB CÁCH LY
+      </button>
+    </div>
+  </div>
+
+  <!-- LANDSCAPE ORIENTATION REMINDER OVERLAY -->
+  <div id="rotate-device-overlay">
+    <div class="rotate-phone-animation"></div>
+    <div class="rotate-title">VUI LÒNG XOAY NGANG THIẾT BỊ 🔄</div>
+    <div class="rotate-desc">
+      Game <strong>Alien Apocalypse</strong> được thiết kế tối ưu cho chế độ xoay ngang (Landscape). Hãy xoay ngang điện thoại để kích hoạt bàn điều khiển sinh tồn!
+    </div>
+  </div>
+
+  <!-- MOBILE TOUCH CONTROLS OVERLAY -->
+  <div id="mobile-controls">
+    <!-- Left: Virtual Joystick -->
+    <div id="joystick-zone">
+      <div id="joystick-base">
+        <div class="joystick-guides">
+          <span class="joystick-arrow-up">▲</span>
+          <span class="joystick-arrow-down">▼</span>
+          <span class="joystick-arrow-left">◄</span>
+          <span class="joystick-arrow-right">►</span>
+        </div>
+        <div id="joystick-knob"></div>
+      </div>
+    </div>
+
+    <!-- Right: Action Buttons Cluster -->
+    <div id="touch-actions">
+      <!-- Aux Row: Switch Weapon, Interact, Toggle Quick Build Bar -->
+      <div class="touch-aux-row">
+        <button id="btn-touch-switch" class="touch-aux-btn" title="Đổi vũ khí">🗡</button>
+        <button id="btn-touch-interact" class="touch-aux-btn" title="Tương tác trạm / Nước [F]">💬 F</button>
+        <button id="btn-touch-build" class="touch-aux-btn" title="Mở danh mục Thủ thành">🧱</button>
+      </div>
+
+      <!-- Combat Cluster: Dash, Skill 1, Skill 2, Big Attack -->
+      <div class="touch-combat-cluster">
+        <!-- Skill 1 [Q] -->
+        <button id="btn-touch-skill1" class="touch-btn" title="Kỹ năng 1 [Q]">
+          <span style="font-size: 16px;">⚡</span>
+          <span id="touch-s1-name" style="font-size: 7px; color: #d8b4fe; font-family: 'Press Start 2P', monospace;">Q</span>
+          <div id="touch-s1-cd" class="touch-cd-badge"></div>
+        </button>
+
+        <!-- Skill 2 [E] -->
+        <button id="btn-touch-skill2" class="touch-btn" title="Kỹ năng 2 [E]">
+          <span style="font-size: 16px;">💥</span>
+          <span id="touch-s2-name" style="font-size: 7px; color: #fed7aa; font-family: 'Press Start 2P', monospace;">E</span>
+          <div id="touch-s2-cd" class="touch-cd-badge"></div>
+        </button>
+
+        <!-- Dash [Space] -->
+        <button id="btn-touch-dash" class="touch-btn" title="Lướt [Space]">
+          <span style="font-size: 18px;">💨</span>
+          <span style="font-size: 7px; color: #7dd3fc; font-family: 'Press Start 2P', monospace;">LƯỚT</span>
+          <div id="touch-dash-cd" class="touch-cd-badge"></div>
+        </button>
+
+        <!-- Attack / Gather (Large) -->
+        <button id="btn-touch-attack" class="touch-btn" title="Đánh thường / Thu hoạch">
+          <span style="font-size: 26px;">⚔</span>
+          <span class="btn-label">TẤN CÔNG</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleHelpModal() {
+      const modal = document.getElementById('help-modal');
+      modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+    }
+  </script>
+
+  <!-- Import Scripts - Import file đường dẫn tuyệt đối theo User Rule -->
+  <script src="/c:/Go/demo/js/constants.js?v=4"></script>
+  <script src="/c:/Go/demo/js/audio.js?v=4"></script>
+  <script src="/c:/Go/demo/js/pixelart.js?v=4"></script>
+  <script src="/c:/Go/demo/js/buildings.js?v=4"></script>
+  <script src="/c:/Go/demo/js/world.js?v=4"></script>
+  <script src="/c:/Go/demo/js/entities.js?v=4"></script>
+  <script src="/c:/Go/demo/js/weapons.js?v=4"></script>
+  <script src="/c:/Go/demo/js/inventory.js?v=4"></script>
+  <script src="/c:/Go/demo/js/lab.js?v=4"></script>
+  <script src="/c:/Go/demo/js/daynight.js?v=4"></script>
+  <script src="/c:/Go/demo/js/savegame.js?v=4"></script>
+  <script src="/c:/Go/demo/js/mobile.js?v=4"></script>
+  <script src="/c:/Go/demo/js/game.js?v=4"></script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js')
+          .then((reg) => console.log('✅ PWA Service Worker Registered! Scope:', reg.scope))
+          .catch((err) => console.warn('PWA Service Worker Warning:', err));
+      });
+    }
+  </script>
+</body>
+</html>

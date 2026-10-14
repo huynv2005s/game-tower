@@ -1,0 +1,1201 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Press+Start+2P&display=swap');
+
+:root {
+  --bg-dark: #0a0d14;
+  --panel-bg: rgba(15, 23, 42, 0.88);
+  --panel-border: #1e293b;
+  --accent-cyan: #06b6d4;
+  --accent-blue: #38bdf8;
+  --accent-green: #22c55e;
+  --accent-purple: #a855f7;
+  --accent-orange: #f97316;
+  --accent-red: #ef4444;
+  --accent-yellow: #facc15;
+  --text-main: #f8fafc;
+  --text-dim: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-dark);
+  font-family: 'Chakra Petch', sans-serif;
+  color: var(--text-main);
+}
+
+#canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: crosshair;
+}
+
+/* =========================================
+   TOP HUD BAR
+   ========================================= */
+#top-hud {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-panel {
+  pointer-events: auto;
+  background: var(--panel-bg);
+  backdrop-filter: blur(8px);
+  border: 2px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+}
+
+/* Left: Survival Status Panel */
+#status-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 250px;
+}
+
+.bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bar-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.bar-container {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  background: #090d16;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+#hp-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #dc2626, #ef4444);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+  transition: width 0.15s ease-out;
+}
+
+#toxin-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981, #a855f7, #ec4899);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+  transition: width 0.15s ease-out;
+}
+
+.current-biome {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  width: fit-content;
+  color: var(--accent-yellow);
+}
+
+/* Center: Day / Night Cycle Chronometer */
+#chronometer-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 200px;
+}
+
+#clock-day {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: var(--accent-yellow);
+  text-shadow: 0 0 8px rgba(250, 204, 21, 0.5);
+}
+
+#clock-time {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 15px;
+  color: #ffffff;
+  letter-spacing: 1px;
+}
+
+#clock-phase {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* Right: Minimap & Quick Control Buttons */
+#right-hud {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+#minimap-container {
+  padding: 6px;
+}
+
+#minimap-canvas {
+  display: block;
+  width: 140px;
+  height: 112px;
+  border-radius: 4px;
+  background: #000;
+}
+
+.hud-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.hud-btn {
+  background: var(--panel-bg);
+  color: var(--text-main);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.hud-btn:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+  transform: translateY(-1px);
+}
+
+/* =========================================
+   BOTTOM ACTION & SKILL BAR
+   ========================================= */
+#bottom-hud {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#action-bar {
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.hud-group {
+  display: flex;
+  gap: 6px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(8px);
+  border: 2px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+
+.action-slot {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  background: #0f172a;
+  border: 2px solid #334155;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-slot:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.5);
+}
+
+.action-slot.active-weapon {
+  border-color: var(--accent-cyan);
+  background: #083344;
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.7);
+  transform: translateY(-2px);
+}
+
+.slot-key {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--accent-yellow);
+}
+
+.slot-label {
+  position: absolute;
+  bottom: 2px;
+  font-size: 8px;
+  color: var(--text-dim);
+  text-align: center;
+  white-space: nowrap;
+  max-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slot-cd-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.78);
+  border-radius: 4px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #ffffff;
+  text-shadow: 0 0 6px #ef4444;
+}
+
+/* =========================================
+   INVENTORY & EQUIPMENT MODAL
+   ========================================= */
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(4, 7, 13, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-window {
+  background: #0b1120;
+  border: 2px solid var(--accent-cyan);
+  border-radius: 12px;
+  box-shadow: 0 0 35px rgba(6, 182, 212, 0.35);
+  width: 680px;
+  max-width: 95vw;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #1e293b;
+  padding-bottom: 10px;
+}
+
+.modal-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  color: var(--accent-cyan);
+  letter-spacing: 1px;
+}
+
+.close-btn {
+  background: transparent;
+  border: 1px solid #334155;
+  color: var(--text-dim);
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.close-btn:hover {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.inventory-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+}
+
+/* Equipment Column */
+.equip-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.equip-slots-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #090e1a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.equip-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.equip-slot {
+  width: 44px;
+  height: 44px;
+  background: #111827;
+  border: 2px solid #374151;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+
+.equip-slot:hover {
+  border-color: var(--accent-yellow);
+}
+
+.empty-armor-label {
+  font-size: 8px;
+  color: #4b5563;
+  text-align: center;
+}
+
+.equip-slot-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+/* Stats Box */
+.stats-box {
+  background: #090e1a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+}
+
+.stat-val {
+  font-weight: 700;
+  color: var(--accent-cyan);
+}
+
+/* Inventory 12 Slots Column */
+.inv-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inv-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+#inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  background: #090e1a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.inv-slot {
+  width: 64px;
+  height: 64px;
+  background: #111827;
+  border: 2px solid #1f2937;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.inv-slot:hover {
+  border-color: var(--accent-cyan);
+  background: #172554;
+}
+
+.slot-icon {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+
+.slot-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: var(--accent-yellow);
+  text-shadow: 0 0 3px #000;
+}
+
+/* =========================================
+   HELP & GUIDE MODAL
+   ========================================= */
+.guide-content {
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 8px;
+}
+
+.guide-section {
+  background: #090e1a;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.guide-heading {
+  font-weight: 700;
+  color: var(--accent-cyan);
+  margin-bottom: 4px;
+}
+
+.guide-key {
+  display: inline-block;
+  background: #1e293b;
+  color: var(--accent-yellow);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+/* =========================================
+   PHASE 2: INTERACTION PROMPT & IMMUNITY BADGE
+   ========================================= */
+#interaction-prompt {
+  display: none;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--accent-cyan);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #ffffff;
+  pointer-events: auto;
+  text-align: center;
+  animation: promptPulse 1.5s infinite alternate;
+}
+
+@keyframes promptPulse {
+  0% { transform: scale(1); box-shadow: 0 0 10px rgba(6, 182, 212, 0.3); }
+  100% { transform: scale(1.03); box-shadow: 0 0 20px rgba(6, 182, 212, 0.7); }
+}
+
+.key-hint {
+  display: inline-block;
+  background: var(--accent-cyan);
+  color: #000;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin: 0 3px;
+}
+
+#immunity-badge {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid #38bdf8;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: 6px;
+  animation: immunityGlow 1.2s infinite alternate;
+}
+
+@keyframes immunityGlow {
+  0% { box-shadow: 0 0 5px rgba(56, 189, 248, 0.4); }
+  100% { box-shadow: 0 0 14px rgba(56, 189, 248, 0.9); }
+}
+
+/* =========================================
+   PHASE 2: BIO-LAB & FURNACE MODAL
+   ========================================= */
+.lab-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 2px solid #1e293b;
+  padding-bottom: 8px;
+}
+
+.lab-tab-btn {
+  background: #0f172a;
+  color: var(--text-dim);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lab-tab-btn:hover {
+  border-color: var(--accent-cyan);
+  color: #ffffff;
+}
+
+.lab-tab-btn.active {
+  background: #064e3b;
+  border-color: var(--accent-green);
+  color: #a7f3d0;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+.recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.recipe-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #090e1a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 12px 16px;
+  gap: 16px;
+  transition: border-color 0.15s ease;
+}
+
+.recipe-card:hover {
+  border-color: var(--accent-cyan);
+}
+
+.recipe-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.recipe-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: #38bdf8;
+}
+
+.recipe-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.recipe-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.recipe-req {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  gap: 4px;
+  border: 1px solid transparent;
+}
+
+.recipe-req.req-met {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.recipe-req.req-missing {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.craft-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.craft-btn.can-craft {
+  background: #059669;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+
+.craft-btn.can-craft:hover {
+  background: #10b981;
+  transform: translateY(-1px);
+}
+
+.craft-btn.disabled {
+  background: #1f2937;
+  color: #4b5563;
+  cursor: not-allowed;
+}
+
+/* Hydroponics Pods */
+#hydroponics-pods {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hydro-pod {
+  background: #090e1a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pod-title {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--accent-green);
+}
+
+.pod-status {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.pod-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #1e293b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pod-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #34d399);
+  transition: width 0.2s ease;
+}
+
+.pod-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.seed-btn {
+  background: #0f172a;
+  color: var(--text-main);
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.seed-btn:hover {
+  border-color: var(--accent-green);
+  color: #a7f3d0;
+}
+
+.seed-btn.disabled {
+  background: #1f2937;
+  color: #4b5563;
+  cursor: default;
+}
+
+.harvest-btn {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(2, 132, 199, 0.6);
+  animation: harvestGlow 1s infinite alternate;
+}
+
+@keyframes harvestGlow {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.03); }
+}
+
+/* =========================================
+   PHASE 2: GAME OVER MODAL
+   ========================================= */
+#gameover-modal .modal-window {
+  border-color: #ef4444;
+  box-shadow: 0 0 45px rgba(239, 68, 68, 0.6);
+  text-align: center;
+  align-items: center;
+}
+
+#gameover-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: #ef4444;
+  margin-bottom: 8px;
+}
+
+#gameover-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  max-width: 480px;
+}
+
+#gameover-days {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  color: var(--accent-yellow);
+  margin: 10px 0;
+}
+
+.respawn-btn {
+  background: linear-gradient(90deg, #059669, #10b981);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  transition: all 0.2s ease;
+}
+
+.respawn-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.9);
+}
+
+/* =========================================
+   PWA & MOBILE APP OPTIMIZATIONS
+   ========================================= */
+
+html, body, #canvas-container, #gameCanvas {
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* Save Toast Banner */
+#save-toast-banner {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: rgba(15, 23, 42, 0.96);
+  border: 2px solid var(--accent-cyan);
+  border-radius: 8px;
+  padding: 10px 20px;
+  color: #38bdf8;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  box-shadow: 0 0 25px rgba(6, 182, 212, 0.5);
+  z-index: 99999;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#save-toast-banner.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Landscape Mode Reminder Overlay */
+#rotate-device-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 20, 0.97);
+  backdrop-filter: blur(14px);
+  z-index: 100000;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 30px;
+}
+
+.rotate-phone-animation {
+  width: 70px;
+  height: 120px;
+  border: 4px solid var(--accent-cyan);
+  border-radius: 16px;
+  position: relative;
+  margin-bottom: 24px;
+  animation: rotatePhone 2.2s infinite ease-in-out;
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.6);
+}
+
+.rotate-phone-animation::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+}
+
+.rotate-phone-animation::before {
+  content: '🎮';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+
+@keyframes rotatePhone {
+  0%, 15% { transform: rotate(0deg); }
+  45%, 65% { transform: rotate(-90deg); }
+  90%, 100% { transform: rotate(0deg); }
+}
+
+.rotate-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: var(--accent-cyan);
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.rotate-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  max-width: 420px;
+  line-height: 1.6;
+}
+
+/* Mobile Controls Overlay */
+#mobile-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  display: none;
+}
+
+/* Left: Virtual Joystick */
+#joystick-zone {
+  position: absolute;
+  bottom: 25px;
+  left: 25px;
+  width: 140px;
+  height: 140px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#joystick-base {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 3px solid rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), inset 0 0 15px rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.joystick-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.joystick-arrow-up { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #38bdf8; }
+.joystick-arrow-down { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #38bdf8; }
+.joystick-arrow-left { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #38bdf8; }
+.joystick-arrow-right { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #38bdf8; }
+
+#joystick-knob {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.8);
+  pointer-events: none;
+  transform: translate(0px, 0px);
+  will-change: transform;
+}
+
+/* Right: Touch Actions Container */
+#touch-actions {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.touch-aux-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.touch-combat-cluster {
+  display: grid;
+  grid-template-areas: 
+    "s1   s2   empty"
+    "dash atk  atk"
+    "dash atk  atk";
+  grid-gap: 12px;
+  align-items: center;
+  justify-items: center;
+}
+
+.touch-btn {
+  background: var(--panel-bg);
+  border: 2px solid var(--panel-border);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.touch-btn:active, .touch-btn.pressed {
+  transform: scale(0.92);
+  filter: brightness(1.2);
+}
+
+/* Specific Touch Button Styles */
+#btn-touch-attack {
+  grid-area: atk;
+  width: 76px;
+  height: 76px;
+  background: radial-gradient(circle, #dc2626 0%, #991b1b 100%);
+  border: 3px solid #fca5a5;
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.65);
+}
+
+#btn-touch-attack .btn-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+  margin-top: 2px;
+}
+
+#btn-touch-dash {
+  grid-area: dash;
+  width: 58px;
+  height: 58px;
+  background: radial-gradient(circle, #0284c7 0%, #0369a1 100%);
+  border: 2px solid #7dd3fc;
+  box-shadow: 0 0 18px rgba(2, 132, 199, 0.6);
+}
+
+#btn-touch-skill1 {
+  grid-area: s1;
+  width: 52px;
+  height: 52px;
+  background: radial-gradient(circle, #9333ea 0%, #7e22ce 100%);
+  border: 2px solid #d8b4fe;
+  box-shadow: 0 0 15px rgba(147, 51, 234, 0.5);
+}
+
+#btn-touch-skill2 {
+  grid-area: s2;
+  width: 52px;
+  height: 52px;
+  background: radial-gradient(circle, #ea580c 0%, #c2410c 100%);
+  border: 2px solid #fed7aa;
+  box-shadow: 0 0 15px rgba(234, 88, 12, 0.5);
+}
+
+.touch-aux-btn {
+  width: 44px;
+  height: 44px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 2px solid var(--accent-cyan);
+  border-radius: 8px;
+  font-size: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.35);
+  cursor: pointer;
+  touch-action: none;
+}
+
+#btn-touch-interact {
+  opacity: 0.45;
+  border-color: #64748b;
+}
+
+#btn-touch-interact.available {
+  opacity: 1;
+  border-color: #facc15;
+  box-shadow: 0 0 18px rgba(250, 204, 21, 0.7);
+  animation: pulseGold 1.2s infinite alternate;
+}
+
+@keyframes pulseGold {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+
+.touch-cd-badge {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #fff;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Quick Defense Bar on Mobile */
+@media (max-width: 900px) {
+  #bottom-hud {
+    bottom: 85px;
+    transform: translateX(-50%) scale(0.9);
+  }
+  
+  #quick-defense-bar {
+    display: none;
+  }
+  
+  #quick-defense-bar.mobile-open {
+    display: flex !important;
+    position: absolute;
+    bottom: 160px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.95);
+    z-index: 100;
+  }
+
+  #top-hud {
+    transform: scale(0.9);
+    transform-origin: top center;
+  }
+}
+
+
