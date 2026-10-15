@@ -54,9 +54,10 @@ const CONSTANTS = {
     GLOVES: 'gloves'
   },
 
-  // Max stack size for inventory
-  MAX_STACK_SIZE: 25,
-  INVENTORY_SLOTS: 20,
+  // Max stack size & slot limit for inventory (99 slots, max 99 items per stack)
+  MAX_STACK_SIZE: 99,
+  INVENTORY_SLOTS: 99,
+  MAX_INVENTORY_SLOTS: 99,
 
   // Day & Night Configuration
   DAY_DURATION_SEC: 120, // 2 minutes per full day/night cycle
@@ -271,55 +272,55 @@ const CONSTANTS = {
     },
 
     // Resources & Materials
-    snow_lotus: { id: 'snow_lotus', name: 'Tuyết Liên Núi Cao', category: 'resource', icon: 'lotus', maxStack: 25, desc: 'Thảo dược núi tuyết: Dùng trực tiếp (+12 HP, -12% Độc Tố) hoặc chế Huyết Thanh.' },
-    sulfur_dust: { id: 'sulfur_dust', name: 'Bột Lưu Huỳnh', category: 'resource', icon: 'sulfur', maxStack: 25, desc: 'Chất khử trùng mạnh: Click để mở Phòng Lab chế Huyết Thanh hoặc nâng cấp Súng Cối.' },
-    quartz_crystal: { id: 'quartz_crystal', name: 'Tinh Thể Thạch Anh', category: 'resource', icon: 'quartz', maxStack: 25, desc: 'Khoáng sản tinh khiết: Dùng chế Kháng Thể, Lõi Plasma hoặc nâng cấp Súng Tháp Canh.' },
-    silver_moss: { id: 'silver_moss', name: 'Rêu Bạc Đỉnh Núi', category: 'resource', icon: 'moss', maxStack: 25, desc: 'Rêu bạc núi cao: Dùng trực tiếp (+15 HP, -8% Độc Tố) hoặc chế Kháng Thể Tinh Khiết.' },
-    egg_fluid: { id: 'egg_fluid', name: 'Dịch Tuyến Trứng Ngoại Lai', category: 'resource', icon: 'egg_fluid', maxStack: 25, desc: 'Dịch trứng quái: Dùng trực tiếp (+20 HP, +30% Tốc chạy 8s, +15% Độc) hoặc chế Lõi Plasma.' },
-    pure_water: { id: 'pure_water', name: 'Nước Tinh Khiết', category: 'consumable', icon: 'pure_water', maxStack: 25, desc: 'Nước ngọt đã qua đun sôi lọc sạch: +15 HP, -15% Độc Tố.' },
-    dirty_water: { id: 'dirty_water', name: 'Nước Ao Sông Ô Nhiễm', category: 'consumable', icon: 'dirty_water', maxStack: 25, desc: 'Nước chưa qua lọc: +5 HP nhưng làm tăng +20% Độc Tố!' },
-    wood: { id: 'wood', name: 'Gỗ Cây Biến Dị', category: 'resource', icon: 'wood', maxStack: 25, desc: 'Vật liệu cơ bản: Click để mở Bàn Chế Tạo / Lò Nung gia công vật phẩm.' },
-    stone: { id: 'stone', name: 'Đá Núi Cứng', category: 'resource', icon: 'stone', maxStack: 25, desc: 'Vật liệu xây dựng: Click để mở Bàn Chế Tạo / Lò Nung đúc tường và nung quặng.' },
-    tech_scrap: { id: 'tech_scrap', name: 'Mảnh Vỡ Công Nghệ', category: 'resource', icon: 'tech_scrap', maxStack: 25, desc: 'Linh kiện vi mạch: Click để mở Xưởng Thủ Thành lắp và nâng cấp Tháp Canh, Súng Cối.' },
+    snow_lotus: { id: 'snow_lotus', name: 'Tuyết Liên Núi Cao', category: 'resource', icon: 'lotus', maxStack: 99, desc: 'Thảo dược núi tuyết: Dùng trực tiếp (+12 HP, -12% Độc Tố) hoặc chế Huyết Thanh.' },
+    sulfur_dust: { id: 'sulfur_dust', name: 'Bột Lưu Huỳnh', category: 'resource', icon: 'sulfur', maxStack: 99, desc: 'Chất khử trùng mạnh: Click để mở Phòng Lab chế Huyết Thanh hoặc nâng cấp Súng Cối.' },
+    quartz_crystal: { id: 'quartz_crystal', name: 'Tinh Thể Thạch Anh', category: 'resource', icon: 'quartz', maxStack: 99, desc: 'Khoáng sản tinh khiết: Dùng chế Kháng Thể, Lõi Plasma hoặc nâng cấp Súng Tháp Canh.' },
+    silver_moss: { id: 'silver_moss', name: 'Rêu Bạc Đỉnh Núi', category: 'resource', icon: 'moss', maxStack: 99, desc: 'Rêu bạc núi cao: Dùng trực tiếp (+15 HP, -8% Độc Tố) hoặc chế Kháng Thể Tinh Khiết.' },
+    egg_fluid: { id: 'egg_fluid', name: 'Dịch Tuyến Trứng Ngoại Lai', category: 'resource', icon: 'egg_fluid', maxStack: 99, desc: 'Dịch trứng quái: Dùng trực tiếp (+20 HP, +30% Tốc chạy 8s, +15% Độc) hoặc chế Lõi Plasma.' },
+    pure_water: { id: 'pure_water', name: 'Nước Tinh Khiết', category: 'consumable', icon: 'pure_water', maxStack: 99, desc: 'Nước ngọt đã qua đun sôi lọc sạch: +15 HP, -15% Độc Tố.' },
+    dirty_water: { id: 'dirty_water', name: 'Nước Ao Sông Ô Nhiễm', category: 'consumable', icon: 'dirty_water', maxStack: 99, desc: 'Nước chưa qua lọc: +5 HP nhưng làm tăng +20% Độc Tố!' },
+    wood: { id: 'wood', name: 'Gỗ Cây Biến Dị', category: 'resource', icon: 'wood', maxStack: 99, desc: 'Vật liệu cơ bản: Click để mở Bàn Chế Tạo / Lò Nung gia công vật phẩm.' },
+    stone: { id: 'stone', name: 'Đá Núi Cứng', category: 'resource', icon: 'stone', maxStack: 99, desc: 'Vật liệu xây dựng: Click để mở Bàn Chế Tạo / Lò Nung đúc tường và nung quặng.' },
+    tech_scrap: { id: 'tech_scrap', name: 'Mảnh Vỡ Công Nghệ', category: 'resource', icon: 'tech_scrap', maxStack: 99, desc: 'Linh kiện vi mạch: Click để mở Xưởng Thủ Thành lắp và nâng cấp Tháp Canh, Súng Cối.' },
 
     // Phase 5: New Upgrade Materials (Nguyên liệu nâng cấp Tường & Súng)
-    iron_ore: { id: 'iron_ore', name: 'Quặng Sắt Titan', category: 'resource', icon: 'iron_ore', maxStack: 25, desc: 'Quặng kim loại nặng khai thác trên Núi Đá: Nung tại Lò Nung để tạo Hợp Kim Titan.' },
-    titanium_alloy: { id: 'titanium_alloy', name: 'Hợp Kim Titan', category: 'resource', icon: 'titanium_alloy', maxStack: 25, desc: 'Vật liệu siêu bền dùng để NÂNG CẤP Tường Chắn, Súng Tháp Canh, Súng Cối và Vũ Khí!' },
-    alien_chitin: { id: 'alien_chitin', name: 'Giáp Xác Ngoại Lai', category: 'resource', icon: 'alien_chitin', maxStack: 25, desc: 'Vỏ giáp cứng thu được khi tiêu diệt Quái Vật: Dùng nâng cấp Tường Chắn, Giáp và Vũ Khí.' },
-    plasma_core: { id: 'plasma_core', name: 'Lõi Năng Lượng Plasma', category: 'resource', icon: 'plasma_core', maxStack: 25, desc: 'Lõi năng lượng cao cấp (thu ở Bờ Biển hoặc chế tại Lab/Xưởng): Nâng cấp Tường & Súng lên Cấp 3!' },
+    iron_ore: { id: 'iron_ore', name: 'Quặng Sắt Titan', category: 'resource', icon: 'iron_ore', maxStack: 99, desc: 'Quặng kim loại nặng khai thác trên Núi Đá: Nung tại Lò Nung để tạo Hợp Kim Titan.' },
+    titanium_alloy: { id: 'titanium_alloy', name: 'Hợp Kim Titan', category: 'resource', icon: 'titanium_alloy', maxStack: 99, desc: 'Vật liệu siêu bền dùng để NÂNG CẤP Tường Chắn, Súng Tháp Canh, Súng Cối và Vũ Khí!' },
+    alien_chitin: { id: 'alien_chitin', name: 'Giáp Xác Ngoại Lai', category: 'resource', icon: 'alien_chitin', maxStack: 99, desc: 'Vỏ giáp cứng thu được khi tiêu diệt Quái Vật: Dùng nâng cấp Tường Chắn, Giáp và Vũ Khí.' },
+    plasma_core: { id: 'plasma_core', name: 'Lõi Năng Lượng Plasma', category: 'resource', icon: 'plasma_core', maxStack: 99, desc: 'Lõi năng lượng cao cấp (thu ở Bờ Biển hoặc chế tại Lab/Xưởng): Nâng cấp Tường & Súng lên Cấp 3!' },
 
     // Phase 2: Wild Flora & Mutant Harvests
-    wild_berry: { name: 'Quả Mọng Tự Nhiên Sạch', category: 'consumable', icon: 'berry_clean', maxStack: 25, desc: 'Quả rừng thu hoạch trong ngày còn tươi sạch: +18 HP, 0% Độc Tố.' },
-    blighted_berry: { name: 'Quả Mọng Đột Biến Nhiễm Khuẩn', category: 'consumable', icon: 'berry_blighted', maxStack: 25, desc: 'Quả rừng bị qua đêm ngoài tự nhiên đã nhiễm độc: +5 HP nhưng TĂNG MẠNH +35% ĐỘC TỐ!' },
-    blighted_herb: { name: 'Thảo Dược Bị Thối Rữa', category: 'resource', icon: 'blighted_herb', maxStack: 25, desc: 'Cây cỏ ngoài tự nhiên qua đêm bị khí độc phá hủy, không thể chế thuốc.' },
+    wild_berry: { name: 'Quả Mọng Tự Nhiên Sạch', category: 'consumable', icon: 'berry_clean', maxStack: 99, desc: 'Quả rừng thu hoạch trong ngày còn tươi sạch: +18 HP, 0% Độc Tố.' },
+    blighted_berry: { name: 'Quả Mọng Đột Biến Nhiễm Khuẩn', category: 'consumable', icon: 'berry_blighted', maxStack: 99, desc: 'Quả rừng bị qua đêm ngoài tự nhiên đã nhiễm độc: +5 HP nhưng TĂNG MẠNH +35% ĐỘC TỐ!' },
+    blighted_herb: { name: 'Thảo Dược Bị Thối Rữa', category: 'resource', icon: 'blighted_herb', maxStack: 99, desc: 'Cây cỏ ngoài tự nhiên qua đêm bị khí độc phá hủy, không thể chế thuốc.' },
 
     // Phase 2: Antidotes (Thuốc Giải Ký Sinh)
     antidote_lesser: { 
-      name: 'Huyết Thanh Sơ Cấp', category: 'consumable', icon: 'antidote_lesser', maxStack: 15, 
+      name: 'Huyết Thanh Sơ Cấp', category: 'consumable', icon: 'antidote_lesser', maxStack: 99, 
       desc: 'Huyết thanh giải độc cơ bản chế từ Tuyết Liên, Lưu Huỳnh và Nước sạch: GIẢM NGAY 25% ĐỘC TỐ.' 
     },
     antidote_pure: { 
-      name: 'Thuốc Kháng Thể Tinh Khiết', category: 'consumable', icon: 'antidote_pure', maxStack: 15, 
+      name: 'Thuốc Kháng Thể Tinh Khiết', category: 'consumable', icon: 'antidote_pure', maxStack: 99, 
       desc: 'Kháng thể tinh chế đặc biệt: GIẢM NGAY 60% ĐỘC TỐ + MIỄN NHIỄM ĐỘC TỐ TRONG 1 NGÀY!' 
     },
 
     // Phase 2: Seeds for Bio-Lab Hydroponics
-    seed_snow_lotus: { name: 'Mầm Cấy Tuyết Liên', category: 'seed', targetCrop: 'snow_lotus', icon: 'seed_lotus', maxStack: 25, desc: 'Mô tế bào dùng cấy nuôi trong Phòng Lab cách ly, thu hoạch thảo dược sạch 100%.' },
-    seed_silver_moss: { name: 'Bào Tử Rêu Bạc', category: 'seed', targetCrop: 'silver_moss', icon: 'seed_moss', maxStack: 25, desc: 'Bào tử rêu sạch dùng nhân giống trong lồng sinh học của Phòng Lab.' },
+    seed_snow_lotus: { name: 'Mầm Cấy Tuyết Liên', category: 'seed', targetCrop: 'snow_lotus', icon: 'seed_lotus', maxStack: 99, desc: 'Mô tế bào dùng cấy nuôi trong Phòng Lab cách ly, thu hoạch thảo dược sạch 100%.' },
+    seed_silver_moss: { name: 'Bào Tử Rêu Bạc', category: 'seed', targetCrop: 'silver_moss', icon: 'seed_moss', maxStack: 99, desc: 'Bào tử rêu sạch dùng nhân giống trong lồng sinh học của Phòng Lab.' },
 
     // Phase 3: Defensive Structures & Upgrades
-    defense_wall: { name: 'Tường Chắn Phòng Thủ', category: 'defense', structType: 'wall', icon: 'defense_wall', maxStack: 25, desc: 'Tường bê tông gia cố (250-1000 HP), chặn đường quái, có thể nâng cấp lên Cấp 3!' },
-    defense_trap: { name: 'Bẫy Gai Sinh Học', category: 'defense', structType: 'trap', icon: 'defense_trap', maxStack: 25, desc: 'Đặt dưới đất làm chậm và gây sát thương, có thể nâng cấp lên Bẫy Xung Điện Cấp 3!' },
-    defense_turret: { name: 'Tháp Canh Tự Động', category: 'defense', structType: 'turret', icon: 'defense_turret', maxStack: 15, desc: 'Súng tháp tự động bắn tỉa 360°, nâng cấp lên Gatling Laser (Cấp 2) & Pháo Railgun Tesla (Cấp 3)!' },
-    defense_mortar: { name: 'Súng Cối Hạng Nặng', category: 'defense', structType: 'mortar', icon: 'defense_mortar', maxStack: 10, desc: 'Pháo cối tầm xa nổ AoE diện rộng, nâng cấp lên Pháo Nhiệt Hạch (Cấp 2) & Siêu Pháo Hạt Nhân (Cấp 3)!' },
-    backpack_upgraded: { name: 'Balo Nâng Cấp Dã Chiến', category: 'upgrade', icon: 'backpack', maxStack: 1, desc: 'Mở rộng sức chứa kho đồ sinh tồn thêm 4 ô chứa mới (tối đa 28 ô)!' },
+    defense_wall: { name: 'Tường Chắn Phòng Thủ', category: 'defense', structType: 'wall', icon: 'defense_wall', maxStack: 99, desc: 'Tường bê tông gia cố (250-1000 HP), chặn đường quái, có thể nâng cấp lên Cấp 3!' },
+    defense_trap: { name: 'Bẫy Gai Sinh Học', category: 'defense', structType: 'trap', icon: 'defense_trap', maxStack: 99, desc: 'Đặt dưới đất làm chậm và gây sát thương, có thể nâng cấp lên Bẫy Xung Điện Cấp 3!' },
+    defense_turret: { name: 'Tháp Canh Tự Động', category: 'defense', structType: 'turret', icon: 'defense_turret', maxStack: 99, desc: 'Súng tháp tự động bắn tỉa 360°, nâng cấp lên Gatling Laser (Cấp 2) & Pháo Railgun Tesla (Cấp 3)!' },
+    defense_mortar: { name: 'Súng Cối Hạng Nặng', category: 'defense', structType: 'mortar', icon: 'defense_mortar', maxStack: 99, desc: 'Pháo cối tầm xa nổ AoE diện rộng, nâng cấp lên Pháo Nhiệt Hạch (Cấp 2) & Siêu Pháo Hạt Nhân (Cấp 3)!' },
+    backpack_upgraded: { name: 'Balo Nâng Cấp Dã Chiến', category: 'upgrade', icon: 'backpack', maxStack: 1, desc: 'Mở rộng sức chứa kho đồ sinh tồn lên tối đa 99 ô chứa (Max Stack 99)!' },
 
     // Phase 6: Monster Egg for Bio-Lab Pet Incubation
     monster_egg: {
       name: 'Trứng Quái Vật Nguyên Vẹn',
       category: 'egg',
       icon: 'monster_egg',
-      maxStack: 15,
+      maxStack: 99,
       desc: 'Trứng quái vật nhặt từ ổ trứng trên núi hoặc rơi từ quái. CHỈ ẤP ĐƯỢC TRONG PHÒNG LAB để nở ra Pet ngẫu nhiên (Tối đa mang theo 1 Pet)!'
     }
   },

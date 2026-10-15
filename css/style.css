@@ -930,12 +930,14 @@ body, html {
 
 #inventory-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
   background: #090e1a;
   border: 1px solid #1e293b;
   border-radius: 8px;
-  padding: 14px;
+  padding: 12px;
+  max-height: 360px;
+  overflow-y: auto;
 }
 
 .inv-slot {

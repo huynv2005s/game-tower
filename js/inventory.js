@@ -1,11 +1,11 @@
 // Inventory & Equipment Management System (Optimized with Cached DataURLs & Lazy DOM Rendering)
-// 20 Inventory Slots (Max Stack = 25, expandable up to 28) + 5 Armor Slots
+// 99 Inventory Slots (Max Stack = 99) + 5 Armor Slots + 1 Companion Pet Slot
 
 class InventorySystem {
   constructor(game) {
     this.game = game;
-    this.slotCount = CONSTANTS.INVENTORY_SLOTS || 20;
-    this.maxStack = CONSTANTS.MAX_STACK_SIZE || 25;
+    this.slotCount = CONSTANTS.INVENTORY_SLOTS || 99;
+    this.maxStack = CONSTANTS.MAX_STACK_SIZE || 99;
 
     // Inventory slots
     this.slots = new Array(this.slotCount).fill(null);
@@ -90,12 +90,13 @@ class InventorySystem {
     }
   }
 
-  // Add item with stack logic (max 25)
+  // Add item with stack logic (max 99)
   addItem(itemId, count = 1) {
     const itemDef = CONSTANTS.ITEM_TYPES[itemId];
     if (!itemDef) return false;
     this.normalizeSlots();
 
+    const maxSlots = CONSTANTS.MAX_INVENTORY_SLOTS || 99;
     let remaining = count;
 
     // 1. First, try to fill existing stacks if stackable
@@ -117,8 +118,8 @@ class InventorySystem {
     while (remaining > 0) {
       let emptyIdx = this.slots.findIndex(s => s === null);
       if (emptyIdx === -1) {
-        if (this.slotCount < 28) {
-          this.slotCount += 4;
+        if (this.slotCount < maxSlots) {
+          this.slotCount = Math.min(maxSlots, this.slotCount + 4);
           this.normalizeSlots();
           emptyIdx = this.slots.findIndex(s => s === null);
         }
@@ -127,7 +128,7 @@ class InventorySystem {
         if (this.game && this.game.floatingTexts && this.game.player) {
           this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, 'KHO ĐỒ ĐÃ ĐẦY!', '#ef4444', 12, 1.0));
         }
-        this.showFeedback('⚠️ Kho đồ đã đầy! Hãy sử dụng bớt vật phẩm trong Balo.', '#ef4444');
+        this.showFeedback('⚠️ Kho đồ đã đầy (99 ô)! Hãy sử dụng bớt vật phẩm trong Balo.', '#ef4444');
         return false;
       }
 
@@ -160,14 +161,15 @@ class InventorySystem {
   }
 
   expandCapacity(extraSlots = 4) {
-    if (this.slotCount >= 28) {
-      this.showFeedback('🎒 Balo đã đạt sức chứa tối đa (28 ô)!', '#facc15');
+    const maxSlots = CONSTANTS.MAX_INVENTORY_SLOTS || 99;
+    if (this.slotCount >= maxSlots) {
+      this.showFeedback(`🎒 Balo đã đạt sức chứa tối đa (${maxSlots} ô | Max Stack: ${this.maxStack})!`, '#facc15');
       if (this.game && this.game.floatingTexts && this.game.player) {
-        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, 'BALO ĐÃ ĐẠT SỨC CHỨA TỐI ĐA (28 Ô)!', '#ef4444', 12, 1.2));
+        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, `BALO ĐÃ ĐẠT SỨC CHỨA TỐI ĐA (${maxSlots} Ô)!`, '#facc15', 12, 1.2));
       }
       return false;
     }
-    this.slotCount = Math.min(28, this.slotCount + extraSlots);
+    this.slotCount = Math.min(maxSlots, this.slotCount + extraSlots);
     this.normalizeSlots();
     if (window.audioManager) window.audioManager.playEquip();
     const msg = `🎒 NÂNG CẤP BALO: ĐÃ MỞ RỘNG THÀNH ${this.slotCount} Ô CHỨA!`;
@@ -203,10 +205,11 @@ class InventorySystem {
     if (!equipped) return;
     const itemDef = CONSTANTS.ITEM_TYPES[equipped.id];
 
+    const maxSlots = CONSTANTS.MAX_INVENTORY_SLOTS || 99;
     this.normalizeSlots();
     let emptyIdx = this.slots.findIndex(s => s === null);
-    if (emptyIdx === -1 && this.slotCount < 28) {
-      this.slotCount += 4;
+    if (emptyIdx === -1 && this.slotCount < maxSlots) {
+      this.slotCount = Math.min(maxSlots, this.slotCount + 4);
       this.normalizeSlots();
       emptyIdx = this.slots.findIndex(s => s === null);
     }

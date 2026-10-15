@@ -43,7 +43,7 @@ class SaveManager {
           ? { ...this.game.weapons.weaponLevels }
           : { SPEAR: 1, STAFF: 1, DAGGER: 1, BOW: 1, GUN: 1 },
         inventory: {
-          slotCount: this.game.inventory ? this.game.inventory.slotCount : 20,
+          slotCount: this.game.inventory ? this.game.inventory.slotCount : 99,
           slots: this.game.inventory ? this.game.inventory.slots.map(s => s ? { id: s.id, count: s.count } : null) : [],
           armorSlots: this.game.inventory ? JSON.parse(JSON.stringify(this.game.inventory.armorSlots)) : {}
         },
@@ -152,8 +152,9 @@ class SaveManager {
 
       // 4. Restore Inventory & Armor
       if (data.inventory && this.game.inventory) {
-        const minSlots = CONSTANTS.INVENTORY_SLOTS || 20;
+        const minSlots = CONSTANTS.INVENTORY_SLOTS || 99;
         this.game.inventory.slotCount = Math.max(minSlots, data.inventory.slotCount || minSlots);
+        this.game.inventory.maxStack = CONSTANTS.MAX_STACK_SIZE || 99;
         if (Array.isArray(data.inventory.slots)) {
           this.game.inventory.slots = data.inventory.slots.map(s => (s && s.id && CONSTANTS.ITEM_TYPES[s.id]) ? { id: s.id, count: s.count } : null);
         }

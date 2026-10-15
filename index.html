@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/c:/Go/demo/assets/icons/icon-192.png">
 
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=12">
+  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=13">
 </head>
 <body>
 
@@ -292,9 +292,9 @@
           </div>
         </div>
 
-        <!-- Inventory Slots Column (Max Stack 25) -->
+        <!-- Inventory Slots Column (99 Slots, Max Stack 99) -->
         <div class="inv-column">
-          <div id="inventory-slot-title" class="inv-section-title">KHO ĐỒ 20 Ô (MAX STACK: 25)</div>
+          <div id="inventory-slot-title" class="inv-section-title">KHO ĐỒ 99 Ô (MAX STACK: 99)</div>
           <div id="inventory-grid"></div>
           <div id="inv-action-feedback" class="inv-action-feedback">
             💡 Click trực tiếp vào vật phẩm trong Balo để Sử dụng, Trang bị, Ấp Trứng trong Phòng Lab hoặc Đặt công trình!
@@ -335,7 +335,7 @@
           <p><span class="guide-key">Chuột Trái / Chạm</span>: Tấn công thường / Giữ xả đạn Súng Plasma / Thu hoạch quặng</p>
           <p><span class="guide-key">1, 2, 3, 4, G</span>: Đổi nhanh 5 loại vũ khí (Giáo, Gậy, Dao, Cung, <strong>Súng Trường Plasma [G]</strong>)</p>
           <p><span class="guide-key">9</span> hoặc <span class="guide-key">R</span>: <strong>Nâng cấp / Sửa chữa Tường & Súng Thủ Thành</strong> (Lv.1 ➔ Lv.2 ➔ Lv.3)</p>
-          <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 20 ô & 5 ô Trang bị + 1 ô Pet</p>
+          <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 99 ô (Max Stack 99) &amp; 5 ô Trang bị + 1 ô Pet</p>
           <p><span class="guide-key">U</span>: <strong>Cứu Hộ Khẩn Cấp (Thoát Kẹt)</strong> | <span class="guide-key">M</span>: Bật / Tắt âm thanh</p>
         </div>
 
@@ -557,26 +557,26 @@
   </script>
 
   <!-- Import Scripts (Absolute Paths) -->
-  <script src="/c:/Go/demo/js/constants.js?v=12"></script>
-  <script src="/c:/Go/demo/js/audio.js?v=12"></script>
-  <script src="/c:/Go/demo/js/pixelart.js?v=12"></script>
-  <script src="/c:/Go/demo/js/buildings.js?v=12"></script>
-  <script src="/c:/Go/demo/js/world.js?v=12"></script>
-  <script src="/c:/Go/demo/js/entities.js?v=12"></script>
-  <script src="/c:/Go/demo/js/weapons.js?v=12"></script>
-  <script src="/c:/Go/demo/js/pets.js?v=12"></script>
-  <script src="/c:/Go/demo/js/inventory.js?v=12"></script>
-  <script src="/c:/Go/demo/js/lab.js?v=12"></script>
-  <script src="/c:/Go/demo/js/daynight.js?v=12"></script>
-  <script src="/c:/Go/demo/js/savegame.js?v=12"></script>
-  <script src="/c:/Go/demo/js/mobile.js?v=12"></script>
-  <script src="/c:/Go/demo/js/game.js?v=12"></script>
+  <script src="/c:/Go/demo/js/constants.js?v=13"></script>
+  <script src="/c:/Go/demo/js/audio.js?v=13"></script>
+  <script src="/c:/Go/demo/js/pixelart.js?v=13"></script>
+  <script src="/c:/Go/demo/js/buildings.js?v=13"></script>
+  <script src="/c:/Go/demo/js/world.js?v=13"></script>
+  <script src="/c:/Go/demo/js/entities.js?v=13"></script>
+  <script src="/c:/Go/demo/js/weapons.js?v=13"></script>
+  <script src="/c:/Go/demo/js/pets.js?v=13"></script>
+  <script src="/c:/Go/demo/js/inventory.js?v=13"></script>
+  <script src="/c:/Go/demo/js/lab.js?v=13"></script>
+  <script src="/c:/Go/demo/js/daynight.js?v=13"></script>
+  <script src="/c:/Go/demo/js/savegame.js?v=13"></script>
+  <script src="/c:/Go/demo/js/mobile.js?v=13"></script>
+  <script src="/c:/Go/demo/js/game.js?v=13"></script>
 
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=12')
+        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=13')
           .then((reg) => console.log('✅ PWA Service Worker Registered! Scope:', reg.scope))
           .catch((err) => console.warn('PWA Service Worker Warning:', err));
       });
