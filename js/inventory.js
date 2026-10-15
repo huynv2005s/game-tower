@@ -54,6 +54,7 @@ class InventorySystem {
     this.addItem('tech_scrap', 8);
     this.addItem('sulfur_dust', 8);
     this.addItem('quartz_crystal', 5);
+    this.addItem('monster_egg', 2);
   }
 
   getItemCount(itemId) {
@@ -247,10 +248,21 @@ class InventorySystem {
       }
     }
 
+    // Include Passive Stat Bonuses from the 1 Active Companion Pet
+    if (this.game.petSystem) {
+      const petSpec = this.game.petSystem.getActiveSpecies();
+      if (petSpec && petSpec.statsBonus) {
+        if (petSpec.statsBonus.hp) totalBonusHp += petSpec.statsBonus.hp;
+        if (petSpec.statsBonus.armor) totalArmor += petSpec.statsBonus.armor;
+        if (petSpec.statsBonus.toxinResist) totalToxinResist += petSpec.statsBonus.toxinResist;
+        if (petSpec.statsBonus.speedBonus) totalSpeedBonus += petSpec.statsBonus.speedBonus;
+      }
+    }
+
     p.maxHp = CONSTANTS.PLAYER_BASE.MAX_HP + totalBonusHp;
     p.hp = Math.min(p.hp, p.maxHp);
     p.armor = totalArmor;
-    p.toxinResist = totalToxinResist;
+    p.toxinResist = Math.min(90, totalToxinResist);
     p.speedBonus = totalSpeedBonus;
   }
 
@@ -272,6 +284,7 @@ class InventorySystem {
 
   getSlotActionLabel(itemId, def) {
     if (!def) return 'DÙNG';
+    if (def.category === 'egg' || itemId === 'monster_egg') return 'ẤP LAB';
     if (def.category === 'armor') return 'MẶC';
     if (def.category === 'weapon') return 'CẦM';
     if (def.category === 'defense') return 'XÂY';
@@ -446,6 +459,27 @@ class InventorySystem {
       return;
     }
 
+    // 6.5 Monster Egg -> Can ONLY be incubated inside the Bio-Lab!
+    if (def.category === 'egg' || itemId === 'monster_egg') {
+      if (this.game && this.game.petSystem) {
+        if (!this.game.petSystem.isPlayerInBioLab()) {
+          if (window.audioManager) window.audioManager.playHit();
+          const warn = '⚠️ CHỈ ẤP ĐƯỢC TRONG PHÒNG LAB! Hãy mang Trứng Quái Vật về Khu Cách Ly Phòng Lab [F] để ấp!';
+          this.showFeedback(warn, '#ef4444');
+          this.game.floatingTexts.push(new FloatingText(p.x, p.y - 32, warn, '#ef4444', 12, 1.8));
+          return;
+        }
+        this.toggleUI();
+        if (window.labSystem) {
+          window.labSystem.open('incubator');
+          if (!this.game.petSystem.incubator.hasEgg) {
+            this.game.petSystem.startIncubation();
+          }
+        }
+      }
+      return;
+    }
+
     // 7. Upgrade & Crafting Materials -> Open corresponding Station Tab
     if (def.category === 'resource') {
       if (window.labSystem) {
@@ -569,6 +603,48 @@ class InventorySystem {
         el.innerHTML = `<span class="empty-armor-label">${armorNames[slotKey]}</span>`;
         el.title = `Ô trang bị: ${armorNames[slotKey]} (Trống)`;
         el.onclick = null;
+      }
+    }
+
+    // Render 1 Active Pet Companion Slot (Max 1 Pet)
+    const petSlotEl = document.getElementById('armor-slot-pet');
+    const petTitleEl = document.getElementById('equip-pet-slot-title');
+    if (petSlotEl && this.game && this.game.petSystem) {
+      petSlotEl.innerHTML = '';
+      const activeSpec = this.game.petSystem.getActiveSpecies();
+      if (activeSpec) {
+        const iconUrl = window.pixelArt.getDataURL(`icon_${activeSpec.icon}`);
+        if (iconUrl) {
+          const img = document.createElement('img');
+          img.src = iconUrl;
+          img.className = 'slot-icon';
+          img.draggable = false;
+          petSlotEl.appendChild(img);
+        }
+        petSlotEl.style.borderColor = activeSpec.color;
+        if (petTitleEl) {
+          petTitleEl.innerHTML = `<span style="color:${activeSpec.color};font-weight:800;">${activeSpec.badgeIcon} ${activeSpec.name}</span><br><span style="font-size:9px;color:#94a3b8;">${activeSpec.role} (1/1 Pet)</span>`;
+        }
+        petSlotEl.title = `[PET ĐANG MANG (1/1)] ${activeSpec.name}\n${activeSpec.desc}\n👉 Click để mở Quản Lý Pet trong Phòng Lab!`;
+        petSlotEl.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.toggleUI();
+          if (window.labSystem) window.labSystem.open('incubator');
+        };
+      } else {
+        petSlotEl.style.borderColor = '#374151';
+        petSlotEl.innerHTML = `<span class="empty-armor-label">0/1 Pet</span>`;
+        if (petTitleEl) {
+          petTitleEl.innerHTML = `Thú Cưng (0/1)<br><span style="font-size:9px;color:#64748b;">Ấp trứng tại Lab</span>`;
+        }
+        petSlotEl.title = `Ô Thú Cưng Đồng Hành (Tối đa 1 Pet)\nClick để mở Lồng Ấp Trứng tại Phòng Lab!`;
+        petSlotEl.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.toggleUI();
+          if (window.labSystem) window.labSystem.open('incubator');
+        };
       }
     }
 

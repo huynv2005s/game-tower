@@ -642,6 +642,57 @@ class WorldMap {
     return null;
   }
 
+  getAlienEggNear(x, y, reach = 68) {
+    const rSq = reach * reach;
+    for (let i = 0; i < this.resourceNodes.length; i++) {
+      const h = this.resourceNodes[i];
+      if (h.isDestroyed || h.type !== 'alien_egg') continue;
+      const dx = h.x - x;
+      const dy = h.y - y;
+      if (dx * dx + dy * dy <= rSq) {
+        return h;
+      }
+    }
+    return null;
+  }
+
+  pickupAlienEgg(eggObj, game) {
+    if (!eggObj || eggObj.isDestroyed) return false;
+    eggObj.hp = 0;
+    eggObj.isDestroyed = true;
+    const row = eggObj.row;
+    const col = eggObj.col;
+    if (row <= CONSTANTS.BIOME_MOUNTAIN_END) {
+      this.tiles[row][col] = CONSTANTS.TILES.MOUNTAIN_SLATE;
+    } else {
+      this.tiles[row][col] = CONSTANTS.TILES.GRASS;
+    }
+
+    if (game && game.inventory) {
+      game.inventory.addItem('monster_egg', 1);
+      game.inventory.addItem('egg_fluid', 1);
+    }
+    if (window.audioManager) window.audioManager.playEquip();
+
+    if (game && game.particles) {
+      for (let i = 0; i < 10; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const spd = 25 + Math.random() * 55;
+        game.particles.push(new Particle(eggObj.x, eggObj.y, Math.cos(a) * spd, Math.sin(a) * spd, '#f0abfc', 3.5, 0.35));
+      }
+    }
+
+    const msg = '🥚 ĐÃ NHẶT +1 TRỨNG QUÁI VẬT NGUYÊN VẸN! (Mang về Phòng Lab để ấp Pet!)';
+    if (game && game.floatingTexts) {
+      game.floatingTexts.push(new FloatingText(eggObj.x, eggObj.y - 26, msg, '#facc15', 12, 1.8));
+    }
+    if (game && game.saveManager) {
+      game.saveManager.showSaveToast(msg);
+    }
+    if (game) game.minimapDirty = true;
+    return true;
+  }
+
   isNearWater(x, y, reach = 40) {
     const minC = Math.max(0, Math.floor((x - reach) / this.tileSize));
     const maxC = Math.min(this.cols - 1, Math.floor((x + reach) / this.tileSize));
@@ -727,7 +778,7 @@ class WorldMap {
       titanium_ore: { sprite: 'obj_titanium_ore', w: 44, h: 44, color: '#e2e8f0', icon: '🔩', tag: 'Quặng Sắt Titan' },
       snow_lotus:   { sprite: 'obj_snow_lotus',   w: 44, h: 44, color: '#e879f9', icon: '🪷', tag: 'Tuyết Liên Núi Cao' },
       silver_moss:  { sprite: 'obj_silver_moss',  w: 44, h: 44, color: '#4ade80', icon: '🌿', tag: 'Rêu Bạc Đỉnh Núi' },
-      alien_egg:    { sprite: 'obj_alien_egg',    w: 48, h: 48, color: '#f43f5e', icon: '🥚', tag: 'Ổ Trứng Quái Vật (Đập Vỡ!)' },
+      alien_egg:    { sprite: 'obj_alien_egg',    w: 48, h: 48, color: '#f43f5e', icon: '🥚', tag: 'Ổ Trứng Quái Vật ([F] Nhặt Ấp / Đánh)' },
       tech_debris:  { sprite: 'obj_tech_debris',  w: 48, h: 44, color: '#fb923c', icon: '🛸', tag: 'Mảnh Vỡ Phi Thuyền' },
       plasma_node:  { sprite: 'obj_plasma_node',  w: 44, h: 44, color: '#22d3ee', icon: '⚡', tag: 'Trụ Năng Lượng Plasma' }
     };

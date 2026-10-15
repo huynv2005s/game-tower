@@ -264,6 +264,72 @@ class Projectile {
         }
       }
       window.audioManager.playHit();
+    } else if (this.type === 'pet_arrow') {
+      if (hitTarget) {
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
+        hitTarget.applySlow(0.7, 1.5, floatingTexts);
+      }
+      if (particles.length < 160) {
+        const col = (this.extra && this.extra.isCritArrow) ? '#facc15' : '#ffb74d';
+        for (let i = 0; i < 4; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = 35 + Math.random() * 45;
+          particles.push(new Particle(this.x, this.y, Math.cos(a) * spd, Math.sin(a) * spd, col, 3, 0.2));
+        }
+      }
+    } else if (this.type === 'pet_bio_shot') {
+      if (hitTarget) {
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
+      }
+      const p = (world && world.game) ? world.game.player : null;
+      if (p && !p.isDead && p.hp < p.maxHp) {
+        p.hp = Math.min(p.maxHp, p.hp + 2);
+      }
+      if (particles.length < 160) {
+        particles.push(new Particle(this.x, this.y, 0, 0, '#4ade80', 14, 0.22, 'ring'));
+      }
+    } else if (this.type === 'pet_cleanse_shot') {
+      if (hitTarget) {
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
+        hitTarget.applySlow(0.7, 2.0, floatingTexts);
+      }
+      const p = (world && world.game) ? world.game.player : null;
+      if (p && !p.isDead && p.infection > 0) {
+        p.infection = Math.max(0, p.infection - 1.5);
+      }
+      if (particles.length < 160) {
+        particles.push(new Particle(this.x, this.y, 0, 0, '#c084fc', 14, 0.22, 'ring'));
+      }
+    } else if (this.type === 'pet_frost_bolt') {
+      if (hitTarget) {
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
+        hitTarget.applySlow(0.45, 2.5, floatingTexts);
+        if (Math.random() < 0.35) {
+          hitTarget.applyStun(1.2, floatingTexts);
+        }
+      }
+      if (particles.length < 160) {
+        particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 18, 0.25, 'ring'));
+      }
+    } else if (this.type === 'pet_plasma_bolt') {
+      if (hitTarget) {
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
+      }
+      if (particles.length < 160) {
+        particles.push(new Particle(this.x, this.y, 0, 0, '#facc15', 18, 0.22, 'ring'));
+      }
+      let chained = 0;
+      const chainDmg = Math.max(6, Math.round(this.damage * 0.5));
+      for (let i = 0; i < monsters.length; i++) {
+        const m = monsters[i];
+        if (m.isDead || m === hitTarget) continue;
+        if (Math.hypot(m.x - this.x, m.y - this.y) <= 85) {
+          m.takeDamage(chainDmg, particles, floatingTexts);
+          particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 2, 0.2, 'lightning', { x2: m.x, y2: m.y }));
+          chained++;
+          if (chained >= 2) break;
+        }
+      }
     }
   }
 
@@ -277,16 +343,36 @@ class Projectile {
     const angle = Math.atan2(this.vy, this.vx);
     ctx.rotate(angle);
 
-    if (this.type === 'arrow') {
-      ctx.fillStyle = '#ffb74d';
+    if (this.type === 'arrow' || this.type === 'pet_arrow') {
+      const isCrit = this.extra && this.extra.isCritArrow;
+      ctx.fillStyle = isCrit ? '#facc15' : '#ffb74d';
       ctx.fillRect(-8, -1.5, 16, 3);
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = isCrit ? '#ef4444' : '#38bdf8';
       ctx.beginPath();
-      ctx.moveTo(8, 0);
-      ctx.lineTo(4, -4);
-      ctx.lineTo(4, 4);
+      ctx.moveTo(9, 0);
+      ctx.lineTo(4, -4.5);
+      ctx.lineTo(4, 4.5);
       ctx.closePath();
       ctx.fill();
+    } else if (this.type === 'pet_bio_shot' || this.type === 'pet_cleanse_shot') {
+      const col = this.type === 'pet_bio_shot' ? '#4ade80' : '#c084fc';
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(1, 0, 2.2, 0, Math.PI * 2); ctx.fill();
+    } else if (this.type === 'pet_frost_bolt') {
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(8, 0); ctx.lineTo(-5, -4); ctx.lineTo(-2, 0); ctx.lineTo(-5, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(-3, -1, 8, 2);
+    } else if (this.type === 'pet_plasma_bolt') {
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(-9, -2.5, 18, 5);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(-6, -1.2, 13, 2.4);
     } else if (this.type === 'plasma_bullet') {
       const col = (this.extra && this.extra.color) ? this.extra.color : '#38bdf8';
       ctx.fillStyle = col;
@@ -375,8 +461,9 @@ class Monster {
       game.inventory.addItem('alien_chitin', 3);
       game.inventory.addItem('titanium_alloy', 2);
       game.inventory.addItem('plasma_core', 1);
+      game.inventory.addItem('monster_egg', 1);
       if (floatingTexts.length < 40) {
-        floatingTexts.push(new FloatingText(this.x, this.y - 38, '🎁 +3 GIÁP XÁC, +2 HỢP KIM TITAN, +1 LÕI PLASMA!', '#facc15', 12, 1.8));
+        floatingTexts.push(new FloatingText(this.x, this.y - 38, '🎁 +1 TRỨNG QUÁI VẬT, +3 GIÁP XÁC, +2 TITAN, +1 LÕI PLASMA!', '#facc15', 12, 2.0));
       }
     } else {
       game.inventory.addItem('alien_chitin', 1);
@@ -387,8 +474,12 @@ class Monster {
         const def = CONSTANTS.ITEM_TYPES[extraItem];
         if (def) bonusText += ` & +1 ${def.name}`;
       }
+      if (Math.random() < 0.28) {
+        game.inventory.addItem('monster_egg', 1);
+        bonusText += ' & 🥚 +1 Trứng Quái Vật!';
+      }
       if (floatingTexts.length < 40) {
-        floatingTexts.push(new FloatingText(this.x, this.y - 26, bonusText, '#c084fc', 11, 1.1));
+        floatingTexts.push(new FloatingText(this.x, this.y - 26, bonusText, '#c084fc', 11, 1.2));
       }
     }
   }

@@ -310,12 +310,15 @@ class WeaponSystem {
 
         if (h.type === 'alien_egg') {
           this.game.inventory.addItem('alien_chitin', 1);
+          this.game.inventory.addItem('monster_egg', 1);
           for (let i = 0; i < 12; i++) {
             const a = Math.random() * Math.PI * 2;
             const spd = 30 + Math.random() * 80;
             this.game.particles.push(new Particle(h.x, h.y, Math.cos(a) * spd, Math.sin(a) * spd, '#c026d3', 4, 0.4));
           }
-          this.game.floatingTexts.push(new FloatingText(h.x, h.y - 38, 'ĐẬP VỠ TRỨNG QUÁI! +1 DỊCH TUYẾN & +1 GIÁP XÁC', '#ec4899', 12, 1.3));
+          const eggMsg = '🥚 NHẶT +1 TRỨNG QUÁI VẬT (ĐEM VỀ LAB ẤP PET!), +1 DỊCH TUYẾN & +1 GIÁP XÁC!';
+          this.game.floatingTexts.push(new FloatingText(h.x, h.y - 38, eggMsg, '#facc15', 12, 1.6));
+          if (this.game.saveManager) this.game.saveManager.showSaveToast(eggMsg);
         }
       }
       return;

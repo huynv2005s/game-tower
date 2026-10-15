@@ -611,6 +611,11 @@ class MobileController {
     if (!this.game) return;
     // Emulate KeyF
     const p = this.game.player;
+    const nearEgg = this.game.world.getAlienEggNear(p.x, p.y, 65);
+    if (nearEgg) {
+      this.game.world.pickupAlienEgg(nearEgg, this.game);
+      return;
+    }
     const struct = this.game.world.getStructureNear(p.x, p.y, 95);
     if (struct) {
       if (struct.type === 'biolab') {
@@ -753,7 +758,8 @@ class MobileController {
     if (c.interactBtn) {
       const isNearStructure = !!this.game.world.getStructureNear(p.x, p.y, 95);
       const isNearWater = this.game.world.isNearWater(p.x, p.y, 55);
-      const canInt = isNearStructure || isNearWater;
+      const isNearEgg = !!this.game.world.getAlienEggNear(p.x, p.y, 65);
+      const canInt = isNearStructure || isNearWater || isNearEgg;
       if (canInt !== c.canInteract) {
         c.canInteract = canInt;
         c.interactBtn.classList.toggle('available', canInt);

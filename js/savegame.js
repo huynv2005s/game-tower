@@ -22,7 +22,7 @@ class SaveManager {
       if (!this.game || !this.game.player || !this.game.dayNight) return false;
 
       const saveData = {
-        version: 3,
+        version: 4,
         saveTime: Date.now(),
         dayNight: {
           dayCount: this.game.dayNight.dayCount,
@@ -72,7 +72,22 @@ class SaveManager {
             isDestroyed: h.isDestroyed
           })) : [],
         hydroponics: (this.game.lab && this.game.lab.hydroPods) ?
-          JSON.parse(JSON.stringify(this.game.lab.hydroPods)) : []
+          JSON.parse(JSON.stringify(this.game.lab.hydroPods)) : [],
+        pets: this.game.petSystem ? {
+          activePet: this.game.petSystem.activePet ? {
+            id: this.game.petSystem.activePet.id,
+            speciesId: this.game.petSystem.activePet.speciesId,
+            hatchedDay: this.game.petSystem.activePet.hatchedDay || 1
+          } : null,
+          storedPets: Array.isArray(this.game.petSystem.storedPets)
+            ? this.game.petSystem.storedPets.map(p => ({
+                id: p.id,
+                speciesId: p.speciesId,
+                hatchedDay: p.hatchedDay || 1
+              }))
+            : [],
+          incubator: this.game.petSystem.incubator ? { ...this.game.petSystem.incubator } : null
+        } : null
       };
 
       localStorage.setItem(this.storageKey, JSON.stringify(saveData));
@@ -160,6 +175,13 @@ class SaveManager {
           }
         }
 
+        // Migrate older saves to v4 so player receives 2 starter Monster Eggs to incubate
+        if (!data.version || data.version < 4) {
+          if (this.game.inventory.getItemCount('monster_egg') === 0) {
+            this.game.inventory.addItem('monster_egg', 2);
+          }
+        }
+
         if (data.inventory.armorSlots) {
           this.game.inventory.armorSlots = data.inventory.armorSlots;
         }
@@ -197,6 +219,48 @@ class SaveManager {
       // 7. Restore Hydroponics
       if (Array.isArray(data.hydroponics) && this.game.lab) {
         this.game.lab.hydroPods = data.hydroponics;
+      }
+
+      // 8. Restore Companion Pet & Bio-Lab Incubator (Strictly 1 Active Pet)
+      if (data.pets && this.game.petSystem) {
+        if (data.pets.activePet && data.pets.activePet.speciesId) {
+          const restoredActive = this.game.petSystem.createPetInstance(data.pets.activePet.speciesId);
+          if (restoredActive) {
+            restoredActive.id = data.pets.activePet.id || restoredActive.id;
+            restoredActive.hatchedDay = data.pets.activePet.hatchedDay || 1;
+            restoredActive.x = this.game.player.x - 24;
+            restoredActive.y = this.game.player.y + 16;
+            this.game.petSystem.activePet = restoredActive;
+          }
+        } else {
+          this.game.petSystem.activePet = null;
+        }
+
+        if (Array.isArray(data.pets.storedPets)) {
+          this.game.petSystem.storedPets = data.pets.storedPets
+            .map(sp => {
+              if (!sp || !sp.speciesId) return null;
+              const inst = this.game.petSystem.createPetInstance(sp.speciesId);
+              if (inst) {
+                inst.id = sp.id || inst.id;
+                inst.hatchedDay = sp.hatchedDay || 1;
+              }
+              return inst;
+            })
+            .filter(Boolean);
+        }
+
+        if (data.pets.incubator) {
+          this.game.petSystem.incubator = {
+            ...this.game.petSystem.incubator,
+            ...data.pets.incubator
+          };
+        }
+
+        if (this.game.inventory) {
+          this.game.inventory.updatePlayerStats();
+          this.game.inventory.renderUI();
+        }
       }
 
       // Update UI

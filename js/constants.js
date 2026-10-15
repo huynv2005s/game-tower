@@ -312,7 +312,16 @@ const CONSTANTS = {
     defense_trap: { name: 'Bẫy Gai Sinh Học', category: 'defense', structType: 'trap', icon: 'defense_trap', maxStack: 25, desc: 'Đặt dưới đất làm chậm và gây sát thương, có thể nâng cấp lên Bẫy Xung Điện Cấp 3!' },
     defense_turret: { name: 'Tháp Canh Tự Động', category: 'defense', structType: 'turret', icon: 'defense_turret', maxStack: 15, desc: 'Súng tháp tự động bắn tỉa 360°, nâng cấp lên Gatling Laser (Cấp 2) & Pháo Railgun Tesla (Cấp 3)!' },
     defense_mortar: { name: 'Súng Cối Hạng Nặng', category: 'defense', structType: 'mortar', icon: 'defense_mortar', maxStack: 10, desc: 'Pháo cối tầm xa nổ AoE diện rộng, nâng cấp lên Pháo Nhiệt Hạch (Cấp 2) & Siêu Pháo Hạt Nhân (Cấp 3)!' },
-    backpack_upgraded: { name: 'Balo Nâng Cấp Dã Chiến', category: 'upgrade', icon: 'backpack', maxStack: 1, desc: 'Mở rộng sức chứa kho đồ sinh tồn thêm 4 ô chứa mới (tối đa 28 ô)!' }
+    backpack_upgraded: { name: 'Balo Nâng Cấp Dã Chiến', category: 'upgrade', icon: 'backpack', maxStack: 1, desc: 'Mở rộng sức chứa kho đồ sinh tồn thêm 4 ô chứa mới (tối đa 28 ô)!' },
+
+    // Phase 6: Monster Egg for Bio-Lab Pet Incubation
+    monster_egg: {
+      name: 'Trứng Quái Vật Nguyên Vẹn',
+      category: 'egg',
+      icon: 'monster_egg',
+      maxStack: 15,
+      desc: 'Trứng quái vật nhặt từ ổ trứng trên núi hoặc rơi từ quái. CHỈ ẤP ĐƯỢC TRONG PHÒNG LAB để nở ra Pet ngẫu nhiên (Tối đa mang theo 1 Pet)!'
+    }
   },
 
   // Crafting Recipes for Bio-Lab, Furnace, Workbench & Workshop
@@ -733,6 +742,100 @@ const CONSTANTS = {
     exploder: { name: 'Quái Cảm Tử (Kamikaze)', maxHp: 40, speed: 110, damage: 45, radius: 15, isKamikaze: true, desc: 'Lao nhanh phát nổ phá tan tường chắn' },
     spitter: { name: 'Quái Phun Axit', maxHp: 65, speed: 55, damage: 14, range: 190, radius: 17, isRanged: true, desc: 'Bắn đạn axit ăn mòn từ xa' },
     behemoth: { name: 'Quái Khổng Lồ (Behemoth)', maxHp: 280, speed: 45, damage: 32, radius: 26, isBoss: true, desc: 'Quái khổng lồ phá hủy mọi công trình' }
+  },
+
+  // Phase 6: Companion Pet System (Incubated ONLY inside Bio-Lab, Max 1 Active Pet)
+  MAX_ACTIVE_PETS: 1,
+  PET_INCUBATION_TIME: 10, // seconds in Bio-Lab Incubator
+
+  PET_SPECIES: {
+    pet_archer: {
+      id: 'pet_archer',
+      name: 'Xạ Thủ Gai Quang Học',
+      role: 'Tấn Công Tầm Xa (Như Cung)',
+      badgeIcon: '🏹',
+      color: '#ffb74d',
+      sprite: 'pet_archer',
+      icon: 'pet_archer',
+      attackRange: 290,
+      attackCooldown: 0.80,
+      damage: 18,
+      projectileType: 'pet_arrow',
+      hpRegenPerSec: 0,
+      toxinCleansePerSec: 0,
+      statsBonus: { hp: 10, armor: 1, toxinResist: 5, speedBonus: 15 },
+      desc: 'Tự động bắn Tên Gai Quang Học tầm xa 290px (18 DMG, làm chậm 30%). Mỗi phát bắn thứ 3 là Tên Xuyên Phá gây 32 DMG!'
+    },
+    pet_healer: {
+      id: 'pet_healer',
+      name: 'Tinh Linh Sinh Dược',
+      role: 'Phục Hồi Sinh Mệnh (HP)',
+      badgeIcon: '💚',
+      color: '#4ade80',
+      sprite: 'pet_healer',
+      icon: 'pet_healer',
+      attackRange: 210,
+      attackCooldown: 1.15,
+      damage: 11,
+      projectileType: 'pet_bio_shot',
+      hpRegenPerSec: 3.0,
+      burstHealAmount: 12,
+      burstHealInterval: 6.0,
+      toxinCleansePerSec: 0.4,
+      statsBonus: { hp: 35, armor: 2, toxinResist: 10, speedBonus: 5 },
+      desc: 'Tự động Phục hồi +3 HP/giây liên tục và phát Sóng Đại Trị Liệu +12 HP mỗi 6s. Bắn đạn bào tử tự vệ (11 DMG, hút +2 HP).'
+    },
+    pet_antitoxin: {
+      id: 'pet_antitoxin',
+      name: 'Bọ Giáp Lọc Độc Tinh Thể',
+      role: 'Kháng Độc & Thanh Lọc Ký Sinh',
+      badgeIcon: '🛡️',
+      color: '#c084fc',
+      sprite: 'pet_antitoxin',
+      icon: 'pet_antitoxin',
+      attackRange: 230,
+      attackCooldown: 1.0,
+      damage: 13,
+      projectileType: 'pet_cleanse_shot',
+      hpRegenPerSec: 1.0,
+      toxinCleansePerSec: 2.2,
+      statsBonus: { hp: 15, armor: 5, toxinResist: 50, speedBonus: 5 },
+      desc: 'Tăng +50% Kháng Độc Tố, tự động Thanh lọc -2.2% Độc Tố/giây khỏi cơ thể chủ nhân và bắn Đạn Tinh Thể Khử Khuẩn tầm xa!'
+    },
+    pet_frost: {
+      id: 'pet_frost',
+      name: 'Phượng Hoàng Băng Cực Hàn',
+      role: 'Bắn Băng Tầm Xa & Đóng Băng',
+      badgeIcon: '❄️',
+      color: '#38bdf8',
+      sprite: 'pet_frost',
+      icon: 'pet_frost',
+      attackRange: 270,
+      attackCooldown: 0.92,
+      damage: 16,
+      projectileType: 'pet_frost_bolt',
+      hpRegenPerSec: 1.0,
+      toxinCleansePerSec: 0.5,
+      statsBonus: { hp: 15, armor: 6, toxinResist: 20, speedBonus: 10 },
+      desc: 'Bắn Mũi Tên Băng Giá tầm xa 270px (16 DMG) làm chậm quái 55% và có 35% tỉ lệ Đóng Băng (Choáng 1.2s) mục tiêu!'
+    },
+    pet_plasma: {
+      id: 'pet_plasma',
+      name: 'Rồng Con Điện Từ Plasma',
+      role: 'Bắn Xa Giật Sét + Hồi HP + Kháng Độc',
+      badgeIcon: '⚡',
+      color: '#facc15',
+      sprite: 'pet_plasma',
+      icon: 'pet_plasma',
+      attackRange: 300,
+      attackCooldown: 0.75,
+      damage: 22,
+      projectileType: 'pet_plasma_bolt',
+      hpRegenPerSec: 2.0,
+      toxinCleansePerSec: 1.2,
+      statsBonus: { hp: 25, armor: 5, toxinResist: 30, speedBonus: 12 },
+      desc: 'Pet Huyền Thoại! Bắn Tia Laser Plasma tầm xa 300px (22 DMG + Giật sét lan), đồng thời Hồi +2 HP/s & Giảm -1.2% Độc Tố/s!'
+    }
   }
 };
 

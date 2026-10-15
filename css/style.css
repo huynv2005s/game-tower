@@ -340,6 +340,29 @@ body, html {
   letter-spacing: 0.8px;
 }
 
+#hud-pet-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.92), rgba(30, 18, 48, 0.88));
+  border: 1px solid #64748b;
+  border-radius: 4px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.4px;
+}
+
+#hud-pet-badge:hover {
+  border-color: #fde047;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.4);
+}
+
 /* Camera Zoom & Full Map Control Widget */
 #zoom-controls {
   display: inline-flex;
@@ -978,6 +1001,12 @@ body, html {
   background: rgba(245, 158, 11, 0.25);
   color: #fde047;
   border-color: #f59e0b;
+}
+
+.slot-action-tag.tag-egg {
+  background: rgba(168, 85, 247, 0.35);
+  color: #f3e8ff;
+  border-color: #c084fc;
 }
 
 .slot-badge {

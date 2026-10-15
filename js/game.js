@@ -45,6 +45,10 @@ class GameEngine {
     this.lab = new LabSystem(this);
     window.labSystem = this.lab;
 
+    // Phase 6: Companion Pet & Bio-Lab Egg Incubator System
+    this.petSystem = new PetSystem(this);
+    window.petSystem = this.petSystem;
+
     // Phase 3: Tower Defense Building Manager
     this.buildingManager = new BuildingManager(this);
     window.buildingManager = this.buildingManager;
@@ -316,8 +320,13 @@ class GameEngine {
         this.inventory.toggleUI();
       }
 
-      // Interact Key [KeyF] for Bio-Lab, Furnace, Workbench, Workshop, Water
+      // Interact Key [KeyF] for Bio-Lab, Furnace, Workbench, Workshop, Alien Egg Pickup, Water
       if (e.code === 'KeyF') {
+        const nearEgg = this.world.getAlienEggNear(this.player.x, this.player.y, 70);
+        if (nearEgg) {
+          this.world.pickupAlienEgg(nearEgg, this);
+          return;
+        }
         const struct = this.world.getStructureNear(this.player.x, this.player.y, 85);
         if (struct) {
           if (struct.type === 'biolab') {
@@ -339,6 +348,17 @@ class GameEngine {
           window.audioManager.playEquip();
           this.floatingTexts.push(new FloatingText(this.player.x, this.player.y - 20, '+1 NƯỚC AO SÔNG Ô NHIỄM', '#65a30d', 12, 1.0));
           return;
+        }
+      }
+
+      // Pet & Incubator Toggle [KeyP]
+      if (e.code === 'KeyP') {
+        if (this.lab) {
+          if (this.lab.isOpen && this.lab.currentTab === 'incubator') {
+            this.lab.close();
+          } else {
+            this.lab.open('incubator');
+          }
         }
       }
 
@@ -505,6 +525,7 @@ class GameEngine {
 
     if (isModalOpen) {
       if (this.lab) this.lab.update(dt);
+      if (this.petSystem) this.petSystem.update(dt);
       this.updateHUD();
       return; // Pause combat and environment while menu is active
     }
@@ -524,6 +545,11 @@ class GameEngine {
 
     // Update Player
     this.player.update(dt, this.keys, this.mouse.worldX, this.mouse.worldY, this.world, this.particles, this.floatingTexts);
+
+    // Phase 6: Update Companion Pet & Incubator
+    if (this.petSystem) {
+      this.petSystem.update(dt);
+    }
 
     // Update Mobile Controller UI (cooldowns & button states)
     if (this.mobileController) {
@@ -613,8 +639,11 @@ class GameEngine {
       m.render(this.ctx, this.camera);
     }
 
-    // 4. Render Player
+    // 4. Render Player & Accompanying Pet (Max 1 Pet)
     this.player.render(this.ctx, this.camera);
+    if (this.petSystem) {
+      this.petSystem.render(this.ctx, this.camera);
+    }
 
     // 5. Render Projectiles
     for (let p of this.projectiles) {
@@ -666,6 +695,7 @@ class GameEngine {
         toxicOverlay: document.getElementById('toxic-screen-overlay'),
         biomeText: document.getElementById('biome-text-label'),
         biomeBadge: document.getElementById('current-biome-badge'),
+        hudPetBadge: document.getElementById('hud-pet-badge'),
         clockTime: document.getElementById('clock-time'),
         clockDay: document.getElementById('clock-day'),
         clockPhase: document.getElementById('clock-phase'),
@@ -760,7 +790,7 @@ class GameEngine {
       }
     }
 
-    // 3. Biome Indicator
+    // 3. Biome Indicator & Active Pet HUD Badge
     const biome = this.world.getBiomeAt(this.player.x, this.player.y);
     if (vals.biomeId !== biome.id && els.biomeBadge && els.biomeText) {
       vals.biomeId = biome.id;
@@ -776,6 +806,29 @@ class GameEngine {
         els.biomeText.innerText = 'ĐỒNG BẰNG HOANG TÀN - CĂN CỨ';
         els.biomeBadge.style.borderColor = '#22c55e';
         els.biomeBadge.style.color = '#86efac';
+      }
+    }
+
+    if (els.hudPetBadge && this.petSystem) {
+      const petSpec = this.petSystem.getActiveSpecies();
+      const eggCnt = this.inventory ? this.inventory.getItemCount('monster_egg') : 0;
+      const incReady = this.petSystem.incubator && this.petSystem.incubator.ready;
+      const petKey = `${petSpec ? petSpec.id : 'none'}_${eggCnt}_${incReady}`;
+      if (vals.petKey !== petKey) {
+        vals.petKey = petKey;
+        if (petSpec) {
+          els.hudPetBadge.innerHTML = `${petSpec.badgeIcon} <strong>Pet (1/1):</strong> ${petSpec.name}`;
+          els.hudPetBadge.style.borderColor = petSpec.color;
+          els.hudPetBadge.style.color = petSpec.color;
+        } else if (incReady) {
+          els.hudPetBadge.innerHTML = `🐣 <strong>Trứng Chín 100%!</strong> (Mở tại Lab)`;
+          els.hudPetBadge.style.borderColor = '#facc15';
+          els.hudPetBadge.style.color = '#facc15';
+        } else {
+          els.hudPetBadge.innerHTML = `🥚 <strong>Pet (0/1)</strong> | Trứng: ${eggCnt} (Ấp tại Lab [P])`;
+          els.hudPetBadge.style.borderColor = '#c084fc';
+          els.hudPetBadge.style.color = '#e9d5ff';
+        }
       }
     }
 
@@ -885,12 +938,17 @@ class GameEngine {
           promptHtml = `🏗 XÂY [${bm.toUpperCase()}]: Click đất trống để đặt (hoặc click công trình cũ để Nâng Cấp!) &nbsp;|&nbsp; <span class="key-hint" style="background:#ef4444;color:#fff;">✖ HỦY</span>`;
         }
       } else {
+        const nearEgg = this.world.getAlienEggNear(this.player.x, this.player.y, 70);
         const struct = this.world.getStructureNear(this.player.x, this.player.y, 90);
-        if (struct) {
+        if (nearEgg) {
+          promptKey = `egg_${nearEgg.col}_${nearEgg.row}`;
+          onClickMode = 'interact';
+          promptHtml = `🥚 BẤM <span class="key-hint">[F / 💬]</span> HOẶC ĐÁNH: <strong>NHẶT TRỨNG QUÁI VẬT ĐEM VỀ PHÒNG LAB ẤP PET!</strong>`;
+        } else if (struct) {
           promptKey = `struct_${struct.type}`;
           onClickMode = 'interact';
           if (struct.type === 'biolab') {
-            promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>PHÒNG LAB CÁCH LY</strong>`;
+            promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>PHÒNG LAB CÁCH LY & ẤP TRỨNG PET</strong>`;
           } else if (struct.type === 'furnace') {
             promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>LÒ NUNG KHỬ TRÙNG</strong>`;
           } else if (struct.type === 'workbench') {

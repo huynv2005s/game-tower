@@ -34,17 +34,18 @@ c:/Go/demo/
 ├── css/
 │   └── style.css              # Toàn bộ CSS giao diện HUD, Modal, Mobile Controls, Responsive
 ├── js/
-│   ├── constants.js           # Hằng số toàn cục: Biomes, Tiles, Vật phẩm, Vũ khí, Công trình, Quái vật
+│   ├── constants.js           # Hằng số toàn cục: Biomes, Tiles, Vật phẩm, Vũ khí, Công trình, Quái vật, 5 Loài Pet
 │   ├── audio.js               # Web Audio API Synth tạo âm thanh không cần file audio ngoài
-│   ├── pixelart.js            # Engine vẽ procedural pixel art cho mọi tiles, items, quái vật
-│   ├── world.js               # Khởi tạo bản đồ 100x80 tiles (3 Biomes), va chạm vật lý, sông suối
-│   ├── entities.js            # Lớp Player, 4 loài Monster, Đạn bay Projectile, Hạt Particle, Chữ nổi Combat
-│   ├── weapons.js             # Logic 4 loại vũ khí (Giáo, Gậy, Dao, Cung) và 8 kỹ năng giải vây
-│   ├── inventory.js           # Quản lý 12-18 ô Balo, 5 ô Trang bị Giáp, nâng cấp dung lượng
-│   ├── lab.js                 # 5 Tab chế tác: Bio-Lab, Lò Nung, Bàn Chế Tạo, Xưởng Cơ Khí, Lồng Cấy
-│   ├── buildings.js           # Hệ thống công trình: Tường, Bẫy gai, Tháp canh, Súng cối, Preview xây
+│   ├── pixelart.js            # Engine vẽ procedural pixel art cho mọi tiles, items, quái vật, trứng & 5 loài Pet
+│   ├── world.js               # Khởi tạo bản đồ 100x80 tiles (3 Biomes), va chạm vật lý, sông suối, nhặt ổ trứng [F]
+│   ├── entities.js            # Lớp Player, 4 loài Monster, Đạn bay Projectile (kèm đạn Pet), Hạt Particle, Chữ nổi Combat
+│   ├── weapons.js             # Logic 5 loại vũ khí (Giáo, Gậy, Dao, Cung, Súng) và 10 kỹ năng giải vây
+│   ├── pets.js                # Hệ thống Ấp Trứng Quái Vật (chỉ trong Bio-Lab) & Pet Đồng Hành (Tối đa 1 Pet bên người)
+│   ├── inventory.js           # Quản lý 20-28 ô Balo, 5 ô Trang bị Giáp + 1 ô Pet Đồng Hành, nâng cấp dung lượng
+│   ├── lab.js                 # 6 Tab chế tác: Bio-Lab, Ấp Trứng & Pet, Lò Nung, Bàn Chế Tạo, Xưởng Cơ Khí, Lồng Cấy
+│   ├── buildings.js           # Hệ thống công trình: Tường, Bẫy gai, Tháp canh, Súng cối, Preview xây & nâng cấp Lv.3
 │   ├── daynight.js            # Chu kỳ Ngày/Đêm, đợt quái tấn công tăng dần, cơ chế ấp trứng nở
-│   ├── savegame.js            # Tự động lưu & Khôi phục tiến trình từ LocalStorage khi chuyển Ngày/Đêm
+│   ├── savegame.js            # Tự động lưu & Khôi phục tiến trình (kèm Pet & Lồng Ấp) từ LocalStorage
 │   ├── mobile.js              # Virtual Joystick, Smart Auto-Aim, Action Buttons, Landscape Overlay
 │   └── game.js                # Game Engine chính, vòng lặp Loop 60fps, Camera, Phím tắt, Điều phối
 ├── index.html                 # Giao diện chính, HUD, các Modal, khai báo PWA và Script Tags
@@ -206,7 +207,42 @@ c:/Go/demo/
 
 ---
 
-## 4. BẢNG THÔNG SỐ VŨ KHÍ, CÔNG TRÌNH, NGUYÊN LIỆU & QUÁI VẬT
+### 🐣 PHASE 6: NHẶT TRỨNG QUÁI VẬT, LỒNG ẤP PHÒNG LAB & HỆ THỐNG THÚ CƯNG ĐỒNG HÀNH (TỐI ĐA 1 PET)
+
+1. **Thu Thập Trứng Quái Vật Đột Biến (`monster_egg`, [world.js](file:///c:/Go/demo/js/world.js), [weapons.js](file:///c:/Go/demo/js/weapons.js), [entities.js](file:///c:/Go/demo/js/entities.js)):**
+   * **Cách 1 (Nhặt nguyên vẹn từ Ổ Trứng):** Lại gần bất kỳ Ổ Trứng Ngoại Lai (`alien_egg`) trên bản đồ và bấm phím **`[F]`** (hoặc nút tương tác `💬` trên Mobile) để thu hồi nguyên vẹn `+1 Trứng Quái Vật Đột Biến` kèm `+1 Dịch Tuyến Trứng`.
+   * **Cách 2 (Phá hủy Ổ Trứng):** Đập vỡ Ổ Trứng bằng vũ khí nhận `+1 Trứng Quái Vật Đột Biến` và `+2 Dịch Tuyến Trứng`.
+   * **Cách 3 (Chiến lợi phẩm từ Quái & Boss):** Tiêu diệt Boss **Titan Behemoth** rớt 100% `+1 Trứng Quái Vật Đột Biến`; quái vật thường có 28% cơ hội rớt trứng.
+   * **Hành trang khởi đầu:** Người chơi được trang bị sẵn `2x Trứng Quái Vật Đột Biến` trong Balo để trải nghiệm ấp trứng ngay lập tức.
+
+2. **Cơ Chế Ấp Trứng Độc Quyền Trong Phòng Lab Cách Ly ([pets.js](file:///c:/Go/demo/js/pets.js), [lab.js](file:///c:/Go/demo/js/lab.js), [inventory.js](file:///c:/Go/demo/js/inventory.js)):**
+   * **Ràng buộc vị trí nghiêm ngặt (`isPlayerInBioLab()`):** Trứng quái vật **CHỈ có thể đưa vào lồng ấp và nở khi người chơi đang đứng bên trong khu vực Phòng Lab Cách Ly** (Trung tâm Đồng Bằng). Nếu cố ấp trứng ngoài trời hoặc ở trạm khác, hệ thống sẽ cảnh báo và từ chối để đảm bảo an toàn sinh học.
+   * **Thời gian ấp & Tăng tốc:** Mỗi quả trứng cần **10 giây** trong Lồng Ấp Sinh Học (hoặc dùng `1x Dịch Tuyến Trứng` để kích hoạt tia sinh học nở ngay lập tức). Khi người chơi rời khỏi Phòng Lab, quá trình ấp sẽ tạm dừng ở trạng thái bảo toàn cho tới khi quay lại Phòng Lab.
+
+3. **5 Chủng Loài Pet Đột Biến Nở Ngẫu Nhiên ([constants.js](file:///c:/Go/demo/js/constants.js), [pets.js](file:///c:/Go/demo/js/pets.js), [pixelart.js](file:///c:/Go/demo/js/pixelart.js)):**
+   * 🏹 **Cung Thủ Gai (`pet_archer` - Tấn Công Tầm Xa Như Cung):** Bắn tên gai sinh học tầm xa (290px, 16 DMG mỗi 0.85s, tốc đạn 430px/s) như cung thủ, đẩy lùi và làm chậm quái vật 25%.
+   * 💚 **Tinh Linh Sinh Học (`pet_healer` - Phục Hồi HP):** Tự động hồi phục **+2.5 HP/giây** liên tục, kích hoạt xung **Hồi Sinh Mệnh (+12 HP mỗi 5s)**, tăng **+25 Max HP**, và bắn đạn sinh học hút máu về cho chủ nhân.
+   * 🛡️ **Bọ Giáp Kháng Độc (`pet_antitoxin` - Kháng Độc & Thanh Lọc):** Tăng **+35% Kháng Độc Tố**, tự động **thanh lọc độc tố -1.8%/giây**, cộng **+6 Giáp vật lý**, và bắn đạn khử trùng làm suy yếu quái.
+   * ❄️ **Phượng Hoàng Băng (`pet_frost` - Khống Chế Đóng Băng):** Bắn cầu băng giá tầm xa (265px, 14 DMG) làm đóng băng tốc chạy quái vật **-50% trong 2.2s**, đồng thời tăng **+15 Tốc độ chạy** cho chủ nhân.
+   * ⚡ **Rồng Hạch Tâm Plasma (`pet_plasma` - Đa Năng Huyền Thoại):** Bắn cầu sét Plasma (310px, 22 DMG) **giật sét dây chuyền (Chain Lightning) sang 3 mục tiêu**, kèm hồi phục **+1.5 HP/s**, thanh lọc độc **-1.0%/s**, **+20% Kháng Độc** và **+4 Giáp**.
+
+4. **Giới Hạn Nghiêm Ngặt Chỉ Mang Bên Người 1 Pet (`MAX_ACTIVE_PETS: 1`):**
+   * Người chơi **chỉ được mang theo bên mình tối đa 1 Pet đồng hành (`1/1`)** tại mọi thời điểm.
+   * Khi ấp nở thêm Pet mới trong lúc đã có 1 Pet đi cùng, Pet mới sẽ tự động được lưu trữ an toàn vào **Chuồng Sinh Học Phòng Lab (`storedPets`)**.
+   * Người chơi có thể đổi Pet đang mang bên người lấy bất kỳ Pet nào trong Chuồng Sinh Học thông qua tab **`🐣 ẤP TRỨNG & PET`** (Phím **`[P]`** hoặc click vào ô `🐾 Thú Cưng (1/1)` trong Balo **`[I]`**).
+
+---
+
+## 4. BẢNG THÔNG SỐ VŨ KHÍ, CÔNG TRÌNH, THÚ CƯNG, NGUYÊN LIỆU & QUÁI VẬT
+
+### 🐣 Bảng 5 Loài Pet Đồng Hành (Ấp Ngẫu Nhiên Tại Phòng Lab — Tối Đa 1 Pet Bên Người)
+| Loài Pet | Độ Hiếm (Tỉ Lệ) | Đòn Bắn Tầm Xa | Kỹ Năng Nội Tại & Chỉ Số Cộng Thêm |
+| :--- | :---: | :--- | :--- |
+| **🏹 Cung Thủ Gai (`pet_archer`)** | Phổ Biến (26%) | Bắn tên gai như cung (290px, 16 DMG / 0.85s, làm chậm 25%) | Tốc bắn liên thanh + Đẩy lùi quái áp sát |
+| **💚 Tinh Linh Sinh Học (`pet_healer`)**| Hiếm (24%) | Đạn sinh học (230px, 10 DMG + Hút 2 HP/đòn) | **Hồi +2.5 HP/s**, Xung trị thương **+12 HP/5s**, **+25 Max HP** |
+| **🛡️ Bọ Giáp Kháng Độc (`pet_antitoxin`)**| Hiếm (22%) | Đạn khử độc (220px, 12 DMG, làm chậm 20%) | **+35% Kháng Độc**, **Thanh lọc độc -1.8%/s**, **+6 Giáp** |
+| **❄️ Phượng Hoàng Băng (`pet_frost`)** | Sử Thi (16%) | Cầu băng giá (265px, 14 DMG, đóng băng chậm 50% 2.2s) | Khống chế diện rộng, **+15 Tốc độ chạy** |
+| **⚡ Rồng Hạch Tâm Plasma (`pet_plasma`)**| Huyền Thoại (12%)| Sét Plasma (310px, 22 DMG, **Giật sét dây chuyền 3 mục tiêu**)| **Hồi +1.5 HP/s**, **Thanh lọc độc -1.0%/s**, **+20% Kháng Độc**, **+4 Giáp** |
 
 ### 🔫 Bảng 5 Vũ Khí (Hỗ Trợ Nâng Cấp Lv.1 ➔ Lv.2 [+35% DMG] ➔ Lv.3 [+80% DMG])
 | Vũ Khí | Phím | Sát Thương (Lv1 / Lv2 / Lv3) | Tầm / Tốc Độ | Kỹ Năng 1 [Q] | Kỹ Năng 2 [E] |

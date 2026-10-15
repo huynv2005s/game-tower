@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/c:/Go/demo/assets/icons/icon-192.png">
 
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=11">
+  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=12">
 </head>
 <body>
 
@@ -94,6 +94,11 @@
           <button id="btn-tactical-map" class="zoom-ctrl-map" title="Mở Bản Đồ Chiến Thuật & Định Vị Tài Nguyên [N]">🗺️</button>
         </div>
       </div>
+
+      <!-- Active Pet (1/1) & Egg Incubator Status Badge -->
+      <div id="hud-pet-badge" onclick="window.labSystem && window.labSystem.open('incubator')" title="Bấm để mở Lồng Ấp Trứng & Quản Lý Pet Đồng Hành (Tối đa 1 Pet) [Phím P]">
+        🐾 CHƯA MANG PET (0/1)
+      </div>
     </div>
 
     <!-- Center: Doomsday Chronometer (Đồng Hồ Tận Thế) -->
@@ -122,6 +127,7 @@
         <button id="btn-toggle-touch" class="hud-btn tactical-btn" onclick="window.mobileController.toggleControls()">📱 <span class="hud-btn-label">CẢM ỨNG</span></button>
         <button id="btn-save-game" class="hud-btn tactical-btn" onclick="window.saveManager.saveGame(false)">💾 <span class="hud-btn-label">LƯU</span><span class="hud-key-hint"> [K]</span></button>
         <button id="btn-biolab" class="hud-btn tactical-btn" onclick="window.labSystem.open('lab')">🧬 <span class="hud-btn-label">LAB</span><span class="hud-key-hint"> [F]</span></button>
+        <button id="btn-incubator" class="hud-btn tactical-btn" onclick="window.labSystem.open('incubator')" title="Lồng Ấp Trứng Quái Vật & Thú Cưng Đồng Hành (Chỉ ấp trong Phòng Lab) [Phím P]">🐣 <span class="hud-btn-label">ẤP PET</span><span class="hud-key-hint"> [P]</span></button>
         <button id="btn-workbench" class="hud-btn tactical-btn" onclick="window.labSystem.open('workbench')">🔨 <span class="hud-btn-label">CHẾ TẠO</span></button>
         <button id="btn-workshop" class="hud-btn tactical-btn" onclick="window.labSystem.open('workshop')">⚙ <span class="hud-btn-label">XƯỞNG</span></button>
         <button id="btn-inventory" class="hud-btn tactical-btn" onclick="window.gameEngine.inventory.toggleUI()">🎒 <span class="hud-btn-label">KHO ĐỒ</span><span class="hud-key-hint"> [I]</span></button>
@@ -245,9 +251,9 @@
       </div>
 
       <div class="inventory-layout">
-        <!-- 5 Armor Slots Column -->
+        <!-- 5 Armor Slots + 1 Companion Pet Slot Column -->
         <div class="equip-column">
-          <div class="inv-section-title">5 Ô TRANG BỊ GIÁP</div>
+          <div class="inv-section-title">5 Ô GIÁP & 1 Ô THÚ CƯNG</div>
           <div class="equip-slots-container">
             <div class="equip-slot-row">
               <div id="armor-slot-helmet" class="equip-slot"></div>
@@ -269,6 +275,11 @@
               <div id="armor-slot-gloves" class="equip-slot"></div>
               <div class="equip-slot-title">Găng Tay Khai Khoáng</div>
             </div>
+            <!-- Strictly 1 Active Pet Companion Slot -->
+            <div class="equip-slot-row" style="margin-top: 4px; padding-top: 6px; border-top: 1px dashed #334155;">
+              <div id="armor-slot-pet" class="equip-slot" title="Ô Thú Cưng Đồng Hành (Chỉ được mang tối đa 1 Pet bên người)"></div>
+              <div id="equip-pet-slot-title" class="equip-slot-title" style="color: #fde047;">🐾 Thú Cưng (0/1)</div>
+            </div>
           </div>
 
           <!-- Character Stats Panel -->
@@ -286,7 +297,7 @@
           <div id="inventory-slot-title" class="inv-section-title">KHO ĐỒ 20 Ô (MAX STACK: 25)</div>
           <div id="inventory-grid"></div>
           <div id="inv-action-feedback" class="inv-action-feedback">
-            💡 Click trực tiếp vào vật phẩm trong Balo để Sử dụng, Trang bị, Đặt công trình hoặc Chế tạo!
+            💡 Click trực tiếp vào vật phẩm trong Balo để Sử dụng, Trang bị, Ấp Trứng trong Phòng Lab hoặc Đặt công trình!
           </div>
         </div>
       </div>
@@ -297,20 +308,34 @@
   <div id="help-modal" class="modal-backdrop">
     <div class="modal-window">
       <div class="modal-header">
-        <div class="modal-title">📖 HƯỚNG DẪN ĐIỀU KHIỂN, ZOOM MAP, NÂNG CẤP TƯỜNG & SÚNG</div>
+        <div class="modal-title">📖 HƯỚNG DẪN ĐIỀU KHIỂN, ẤP TRỨNG PET, ZOOM MAP & NÂNG CẤP</div>
         <button class="close-btn" onclick="toggleHelpModal()">✕</button>
       </div>
 
       <div class="guide-content">
         <div class="guide-section">
+          <div class="guide-heading">🐣 NHẶT TRỨNG QUÁI VẬT & ẤP THÚ CƯNG TẠI PHÒNG LAB (TỐI ĐA 1 PET)</div>
+          <p>• <strong>Cách nhặt Trứng Quái Vật:</strong> Lại gần <em>Ổ Trứng Ngoại Lai</em> trên bản đồ bấm <span class="guide-key">F</span> (hoặc đập vỡ ổ trứng / tiêu diệt Quái &amp; Boss ban đêm) để nhặt <strong>Trứng Quái Vật Đột Biến</strong>.</p>
+          <p>• <strong>Chỉ ấp được trong Phòng Lab Cách Ly:</strong> Mang trứng về <strong>Phòng Lab Cách Ly</strong> (giữa bản đồ), bấm <span class="guide-key">F</span> hoặc <span class="guide-key">P</span> mở tab <strong>🐣 ẤP TRỨNG &amp; PET</strong> (hoặc click trực tiếp vào Trứng trong Balo khi đang đứng trong Phòng Lab) để đưa trứng vào lồng ấp.</p>
+          <p>• <strong>Nở Ngẫu Nhiên 5 Loài Pet Đa Năng:</strong>
+            <br>1. <strong>🏹 Cung Thủ Gai</strong> (Bắn gai tầm xa liên thanh như cung, làm chậm quái).
+            <br>2. <strong>💚 Tinh Linh Sinh Học</strong> (Phục hồi HP liên tục +2.5 HP/s, bắn đạn hút máu &amp; tăng Max HP).
+            <br>3. <strong>🛡️ Bọ Giáp Kháng Độc</strong> (Kháng độc tố +35%, tự thanh lọc độc tố -1.8%/s, cộng giáp bảo vệ).
+            <br>4. <strong>❄️ Phượng Hoàng Băng</strong> (Bắn cầu băng làm đóng băng tốc chạy quái -50% &amp; tăng tốc chạy chủ nhân).
+            <br>5. <strong>⚡ Rồng Hạch Tâm Plasma</strong> (Huyền Thoại: Giật sét dây chuyền 3 mục tiêu + Hồi HP + Kháng độc).
+          </p>
+          <p>• <strong>Giới hạn 1 Pet đồng hành:</strong> Bạn <strong>chỉ được mang bên người tối đa 1 Pet (1/1)</strong>. Các Pet nở thêm sẽ được lưu trong <em>Chuồng Sinh Học Phòng Lab</em> để đổi sang bất cứ lúc nào!</p>
+        </div>
+
+        <div class="guide-section">
           <div class="guide-heading">🎮 PHÍM ĐIỀU KHIỂN & ZOOM BẢN ĐỒ (MOBILE & PC)</div>
           <p><span class="guide-key">🔍− / 🔍+</span> hoặc <strong>Chụm/Tách 2 ngón tay trên màn hình</strong>: <strong>Thu nhỏ / Phóng to góc nhìn Bản Đồ</strong> để nhìn rộng đường đi và tìm tài nguyên từ xa!</p>
           <p><span class="guide-key">🗺️ BẢN ĐỒ</span> hoặc bấm vào <strong>Minimap / Phím [N]</strong>: Mở <strong>Bản Đồ Chiến Thuật Toàn Cảnh</strong> hiển thị vị trí Quặng, Thảo dược, Cầu gỗ, Sông hồ và Ổ trứng.</p>
-          <p><span class="guide-key">W A S D</span> / Joystick ảo: Di chuyển nhân vật | <span class="guide-key">SPACE</span>: <strong>Lướt nhanh (Dash)</strong></p>
+          <p><span class="guide-key">W A S D</span> / Joystick ảo: Di chuyển nhân vật | <span class="guide-key">SPACE</span>: <strong>Lướt nhanh (Dash)</strong> | <span class="guide-key">P</span>: <strong>Mở Lồng Ấp Trứng &amp; Pet</strong></p>
           <p><span class="guide-key">Chuột Trái / Chạm</span>: Tấn công thường / Giữ xả đạn Súng Plasma / Thu hoạch quặng</p>
           <p><span class="guide-key">1, 2, 3, 4, G</span>: Đổi nhanh 5 loại vũ khí (Giáo, Gậy, Dao, Cung, <strong>Súng Trường Plasma [G]</strong>)</p>
           <p><span class="guide-key">9</span> hoặc <span class="guide-key">R</span>: <strong>Nâng cấp / Sửa chữa Tường & Súng Thủ Thành</strong> (Lv.1 ➔ Lv.2 ➔ Lv.3)</p>
-          <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 20 ô & 5 ô Trang bị</p>
+          <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 20 ô & 5 ô Trang bị + 1 ô Pet</p>
           <p><span class="guide-key">U</span>: <strong>Cứu Hộ Khẩn Cấp (Thoát Kẹt)</strong> | <span class="guide-key">M</span>: Bật / Tắt âm thanh</p>
         </div>
 
@@ -378,15 +403,16 @@
 
   <!-- BIO-LAB & FURNACE MODAL -->
   <div id="lab-modal" class="modal-backdrop">
-    <div class="modal-window" style="width: 760px;">
+    <div class="modal-window" style="width: 780px;">
       <div class="modal-header">
-        <div class="modal-title">🧬 TRUNG TÂM CHẾ TẠO, BÀO CHẾ & CÔNG TRÌNH THỦ THÀNH</div>
+        <div class="modal-title">🧬 TRUNG TÂM PHÒNG LAB, ẤP TRỨNG PET, BÀO CHẾ & THỦ THÀNH</div>
         <button class="close-btn" onclick="window.labSystem.close()">✕</button>
       </div>
 
       <!-- Navigation Tabs -->
       <div class="lab-tabs">
         <button class="lab-tab-btn active" data-tab="lab" onclick="window.labSystem.switchTab('lab')">🧬 BÀO CHẾ THUỐC</button>
+        <button class="lab-tab-btn" data-tab="incubator" onclick="window.labSystem.switchTab('incubator')" style="border-color:#a855f7; color:#f3e8ff;">🐣 ẤP TRỨNG & PET</button>
         <button class="lab-tab-btn" data-tab="furnace" onclick="window.labSystem.switchTab('furnace')">🔥 LÒ NUNG KHỬ TRÙNG</button>
         <button class="lab-tab-btn" data-tab="workbench" onclick="window.labSystem.switchTab('workbench')">🔨 BÀN CHẾ TẠO</button>
         <button class="lab-tab-btn" data-tab="workshop" onclick="window.labSystem.switchTab('workshop')">⚙ XƯỞNG THỦ THÀNH</button>
@@ -419,6 +445,11 @@
           🛡 <em>Vùng vô trùng cách ly:</em> Cây cấy nuôi trong lồng kính không bao giờ bị biến mất hay nhiễm bệnh qua đêm!
         </div>
         <div id="hydroponics-pods"></div>
+      </div>
+
+      <!-- Tab Content 6: Bio-Lab Monster Egg Incubator & Pet Sanctuary -->
+      <div id="tab-content-incubator" style="display: none;">
+        <div class="recipe-list" id="incubator-content"></div>
       </div>
     </div>
   </div>
@@ -480,7 +511,7 @@
       <!-- Aux Row: Switch Weapon, Interact, Toggle Quick Build Bar, Inventory, Unstuck -->
       <div class="touch-aux-row">
         <button id="btn-touch-switch" class="touch-aux-btn" title="Đổi vũ khí">🗡</button>
-        <button id="btn-touch-interact" class="touch-aux-btn" title="Tương tác trạm / Nước [F]">💬</button>
+        <button id="btn-touch-interact" class="touch-aux-btn" title="Tương tác trạm / Nhặt Trứng / Nước [F]">💬</button>
         <button id="btn-touch-build" class="touch-aux-btn" title="Mở danh mục Thủ thành">🧱</button>
         <button id="btn-touch-bag" class="touch-aux-btn" title="Mở Kho Đồ [I]">🎒</button>
         <button id="btn-touch-unstuck" class="touch-aux-btn" title="Thoát kẹt khẩn cấp [U]">🆘</button>
@@ -525,26 +556,27 @@
     }
   </script>
 
-  <!-- Import Scripts -->
-  <script src="/c:/Go/demo/js/constants.js?v=11"></script>
-  <script src="/c:/Go/demo/js/audio.js?v=11"></script>
-  <script src="/c:/Go/demo/js/pixelart.js?v=11"></script>
-  <script src="/c:/Go/demo/js/buildings.js?v=11"></script>
-  <script src="/c:/Go/demo/js/world.js?v=11"></script>
-  <script src="/c:/Go/demo/js/entities.js?v=11"></script>
-  <script src="/c:/Go/demo/js/weapons.js?v=11"></script>
-  <script src="/c:/Go/demo/js/inventory.js?v=11"></script>
-  <script src="/c:/Go/demo/js/lab.js?v=11"></script>
-  <script src="/c:/Go/demo/js/daynight.js?v=11"></script>
-  <script src="/c:/Go/demo/js/savegame.js?v=11"></script>
-  <script src="/c:/Go/demo/js/mobile.js?v=11"></script>
-  <script src="/c:/Go/demo/js/game.js?v=11"></script>
+  <!-- Import Scripts (Absolute Paths) -->
+  <script src="/c:/Go/demo/js/constants.js?v=12"></script>
+  <script src="/c:/Go/demo/js/audio.js?v=12"></script>
+  <script src="/c:/Go/demo/js/pixelart.js?v=12"></script>
+  <script src="/c:/Go/demo/js/buildings.js?v=12"></script>
+  <script src="/c:/Go/demo/js/world.js?v=12"></script>
+  <script src="/c:/Go/demo/js/entities.js?v=12"></script>
+  <script src="/c:/Go/demo/js/weapons.js?v=12"></script>
+  <script src="/c:/Go/demo/js/pets.js?v=12"></script>
+  <script src="/c:/Go/demo/js/inventory.js?v=12"></script>
+  <script src="/c:/Go/demo/js/lab.js?v=12"></script>
+  <script src="/c:/Go/demo/js/daynight.js?v=12"></script>
+  <script src="/c:/Go/demo/js/savegame.js?v=12"></script>
+  <script src="/c:/Go/demo/js/mobile.js?v=12"></script>
+  <script src="/c:/Go/demo/js/game.js?v=12"></script>
 
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=11')
+        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=12')
           .then((reg) => console.log('✅ PWA Service Worker Registered! Scope:', reg.scope))
           .catch((err) => console.warn('PWA Service Worker Warning:', err));
       });

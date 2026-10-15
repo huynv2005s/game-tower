@@ -17,6 +17,7 @@ class PixelArt {
     this.generatePhase2Sprites();
     this.generatePhase3Sprites();
     this.generatePhase5UpgradeSprites();
+    this.generatePetAndEggSprites();
   }
 
   createCanvas(width, height, smooth = true) {
@@ -3618,6 +3619,261 @@ class PixelArt {
       ctx.arc(32, 32, 30, 0, Math.PI * 2);
       ctx.fill();
       this.cache['fx_kamikaze_glow'] = canvas;
+    }
+  }
+
+  // ===========================================================================
+  // 8. PHASE 6: MONSTER EGG & 5 COMPANION PET SPRITES
+  // ===========================================================================
+  generatePetAndEggSprites() {
+    const S = 32;
+
+    // 1. Intact Monster Egg Icon (icon_monster_egg)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Soft bio-aura
+      const aura = ctx.createRadialGradient(16, 17, 2, 16, 17, 15);
+      aura.addColorStop(0, 'rgba(236, 72, 153, 0.45)');
+      aura.addColorStop(1, 'rgba(16, 185, 129, 0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(16, 17, 15, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Egg shell gradient
+      const eggG = ctx.createRadialGradient(13, 12, 2, 16, 17, 12);
+      eggG.addColorStop(0, '#fdf4ff');
+      eggG.addColorStop(0.35, '#f0abfc');
+      eggG.addColorStop(0.75, '#a21caf');
+      eggG.addColorStop(1, '#4a044e');
+      ctx.fillStyle = eggG;
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.ellipse(16, 17, 9.5, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Bioluminescent spots & veins
+      ctx.fillStyle = '#4ade80';
+      ctx.beginPath();
+      ctx.arc(13, 14, 2.2, 0, Math.PI * 2);
+      ctx.arc(19, 18, 2.0, 0, Math.PI * 2);
+      ctx.arc(15, 22, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(18, 12, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      this.cache['icon_monster_egg'] = canvas;
+    }
+
+    // 2. Pet 1: Xạ Thủ Gai Quang Học (pet_archer & icon_pet_archer) - Ranged Bow/Spine Shooter
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Crystalline Bow Wings
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
+      ctx.strokeStyle = '#b45309';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(16, 14); ctx.lineTo(3, 7); ctx.lineTo(6, 20); ctx.closePath();
+      ctx.moveTo(16, 14); ctx.lineTo(29, 7); ctx.lineTo(26, 20); ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Core Body
+      const bodyG = ctx.createRadialGradient(15, 15, 2, 16, 16, 9);
+      bodyG.addColorStop(0, '#fef08a');
+      bodyG.addColorStop(0.6, '#f59e0b');
+      bodyG.addColorStop(1, '#78350f');
+      ctx.fillStyle = bodyG;
+      ctx.beginPath();
+      ctx.arc(16, 16, 7.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Crossbow / Spine Crest on Head
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(16, 3); ctx.lineTo(19, 10); ctx.lineTo(13, 10); ctx.closePath();
+      ctx.fill();
+
+      // Fierce Eyes
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(12, 14, 2.5, 2.5);
+      ctx.fillRect(17.5, 14, 2.5, 2.5);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(12.5, 14.5, 1.2, 1.2);
+      ctx.fillRect(18, 14.5, 1.2, 1.2);
+
+      this.cache['pet_archer'] = canvas;
+      this.cache['icon_pet_archer'] = canvas;
+    }
+
+    // 3. Pet 2: Tinh Linh Sinh Dược (pet_healer & icon_pet_healer) - HP Regen Fairy
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Leaf / Fairy Wings
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.75)';
+      ctx.strokeStyle = '#15803d';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(8, 15, 6, 3.5, -0.4, 0, Math.PI * 2);
+      ctx.ellipse(24, 15, 6, 3.5, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Body
+      const g = ctx.createRadialGradient(15, 15, 2, 16, 16, 8);
+      g.addColorStop(0, '#dcfce7');
+      g.addColorStop(0.5, '#22c55e');
+      g.addColorStop(1, '#14532d');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(16, 16, 7.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Healing Cross Halo on top
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(14.5, 4, 3, 7);
+      ctx.fillRect(12.5, 6, 7, 3);
+
+      // Cute Eyes
+      ctx.fillStyle = '#064e3b';
+      ctx.beginPath();
+      ctx.arc(13.5, 16, 1.4, 0, Math.PI * 2);
+      ctx.arc(18.5, 16, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      this.cache['pet_healer'] = canvas;
+      this.cache['icon_pet_healer'] = canvas;
+    }
+
+    // 4. Pet 3: Bọ Giáp Lọc Độc Tinh Thể (pet_antitoxin & icon_pet_antitoxin) - Toxin Resist & Cleanse
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Crystal Shield Wings
+      ctx.fillStyle = 'rgba(192, 132, 252, 0.8)';
+      ctx.strokeStyle = '#6b21a8';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(16, 16, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Inner Carapace
+      const g = ctx.createRadialGradient(16, 16, 2, 16, 16, 7.5);
+      g.addColorStop(0, '#e0f2fe');
+      g.addColorStop(0.5, '#38bdf8');
+      g.addColorStop(1, '#4c1d95');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(16, 16, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Bio-Filter Antennae
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(13, 10); ctx.lineTo(10, 5);
+      ctx.moveTo(19, 10); ctx.lineTo(22, 5);
+      ctx.stroke();
+      ctx.fillStyle = '#4ade80';
+      ctx.beginPath();
+      ctx.arc(10, 5, 2, 0, Math.PI * 2);
+      ctx.arc(22, 5, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(12.5, 14, 2.2, 2.2);
+      ctx.fillRect(17.3, 14, 2.2, 2.2);
+
+      this.cache['pet_antitoxin'] = canvas;
+      this.cache['icon_pet_antitoxin'] = canvas;
+    }
+
+    // 5. Pet 4: Phượng Hoàng Băng Cực Hàn (pet_frost & icon_pet_frost) - Frost Slow/Freeze
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Ice Feather Wings
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.88)';
+      ctx.strokeStyle = '#0369a1';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(16, 15); ctx.lineTo(2, 9); ctx.lineTo(5, 19); ctx.lineTo(9, 22); ctx.closePath();
+      ctx.moveTo(16, 15); ctx.lineTo(30, 9); ctx.lineTo(27, 19); ctx.lineTo(23, 22); ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Frost Body
+      const g = ctx.createRadialGradient(16, 15, 1, 16, 16, 8);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.55, '#7dd3fc');
+      g.addColorStop(1, '#0284c7');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(16, 16, 6.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Crown & Beak
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.moveTo(14, 16); ctx.lineTo(18, 16); ctx.lineTo(16, 20); ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#e0f2fe';
+      ctx.beginPath();
+      ctx.moveTo(16, 4); ctx.lineTo(18, 9); ctx.lineTo(14, 9); ctx.closePath();
+      ctx.fill();
+
+      this.cache['pet_frost'] = canvas;
+      this.cache['icon_pet_frost'] = canvas;
+    }
+
+    // 6. Pet 5: Rồng Con Điện Từ Plasma (pet_plasma & icon_pet_plasma) - All-Rounder Plasma Dragon
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Dragon Plasma Wings
+      ctx.fillStyle = 'rgba(250, 204, 21, 0.88)';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(16, 15); ctx.lineTo(2, 6); ctx.lineTo(4, 18); ctx.lineTo(10, 21); ctx.closePath();
+      ctx.moveTo(16, 15); ctx.lineTo(30, 6); ctx.lineTo(28, 18); ctx.lineTo(22, 21); ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Dragon Head & Core
+      const g = ctx.createRadialGradient(16, 15, 2, 16, 16, 8.5);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.4, '#38bdf8');
+      g.addColorStop(0.8, '#1d4ed8');
+      g.addColorStop(1, '#1e1b4b');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(16, 16, 7.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Golden Horns
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.moveTo(11, 10); ctx.lineTo(8, 3); ctx.lineTo(14, 8); ctx.closePath();
+      ctx.moveTo(21, 10); ctx.lineTo(24, 3); ctx.lineTo(18, 8); ctx.closePath();
+      ctx.fill();
+
+      // Glowing Eyes
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(12, 14, 2.5, 2);
+      ctx.fillRect(17.5, 14, 2.5, 2);
+
+      this.cache['pet_plasma'] = canvas;
+      this.cache['icon_pet_plasma'] = canvas;
     }
   }
 
