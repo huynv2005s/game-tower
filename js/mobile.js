@@ -392,18 +392,21 @@ class MobileController {
   getSmartAimTarget() {
     if (!this.game || !this.game.player) return { x: 0, y: 0 };
     const p = this.game.player;
-    const w = (CONSTANTS.WEAPONS && p.activeWeapon) ? CONSTANTS.WEAPONS[p.activeWeapon] : null;
+    const w = (this.game.weapons && p.activeWeapon)
+      ? this.game.weapons.getWeaponStats(p.activeWeapon)
+      : ((CONSTANTS.WEAPONS && p.activeWeapon) ? CONSTANTS.WEAPONS[p.activeWeapon] : null);
     const weaponRange = w ? w.range : 68;
+    const searchRange = Math.max(220, weaponRange + 20);
 
-    // 1. Prioritize closest hostile monster in 220px range (or dummy in 110px range)
+    // 1. Prioritize closest hostile monster in range (or dummy in range)
     let closestMonster = null;
-    let minDist = 220;
+    let minDist = searchRange;
 
     if (this.game.monsters) {
       for (let m of this.game.monsters) {
         if (m.isDead) continue;
         const d = Math.hypot(m.x - p.x, m.y - p.y);
-        const maxAcquireDist = (m.species === 'dummy') ? Math.max(95, weaponRange + 25) : 220;
+        const maxAcquireDist = (m.species === 'dummy') ? Math.max(95, weaponRange + 25) : searchRange;
         if (d <= maxAcquireDist && d < minDist) {
           minDist = d;
           closestMonster = m;
@@ -420,7 +423,7 @@ class MobileController {
 
     // 2. Check closest harvestable resource (Ore, Herb, Alien Egg, Tech Debris) or Berry Bush near player
     let closestResource = null;
-    let minResDist = Math.max(75, weaponRange + 22);
+    let minResDist = Math.max(75, Math.min(weaponRange + 22, 160));
 
     if (this.game.world) {
       if (this.game.world.harvestables) {
@@ -459,7 +462,7 @@ class MobileController {
     this.lastAimAngle = angle;
     p.aimAngle = angle;
 
-    const aimDist = Math.min(weaponRange, 60);
+    const aimDist = Math.min(weaponRange, 90);
     return {
       x: p.x + Math.cos(angle) * aimDist,
       y: p.y + Math.sin(angle) * aimDist
@@ -469,7 +472,7 @@ class MobileController {
   handleAttack() {
     if (!this.game || !this.game.player || !this.game.weapons) return;
 
-    // If in Build Mode, pressing Attack places the structure in front of the player!
+    // If in Build Mode, pressing Attack places or upgrades the structure in front of the player!
     if (this.game.buildingManager && this.game.buildingManager.buildMode) {
       const p = this.game.player;
       const buildX = p.x + Math.cos(p.aimAngle) * 40;
@@ -512,12 +515,12 @@ class MobileController {
 
   handleSwitchWeapon() {
     if (!this.game || !this.game.weapons) return;
-    const weapons = ['SPEAR', 'STAFF', 'DAGGER', 'BOW'];
+    const weapons = ['SPEAR', 'STAFF', 'DAGGER', 'BOW', 'GUN'];
     const currentIdx = weapons.indexOf(this.game.player.activeWeapon);
     const nextIdx = (currentIdx + 1) % weapons.length;
     this.game.weapons.switchWeapon(weapons[nextIdx]);
 
-    const emojis = { SPEAR: '🗡', STAFF: '🪄', DAGGER: '🔪', BOW: '🏹' };
+    const emojis = { SPEAR: '🗡', STAFF: '🪄', DAGGER: '🔪', BOW: '🏹', GUN: '🔫' };
     const switchBtn = document.getElementById('btn-touch-switch');
     if (switchBtn) {
       switchBtn.innerText = emojis[weapons[nextIdx]] || '🗡';
@@ -549,6 +552,17 @@ class MobileController {
       window.audioManager.playEquip();
       this.game.floatingTexts.push(new FloatingText(p.x, p.y - 20, '+1 NƯỚC AO SÔNG Ô NHIỄM', '#65a30d', 12, 1.0));
       return;
+    }
+    // Check if near a placed defense structure to quick upgrade!
+    if (this.game.buildingManager) {
+      const pCol = Math.floor(p.x / CONSTANTS.TILE_SIZE);
+      const pRow = Math.floor(p.y / CONSTANTS.TILE_SIZE);
+      for (let d of this.game.buildingManager.defenses) {
+        if (Math.hypot(d.col - pCol, d.row - pRow) <= 2.2) {
+          this.game.buildingManager.upgradeStructure(d);
+          return;
+        }
+      }
     }
     // If not near structure or water, open Bio-Lab/Crafting menu as convenient mobile shortcut
     if (this.game.lab) {
@@ -592,6 +606,8 @@ class MobileController {
       this.handleAttack();
     }
 
+    if (!this.forceShowControls) return;
+
     // Update build preview tile in front of player when in touch mode
     if (this.isUsingTouchAim && this.game.buildingManager && this.game.buildingManager.buildMode) {
       const previewX = p.x + Math.cos(p.aimAngle) * 40;
@@ -599,61 +615,68 @@ class MobileController {
       this.game.buildingManager.updateHoverTile(previewX, previewY);
     }
 
+    if (!this._uiCache) {
+      this._uiCache = {
+        dashBadge: document.getElementById('touch-dash-cd'),
+        s1Badge: document.getElementById('touch-s1-cd'),
+        s1Label: document.getElementById('touch-s1-name'),
+        s2Badge: document.getElementById('touch-s2-cd'),
+        s2Label: document.getElementById('touch-s2-name'),
+        interactBtn: document.getElementById('btn-touch-interact'),
+        dashText: '',
+        s1Text: '',
+        s2Text: '',
+        activeW: '',
+        canInteract: false
+      };
+    }
+    const c = this._uiCache;
+
     // Dash cooldown
-    const dashBadge = document.getElementById('touch-dash-cd');
-    if (dashBadge) {
-      if (p.dashTimer > 0) {
-        dashBadge.style.display = 'flex';
-        dashBadge.innerText = p.dashTimer.toFixed(1) + 's';
-      } else {
-        dashBadge.style.display = 'none';
+    if (c.dashBadge) {
+      const txt = p.dashTimer > 0 ? p.dashTimer.toFixed(1) + 's' : '';
+      if (txt !== c.dashText) {
+        c.dashText = txt;
+        c.dashBadge.style.display = txt ? 'flex' : 'none';
+        if (txt) c.dashBadge.innerText = txt;
       }
     }
 
     // Skill 1 cooldown & label
-    const s1Badge = document.getElementById('touch-s1-cd');
-    const s1Label = document.getElementById('touch-s1-name');
-    if (s1Badge) {
-      if (p.skill1CooldownTimer > 0) {
-        s1Badge.style.display = 'flex';
-        s1Badge.innerText = p.skill1CooldownTimer.toFixed(1) + 's';
-      } else {
-        s1Badge.style.display = 'none';
+    if (c.s1Badge) {
+      const txt = p.skill1CooldownTimer > 0 ? p.skill1CooldownTimer.toFixed(1) + 's' : '';
+      if (txt !== c.s1Text) {
+        c.s1Text = txt;
+        c.s1Badge.style.display = txt ? 'flex' : 'none';
+        if (txt) c.s1Badge.innerText = txt;
       }
-    }
-    const w = (CONSTANTS.WEAPONS && p.activeWeapon) ? CONSTANTS.WEAPONS[p.activeWeapon] : null;
-    if (s1Label && w && w.skill1 && w.skill1.name) {
-      s1Label.innerText = w.skill1.name.split(' ')[0];
-    } else if (s1Label) {
-      s1Label.innerText = 'Q';
     }
 
     // Skill 2 cooldown & label
-    const s2Badge = document.getElementById('touch-s2-cd');
-    const s2Label = document.getElementById('touch-s2-name');
-    if (s2Badge) {
-      if (p.skill2CooldownTimer > 0) {
-        s2Badge.style.display = 'flex';
-        s2Badge.innerText = p.skill2CooldownTimer.toFixed(1) + 's';
-      } else {
-        s2Badge.style.display = 'none';
+    if (c.s2Badge) {
+      const txt = p.skill2CooldownTimer > 0 ? p.skill2CooldownTimer.toFixed(1) + 's' : '';
+      if (txt !== c.s2Text) {
+        c.s2Text = txt;
+        c.s2Badge.style.display = txt ? 'flex' : 'none';
+        if (txt) c.s2Badge.innerText = txt;
       }
     }
-    if (s2Label && w && w.skill2 && w.skill2.name) {
-      s2Label.innerText = w.skill2.name.split(' ')[0];
-    } else if (s2Label) {
-      s2Label.innerText = 'E';
+
+    if (p.activeWeapon !== c.activeW) {
+      c.activeW = p.activeWeapon;
+      const w = (CONSTANTS.WEAPONS && p.activeWeapon) ? CONSTANTS.WEAPONS[p.activeWeapon] : null;
+      if (c.s1Label) c.s1Label.innerText = (w && w.skill1 && w.skill1.name) ? w.skill1.name.split(' ')[0] : 'Q';
+      if (c.s2Label) c.s2Label.innerText = (w && w.skill2 && w.skill2.name) ? w.skill2.name.split(' ')[0] : 'E';
     }
 
     // Dynamic Interact button visibility
-    const interactBtn = document.getElementById('btn-touch-interact');
-    if (interactBtn) {
+    if (c.interactBtn) {
       const isNearStructure = !!this.game.world.getStructureNear(p.x, p.y, 95);
       const isNearWater = this.game.world.isNearWater(p.x, p.y, 55);
-      if (isNearStructure || isNearWater) {
-        interactBtn.classList.add('available');
-      } else {
-        interactBtn.classList.remove('available');
+      const canInt = isNearStructure || isNearWater;
+      if (canInt !== c.canInteract) {
+        c.canInteract = canInt;
+        c.interactBtn.classList.toggle('available', canInt);
       }
     }
   }

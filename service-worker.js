@@ -1,5 +1,5 @@
 // Alien Apocalypse - PWA Service Worker for Offline Play & Standalone App
-const CACHE_NAME = 'alien-apocalypse-v9';
+const CACHE_NAME = 'alien-apocalypse-v10';
 
 const ASSETS_TO_CACHE = [
   '/',

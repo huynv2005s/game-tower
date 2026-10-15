@@ -1,11 +1,11 @@
-// Inventory & Equipment Management System
-// 16 Inventory Slots (Max Stack = 20, expandable up to 24) + 5 Armor Slots
+// Inventory & Equipment Management System (Optimized with Cached DataURLs & Lazy DOM Rendering)
+// 20 Inventory Slots (Max Stack = 25, expandable up to 28) + 5 Armor Slots
 
 class InventorySystem {
   constructor(game) {
     this.game = game;
-    this.slotCount = CONSTANTS.INVENTORY_SLOTS || 16; // 16 (4x4 grid)
-    this.maxStack = CONSTANTS.MAX_STACK_SIZE || 20;   // 20
+    this.slotCount = CONSTANTS.INVENTORY_SLOTS || 20;
+    this.maxStack = CONSTANTS.MAX_STACK_SIZE || 25;
 
     // Inventory slots
     this.slots = new Array(this.slotCount).fill(null);
@@ -20,8 +20,9 @@ class InventorySystem {
     };
 
     this.isOpen = false;
+    this.uiDirty = true;
     this.selectedSlotIndex = null;
-    this.lastFeedbackText = '💡 Click trực tiếp vào vật phẩm trong Balo để Sử dụng, Trang bị, Đặt công trình hoặc Chế tạo!';
+    this.lastFeedbackText = '💡 Click trực tiếp vào vật phẩm trong Balo để Sử dụng, Trang bị, Đặt công trình hoặc Nâng cấp!';
     this.lastFeedbackColor = '#38bdf8';
     this.initDefaultItems();
   }
@@ -34,13 +35,17 @@ class InventorySystem {
     this.armorSlots.boots = { id: 'boots_scout', count: 1 };
     this.armorSlots.gloves = { id: 'gloves_miner', count: 1 };
 
-    // Initial Survival Supplies, Consumables, Defenses & Crafting Resources (14/16 slots used, 2 empty slots)
+    // Initial Survival Supplies, Defenses & Upgrade Materials
     this.addItem('pure_water', 3);
     this.addItem('antidote_lesser', 2);
-    this.addItem('defense_wall', 4);
+    this.addItem('defense_wall', 6);
     this.addItem('defense_trap', 3);
-    this.addItem('defense_turret', 1);
+    this.addItem('defense_turret', 2);
     this.addItem('defense_mortar', 1);
+    this.addItem('titanium_alloy', 6);
+    this.addItem('plasma_core', 3);
+    this.addItem('alien_chitin', 6);
+    this.addItem('iron_ore', 6);
     this.addItem('snow_lotus', 6);
     this.addItem('silver_moss', 6);
     this.addItem('egg_fluid', 3);
@@ -48,7 +53,7 @@ class InventorySystem {
     this.addItem('stone', 15);
     this.addItem('tech_scrap', 8);
     this.addItem('sulfur_dust', 8);
-    this.addItem('quartz_crystal', 4);
+    this.addItem('quartz_crystal', 5);
   }
 
   getItemCount(itemId) {
@@ -66,7 +71,7 @@ class InventorySystem {
     this.lastFeedbackColor = color;
     const feedbackEl = document.getElementById('inv-action-feedback');
     if (feedbackEl) {
-      feedbackEl.innerText = message;
+      feedbackEl.textContent = message;
       feedbackEl.style.color = color;
       feedbackEl.style.borderColor = color;
       feedbackEl.classList.remove('inv-feedback-pop');
@@ -78,14 +83,13 @@ class InventorySystem {
     }
   }
 
-  // Ensure slots array matches slotCount
   normalizeSlots() {
     while (this.slots.length < this.slotCount) {
       this.slots.push(null);
     }
   }
 
-  // Add item with stack logic (max 20)
+  // Add item with stack logic (max 25)
   addItem(itemId, count = 1) {
     const itemDef = CONSTANTS.ITEM_TYPES[itemId];
     if (!itemDef) return false;
@@ -112,8 +116,7 @@ class InventorySystem {
     while (remaining > 0) {
       let emptyIdx = this.slots.findIndex(s => s === null);
       if (emptyIdx === -1) {
-        // Auto-expand up to 24 slots if full so player never loses crafted/harvested items
-        if (this.slotCount < 24) {
+        if (this.slotCount < 28) {
           this.slotCount += 4;
           this.normalizeSlots();
           emptyIdx = this.slots.findIndex(s => s === null);
@@ -135,7 +138,10 @@ class InventorySystem {
       remaining -= addAmount;
     }
 
-    this.renderUI();
+    this.uiDirty = true;
+    if (this.isOpen) {
+      this.renderUI();
+    }
     return true;
   }
 
@@ -145,23 +151,22 @@ class InventorySystem {
     if (this.slots[slotIndex].count <= 0) {
       this.slots[slotIndex] = null;
     }
-    this.renderUI();
-    if (this.game && this.game.updateHUD) {
-      this.game.updateHUD();
+    this.uiDirty = true;
+    if (this.isOpen) {
+      this.renderUI();
     }
     return true;
   }
 
-  // Expand Inventory Slots via Backpack Upgrade (up to 24 slots)
   expandCapacity(extraSlots = 4) {
-    if (this.slotCount >= 24) {
-      this.showFeedback('🎒 Balo đã đạt sức chứa tối đa (24 ô)!', '#facc15');
+    if (this.slotCount >= 28) {
+      this.showFeedback('🎒 Balo đã đạt sức chứa tối đa (28 ô)!', '#facc15');
       if (this.game && this.game.floatingTexts && this.game.player) {
-        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, 'BALO ĐÃ ĐẠT SỨC CHỨA TỐI ĐA (24 Ô)!', '#ef4444', 12, 1.2));
+        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, 'BALO ĐÃ ĐẠT SỨC CHỨA TỐI ĐA (28 Ô)!', '#ef4444', 12, 1.2));
       }
       return false;
     }
-    this.slotCount = Math.min(24, this.slotCount + extraSlots);
+    this.slotCount = Math.min(28, this.slotCount + extraSlots);
     this.normalizeSlots();
     if (window.audioManager) window.audioManager.playEquip();
     const msg = `🎒 NÂNG CẤP BALO: ĐÃ MỞ RỘNG THÀNH ${this.slotCount} Ô CHỨA!`;
@@ -173,17 +178,15 @@ class InventorySystem {
     return true;
   }
 
-  // Equip armor from inventory slot
   equipArmorFromSlot(slotIndex) {
     const itemData = this.slots[slotIndex];
     if (!itemData) return;
     const itemDef = CONSTANTS.ITEM_TYPES[itemData.id];
     if (!itemDef || itemDef.category !== 'armor') return;
 
-    const targetSlot = itemDef.slot; // 'helmet', 'chestplate', etc.
+    const targetSlot = itemDef.slot;
     const currentEquipped = this.armorSlots[targetSlot];
 
-    // Swap
     this.armorSlots[targetSlot] = itemData;
     this.slots[slotIndex] = currentEquipped;
 
@@ -191,10 +194,9 @@ class InventorySystem {
     this.updatePlayerStats();
     this.showFeedback(`🛡 ĐÃ TRANG BỊ: ${itemDef.name}!`, '#22c55e');
     this.renderUI();
-    if (this.game && this.game.updateHUD) this.game.updateHUD();
+    if (this.game && this.game.updateHUD) this.game.updateHUD(true);
   }
 
-  // Unequip armor back to inventory
   unequipArmor(slotKey) {
     const equipped = this.armorSlots[slotKey];
     if (!equipped) return;
@@ -202,7 +204,7 @@ class InventorySystem {
 
     this.normalizeSlots();
     let emptyIdx = this.slots.findIndex(s => s === null);
-    if (emptyIdx === -1 && this.slotCount < 24) {
+    if (emptyIdx === -1 && this.slotCount < 28) {
       this.slotCount += 4;
       this.normalizeSlots();
       emptyIdx = this.slots.findIndex(s => s === null);
@@ -210,9 +212,6 @@ class InventorySystem {
 
     if (emptyIdx === -1) {
       this.showFeedback('⚠️ Không đủ ô trống trong Balo để tháo giáp!', '#ef4444');
-      if (this.game && this.game.floatingTexts && this.game.player) {
-        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, 'KHÔNG ĐỦ CHỖ TRỐNG!', '#ef4444', 12, 1.0));
-      }
       return;
     }
 
@@ -223,10 +222,9 @@ class InventorySystem {
     this.updatePlayerStats();
     this.showFeedback(`🎒 ĐÃ THÁO TRANG BỊ: ${itemDef ? itemDef.name : slotKey} cất vào Balo!`, '#38bdf8');
     this.renderUI();
-    if (this.game && this.game.updateHUD) this.game.updateHUD();
+    if (this.game && this.game.updateHUD) this.game.updateHUD(true);
   }
 
-  // Calculate and apply all armor bonuses to Player
   updatePlayerStats() {
     if (!this.game || !this.game.player) return;
     const p = this.game.player;
@@ -272,7 +270,6 @@ class InventorySystem {
     }
   }
 
-  // Get short action label for each item slot
   getSlotActionLabel(itemId, def) {
     if (!def) return 'DÙNG';
     if (def.category === 'armor') return 'MẶC';
@@ -281,12 +278,12 @@ class InventorySystem {
     if (def.category === 'seed') return 'CẤY';
     if (def.category === 'upgrade') return 'NÂNG';
     if (def.category === 'consumable') return 'DÙNG';
+    if (itemId === 'titanium_alloy' || itemId === 'plasma_core') return 'NÂNG';
     if (itemId === 'snow_lotus' || itemId === 'silver_moss' || itemId === 'egg_fluid') return 'DÙNG';
     if (itemId === 'blighted_herb') return 'HỦY';
     return 'CHẾ';
   }
 
-  // Primary handler to use/equip/activate any item from an inventory slot
   useSlotItem(slotIndex) {
     this.normalizeSlots();
     const item = this.slots[slotIndex];
@@ -310,7 +307,7 @@ class InventorySystem {
       this.game.weapons.switchWeapon(def.weaponKey);
       this.showFeedback(`🗡 ĐÃ TRANG BỊ VŨ KHÍ: ${def.name}!`, '#38bdf8');
       this.renderUI();
-      if (this.game.updateHUD) this.game.updateHUD();
+      if (this.game.updateHUD) this.game.updateHUD(true);
       return;
     }
 
@@ -329,7 +326,7 @@ class InventorySystem {
     if (itemId === 'antidote_pure') {
       p.infection = Math.max(0, p.infection - 60);
       p.hp = Math.min(p.maxHp, p.hp + 25);
-      p.immunityTimer = CONSTANTS.DAY_DURATION_SEC; // 120s = 1 full day
+      p.immunityTimer = CONSTANTS.DAY_DURATION_SEC;
       if (window.audioManager) window.audioManager.playEquip();
       const msg = '★ ĐÃ DÙNG KHÁNG THỂ TINH KHIẾT: -60% ĐỘC, +25 HP & MIỄN NHIỄM 1 NGÀY! ★';
       this.game.floatingTexts.push(new FloatingText(p.x, p.y - 30, msg, '#38bdf8', 13, 2.0));
@@ -379,7 +376,6 @@ class InventorySystem {
       return;
     }
 
-    // Raw Medicinal Herbs & Bio-Resources usable directly from Balo
     if (itemId === 'snow_lotus') {
       p.hp = Math.min(p.maxHp, p.hp + 12);
       p.infection = Math.max(0, p.infection - 12);
@@ -445,21 +441,24 @@ class InventorySystem {
       if (this.game && this.game.buildingManager) {
         this.toggleUI();
         this.game.buildingManager.enterBuildMode(def.structType);
-        this.showFeedback(`🏗 CHẾ ĐỘ XÂY [${def.name.toUpperCase()}]: Click lên mặt đất để đặt!`, '#facc15');
+        this.showFeedback(`🏗 CHẾ ĐỘ XÂY [${def.name.toUpperCase()}]: Click ô trống để đặt hoặc click công trình đã có để NÂNG CẤP!`, '#facc15');
       }
       return;
     }
 
-    // 7. Crafting & Building Materials -> Open corresponding Crafting Station Tab
+    // 7. Upgrade & Crafting Materials -> Open corresponding Station Tab
     if (def.category === 'resource') {
       if (window.labSystem) {
         this.toggleUI();
-        if (itemId === 'wood' || itemId === 'stone') {
+        if (itemId === 'iron_ore') {
+          window.labSystem.open('furnace');
+          this.showFeedback(`🔥 ĐÃ MỞ LÒ NUNG ĐỂ LUYỆN HỢP KIM TITAN TỪ ${def.name.toUpperCase()}!`, '#f97316');
+        } else if (itemId === 'titanium_alloy' || itemId === 'plasma_core' || itemId === 'tech_scrap') {
+          window.labSystem.open('workshop');
+          this.showFeedback(`⚙ ĐÃ MỞ XƯỞNG THỦ THÀNH & SÚNG ĐỂ NÂNG CẤP BẰNG ${def.name.toUpperCase()}!`, '#38bdf8');
+        } else if (itemId === 'wood' || itemId === 'stone' || itemId === 'alien_chitin') {
           window.labSystem.open('workbench');
           this.showFeedback(`🔨 ĐÃ MỞ BÀN CHẾ TẠO ĐỂ SỬ DỤNG ${def.name.toUpperCase()}!`, '#38bdf8');
-        } else if (itemId === 'tech_scrap') {
-          window.labSystem.open('workshop');
-          this.showFeedback(`⚙ ĐÃ MỞ XƯỞNG THỦ THÀNH ĐỂ LẮP RÁP BẰNG ${def.name.toUpperCase()}!`, '#38bdf8');
         } else {
           window.labSystem.open('lab');
           this.showFeedback(`🧬 ĐÃ MỞ PHÒNG LAB ĐỂ BÀO CHẾ BẰNG ${def.name.toUpperCase()}!`, '#22c55e');
@@ -477,16 +476,17 @@ class InventorySystem {
     const titleEl = document.getElementById('inventory-slot-title');
     if (titleEl) {
       const usedSlots = this.slots.filter(s => s !== null).length;
-      titleEl.innerText = `KHO ĐỒ ${this.slotCount} Ô (ĐANG DÙNG: ${usedSlots}/${this.slotCount} | MAX STACK: ${this.maxStack})`;
+      titleEl.textContent = `KHO ĐỒ ${this.slotCount} Ô (ĐANG DÙNG: ${usedSlots}/${this.slotCount} | MAX STACK: ${this.maxStack})`;
     }
 
     const feedbackEl = document.getElementById('inv-action-feedback');
     if (feedbackEl && this.lastFeedbackText) {
-      feedbackEl.innerText = this.lastFeedbackText;
+      feedbackEl.textContent = this.lastFeedbackText;
       feedbackEl.style.color = this.lastFeedbackColor || '#38bdf8';
     }
 
-    // Render all inventory slots
+    const frag = document.createDocumentFragment();
+
     for (let i = 0; i < this.slotCount; i++) {
       const slotEl = document.createElement('div');
       slotEl.className = 'inv-slot';
@@ -497,30 +497,28 @@ class InventorySystem {
         const def = CONSTANTS.ITEM_TYPES[item.id];
         if (def) {
           slotEl.classList.add('occupied');
-          const iconCanvas = window.pixelArt.get(`icon_${def.icon}`);
+          const iconUrl = window.pixelArt.getDataURL(`icon_${def.icon}`);
 
-          if (iconCanvas) {
+          if (iconUrl) {
             const img = document.createElement('img');
-            img.src = iconCanvas.toDataURL();
+            img.src = iconUrl;
             img.className = 'slot-icon';
             img.draggable = false;
             slotEl.appendChild(img);
           }
 
-          // Action Tag (DÙNG, XÂY, CHẾ, MẶC...)
           const actionTag = document.createElement('span');
           actionTag.className = `slot-action-tag tag-${def.category}`;
-          actionTag.innerText = this.getSlotActionLabel(item.id, def);
+          actionTag.textContent = this.getSlotActionLabel(item.id, def);
           slotEl.appendChild(actionTag);
 
           if (item.count > 1) {
             const badge = document.createElement('span');
             badge.className = 'slot-badge';
-            badge.innerText = item.count;
+            badge.textContent = item.count;
             slotEl.appendChild(badge);
           }
 
-          // Tooltip
           slotEl.title = `${def.name} (x${item.count})\n${def.desc}\n👉 Click để ${this.getSlotActionLabel(item.id, def)} ngay!`;
 
           slotEl.addEventListener('click', (e) => {
@@ -531,8 +529,10 @@ class InventorySystem {
         }
       }
 
-      grid.appendChild(slotEl);
+      frag.appendChild(slotEl);
     }
+
+    grid.appendChild(frag);
 
     // Render 5 Armor Slots
     const armorNames = {
@@ -551,10 +551,10 @@ class InventorySystem {
       const item = this.armorSlots[slotKey];
       if (item) {
         const def = CONSTANTS.ITEM_TYPES[item.id];
-        const iconCanvas = window.pixelArt.get(`icon_${def.icon}`);
-        if (iconCanvas) {
+        const iconUrl = window.pixelArt.getDataURL(`icon_${def.icon}`);
+        if (iconUrl) {
           const img = document.createElement('img');
-          img.src = iconCanvas.toDataURL();
+          img.src = iconUrl;
           img.className = 'slot-icon';
           img.draggable = false;
           el.appendChild(img);
@@ -572,8 +572,8 @@ class InventorySystem {
       }
     }
 
-    // Update Player Stats Panel in Inventory Modal
     this.updateStatsDisplay();
+    this.uiDirty = false;
   }
 
   updateStatsDisplay() {
@@ -586,11 +586,11 @@ class InventorySystem {
     const toxinEl = document.getElementById('stat-display-toxin');
     const speedEl = document.getElementById('stat-display-speed');
 
-    if (hpEl) hpEl.innerText = `${Math.round(p.hp)} / ${p.maxHp}`;
-    if (infEl) infEl.innerText = `${Math.round(p.infection)}%`;
-    if (armorEl) armorEl.innerText = `${p.armor}`;
-    if (toxinEl) toxinEl.innerText = `${p.toxinResist}%`;
-    if (speedEl) speedEl.innerText = `${Math.round(p.getEffectiveSpeed())} px/s`;
+    if (hpEl) hpEl.textContent = `${Math.round(p.hp)} / ${p.maxHp}`;
+    if (infEl) infEl.textContent = `${Math.round(p.infection)}%`;
+    if (armorEl) armorEl.textContent = `${p.armor}`;
+    if (toxinEl) toxinEl.textContent = `${p.toxinResist}%`;
+    if (speedEl) speedEl.textContent = `${Math.round(p.getEffectiveSpeed())} px/s`;
   }
 }
 

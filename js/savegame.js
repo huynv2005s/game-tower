@@ -1,5 +1,5 @@
 // Save & Load Game State Manager
-// Supports LocalStorage persistence, auto-save during Day/Night transitions, and state recovery
+// Supports LocalStorage persistence, auto-save during Day/Night transitions, and state recovery (including Wall/Gun/Weapon Upgrades)
 
 class SaveManager {
   constructor(game) {
@@ -22,7 +22,7 @@ class SaveManager {
       if (!this.game || !this.game.player || !this.game.dayNight) return false;
 
       const saveData = {
-        version: 2,
+        version: 3,
         saveTime: Date.now(),
         dayNight: {
           dayCount: this.game.dayNight.dayCount,
@@ -39,8 +39,11 @@ class SaveManager {
           immunityTimer: Math.round(this.game.player.immunityTimer),
           activeWeapon: this.game.player.activeWeapon || 'SPEAR'
         },
+        weaponLevels: (this.game.weapons && this.game.weapons.weaponLevels)
+          ? { ...this.game.weapons.weaponLevels }
+          : { SPEAR: 1, STAFF: 1, DAGGER: 1, BOW: 1, GUN: 1 },
         inventory: {
-          slotCount: this.game.inventory ? this.game.inventory.slotCount : 16,
+          slotCount: this.game.inventory ? this.game.inventory.slotCount : 20,
           slots: this.game.inventory ? this.game.inventory.slots.map(s => s ? { id: s.id, count: s.count } : null) : [],
           armorSlots: this.game.inventory ? JSON.parse(JSON.stringify(this.game.inventory.armorSlots)) : {}
         },
@@ -48,6 +51,7 @@ class SaveManager {
           this.game.buildingManager.defenses.map(d => ({
             id: d.id,
             type: d.type,
+            level: d.level || 1,
             name: d.name,
             col: d.col,
             row: d.row,
@@ -56,11 +60,11 @@ class SaveManager {
             hp: Math.round(d.hp),
             maxHp: d.maxHp,
             blocksMovement: d.blocksMovement,
-            usesLeft: d.usesLeft || 12
+            usesLeft: d.usesLeft || 12,
+            maxUses: d.maxUses || 12
           })) : [],
         harvestables: (this.game.world && this.game.world.harvestables) ?
           this.game.world.harvestables.map(h => ({
-            id: h.id,
             col: h.col,
             row: h.row,
             type: h.type,
@@ -73,7 +77,6 @@ class SaveManager {
 
       localStorage.setItem(this.storageKey, JSON.stringify(saveData));
 
-      // Visual & Audio notification
       const label = isAuto
         ? `💾 TỰ ĐỘNG LƯU: ${this.game.dayNight.isNight ? 'BẮT ĐẦU ĐÊM' : 'BÌNH MINH'} (NGÀY ${this.game.dayNight.dayCount})`
         : `💾 ĐÃ LƯU TIẾN TRÌNH VÀO BỘ NHỚ!`;
@@ -109,7 +112,15 @@ class SaveManager {
         this.game.dayNight.lastStateWasNight = this.game.dayNight.isNight;
       }
 
-      // 2. Restore Player
+      // 2. Restore Weapon Upgrade Levels
+      if (data.weaponLevels && this.game.weapons) {
+        this.game.weapons.weaponLevels = {
+          SPEAR: 1, STAFF: 1, DAGGER: 1, BOW: 1, GUN: 1,
+          ...data.weaponLevels
+        };
+      }
+
+      // 3. Restore Player
       if (data.player && this.game.player) {
         this.game.player.x = data.player.x || this.game.player.x;
         this.game.player.y = data.player.y || this.game.player.y;
@@ -124,22 +135,28 @@ class SaveManager {
         }
       }
 
-      // 3. Restore Inventory & Armor
+      // 4. Restore Inventory & Armor
       if (data.inventory && this.game.inventory) {
-        const minSlots = CONSTANTS.INVENTORY_SLOTS || 16;
+        const minSlots = CONSTANTS.INVENTORY_SLOTS || 20;
         this.game.inventory.slotCount = Math.max(minSlots, data.inventory.slotCount || minSlots);
         if (Array.isArray(data.inventory.slots)) {
           this.game.inventory.slots = data.inventory.slots.map(s => (s && s.id && CONSTANTS.ITEM_TYPES[s.id]) ? { id: s.id, count: s.count } : null);
         }
         this.game.inventory.normalizeSlots();
 
-        // Migrate v1 saves to include starter consumables if missing
-        if (!data.version || data.version < 2) {
-          if (this.game.inventory.getItemCount('pure_water') === 0) {
-            this.game.inventory.addItem('pure_water', 3);
+        // Migrate older saves to v3 so player receives new upgrade materials & consumables
+        if (!data.version || data.version < 3) {
+          if (this.game.inventory.getItemCount('titanium_alloy') === 0) {
+            this.game.inventory.addItem('titanium_alloy', 6);
           }
-          if (this.game.inventory.getItemCount('antidote_lesser') === 0) {
-            this.game.inventory.addItem('antidote_lesser', 2);
+          if (this.game.inventory.getItemCount('plasma_core') === 0) {
+            this.game.inventory.addItem('plasma_core', 3);
+          }
+          if (this.game.inventory.getItemCount('alien_chitin') === 0) {
+            this.game.inventory.addItem('alien_chitin', 6);
+          }
+          if (this.game.inventory.getItemCount('iron_ore') === 0) {
+            this.game.inventory.addItem('iron_ore', 6);
           }
         }
 
@@ -149,19 +166,20 @@ class SaveManager {
         if (this.game.inventory.updatePlayerStats) {
           this.game.inventory.updatePlayerStats();
         }
-        this.game.inventory.renderUI();
       }
 
-      // 4. Restore Defenses
+      // 5. Restore Defenses (with Level support)
       if (Array.isArray(data.defenses) && this.game.buildingManager) {
         this.game.buildingManager.defenses = data.defenses.map(d => ({
           ...d,
+          level: d.level || 1,
+          maxUses: d.maxUses || 12,
           cooldown: 0,
           aimAngle: 0
         }));
       }
 
-      // 5. Restore Harvestables (Ores, Broken Alien Eggs)
+      // 6. Restore Harvestables (Ores, Broken Alien Eggs)
       if (Array.isArray(data.harvestables) && this.game.world && this.game.world.harvestables) {
         for (let savedH of data.harvestables) {
           const worldH = this.game.world.harvestables.find(h => h.col === savedH.col && h.row === savedH.row);
@@ -169,20 +187,20 @@ class SaveManager {
             worldH.hp = savedH.hp;
             worldH.isDestroyed = savedH.isDestroyed;
             if (worldH.isDestroyed) {
-              // Clear tile visually
               this.game.world.tiles[worldH.row][worldH.col] = CONSTANTS.TILES.MOUNTAIN_ROCK;
             }
           }
         }
+        this.game.minimapDirty = true;
       }
 
-      // 6. Restore Hydroponics
+      // 7. Restore Hydroponics
       if (Array.isArray(data.hydroponics) && this.game.lab) {
         this.game.lab.hydroPods = data.hydroponics;
       }
 
       // Update UI
-      this.game.updateHUD();
+      this.game.updateHUD(true);
 
       const label = `💾 ĐÃ KHÔI PHỤC TIẾN TRÌNH: NGÀY ${this.game.dayNight.dayCount}`;
       if (this.game.floatingTexts && this.game.player) {
@@ -214,7 +232,7 @@ class SaveManager {
       toast.id = 'save-toast-banner';
       document.body.appendChild(toast);
     }
-    toast.innerText = text;
+    toast.textContent = text;
     toast.className = 'show';
     clearTimeout(this._toastTimeout);
     this._toastTimeout = setTimeout(() => {

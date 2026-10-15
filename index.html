@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/c:/Go/demo/assets/icons/icon-192.png">
 
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=9">
+  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=10">
 </head>
 <body>
 
@@ -124,27 +124,37 @@
     <div id="interaction-prompt"></div>
 
     <div id="action-bar">
-      <!-- 4 Weapons Group -->
-      <div id="weapon-bar-group" class="hud-group" title="Chuyển đổi vũ khí [1, 2, 3, 4]">
-        <div id="weapon-slot-1" class="action-slot active-weapon" onclick="window.gameEngine.weapons.switchWeapon('SPEAR')">
+      <!-- 5 Weapons Group -->
+      <div id="weapon-bar-group" class="hud-group" title="Chuyển đổi 5 vũ khí [1, 2, 3, 4, G]">
+        <div id="weapon-slot-1" class="action-slot active-weapon" onclick="window.gameEngine.weapons.switchWeapon('SPEAR')" title="Giáo Năng Lượng [Phím 1]">
           <span class="slot-key">1</span>
+          <span id="weapon-lv-1" class="slot-lv-badge lv-1">Lv.1</span>
           <span class="slot-emoji" style="font-size: 18px;">🗡</span>
           <span class="slot-label">Giáo</span>
         </div>
-        <div id="weapon-slot-2" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('STAFF')">
+        <div id="weapon-slot-2" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('STAFF')" title="Gậy Chấn Động [Phím 2]">
           <span class="slot-key">2</span>
+          <span id="weapon-lv-2" class="slot-lv-badge lv-1">Lv.1</span>
           <span class="slot-emoji" style="font-size: 18px;">🪄</span>
           <span class="slot-label">Gậy</span>
         </div>
-        <div id="weapon-slot-3" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('DAGGER')">
+        <div id="weapon-slot-3" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('DAGGER')" title="Dao Ám Sát [Phím 3]">
           <span class="slot-key">3</span>
+          <span id="weapon-lv-3" class="slot-lv-badge lv-1">Lv.1</span>
           <span class="slot-emoji" style="font-size: 18px;">🔪</span>
           <span class="slot-label">Dao</span>
         </div>
-        <div id="weapon-slot-4" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('BOW')">
+        <div id="weapon-slot-4" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('BOW')" title="Cung Quang Học [Phím 4]">
           <span class="slot-key">4</span>
+          <span id="weapon-lv-4" class="slot-lv-badge lv-1">Lv.1</span>
           <span class="slot-emoji" style="font-size: 18px;">🏹</span>
           <span class="slot-label">Cung</span>
+        </div>
+        <div id="weapon-slot-5" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('GUN')" title="Súng Trường Plasma [Phím G]">
+          <span class="slot-key">G</span>
+          <span id="weapon-lv-5" class="slot-lv-badge lv-1">Lv.1</span>
+          <span class="slot-emoji" style="font-size: 18px;">🔫</span>
+          <span class="slot-label">Súng</span>
         </div>
       </div>
 
@@ -182,27 +192,32 @@
         </div>
       </div>
 
-      <!-- Phase 3: Quick Defense Construction Group [5, 6, 7, 8] -->
-      <div id="quick-defense-bar" class="hud-group" title="Công trình Thủ thành [5, 6, 7, 8]">
-        <div id="def-slot-1" class="action-slot" onclick="window.buildingManager.enterBuildMode('wall')" title="Xây Tường Chắn [Phím 5]">
+      <!-- Phase 3 & 5: Quick Defense Construction & Upgrade Group [5, 6, 7, 8, 9/R] -->
+      <div id="quick-defense-bar" class="hud-group" title="Công trình Thủ thành & Nâng cấp [5, 6, 7, 8, 9, R]">
+        <div id="def-slot-1" class="action-slot" onclick="window.buildingManager.enterBuildMode('wall')" title="Xây / Nâng cấp Tường Chắn [Phím 5]">
           <span class="slot-key">5</span>
           <span class="slot-emoji" style="font-size: 17px;">🧱</span>
           <span class="slot-label">Tường</span>
         </div>
-        <div id="def-slot-2" class="action-slot" onclick="window.buildingManager.enterBuildMode('trap')" title="Đặt Bẫy Gai Sinh Học [Phím 6]">
+        <div id="def-slot-2" class="action-slot" onclick="window.buildingManager.enterBuildMode('trap')" title="Đặt / Nâng cấp Bẫy Gai [Phím 6]">
           <span class="slot-key">6</span>
           <span class="slot-emoji" style="font-size: 17px;">⚙</span>
           <span class="slot-label">Bẫy Gai</span>
         </div>
-        <div id="def-slot-3" class="action-slot" onclick="window.buildingManager.enterBuildMode('turret')" title="Đặt Tháp Canh Tự Động [Phím 7]">
+        <div id="def-slot-3" class="action-slot" onclick="window.buildingManager.enterBuildMode('turret')" title="Đặt / Nâng cấp Tháp Súng [Phím 7]">
           <span class="slot-key">7</span>
           <span class="slot-emoji" style="font-size: 17px;">🗼</span>
           <span class="slot-label">Tháp Canh</span>
         </div>
-        <div id="def-slot-4" class="action-slot" onclick="window.buildingManager.enterBuildMode('mortar')" title="Đặt Súng Cối Hạng Nặng [Phím 8]">
+        <div id="def-slot-4" class="action-slot" onclick="window.buildingManager.enterBuildMode('mortar')" title="Đặt / Nâng cấp Súng Cối [Phím 8]">
           <span class="slot-key">8</span>
           <span class="slot-emoji" style="font-size: 17px;">💣</span>
           <span class="slot-label">Súng Cối</span>
+        </div>
+        <div id="def-slot-5" class="action-slot upgrade-slot" onclick="window.buildingManager.enterBuildMode('upgrade')" title="Chế độ Nâng cấp / Sửa chữa Tường & Súng Thủ Thành (Lv.1 -> Lv.3) [Phím 9 hoặc R]">
+          <span class="slot-key">9/R</span>
+          <span class="slot-emoji" style="font-size: 17px;">🔧</span>
+          <span class="slot-label" style="color: #facc15;">Nâng Cấp</span>
         </div>
       </div>
     </div>
@@ -253,9 +268,9 @@
           </div>
         </div>
 
-        <!-- Inventory Slots Column (Max Stack 20) -->
+        <!-- Inventory Slots Column (Max Stack 25) -->
         <div class="inv-column">
-          <div id="inventory-slot-title" class="inv-section-title">KHO ĐỒ 16 Ô (MAX STACK: 20)</div>
+          <div id="inventory-slot-title" class="inv-section-title">KHO ĐỒ 20 Ô (MAX STACK: 25)</div>
           <div id="inventory-grid"></div>
           <div id="inv-action-feedback" class="inv-action-feedback">
             💡 Click trực tiếp vào vật phẩm trong Balo để Sử dụng, Trang bị, Đặt công trình hoặc Chế tạo!
@@ -269,7 +284,7 @@
   <div id="help-modal" class="modal-backdrop">
     <div class="modal-window">
       <div class="modal-header">
-        <div class="modal-title">📖 HƯỚNG DẪN ĐIỀU KHIỂN & KỸ NĂNG</div>
+        <div class="modal-title">📖 HƯỚNG DẪN ĐIỀU KHIỂN, NÂNG CẤP TƯỜNG & SÚNG</div>
         <button class="close-btn" onclick="toggleHelpModal()">✕</button>
       </div>
 
@@ -277,50 +292,33 @@
         <div class="guide-section">
           <div class="guide-heading">🎮 PHÍM ĐIỀU KHIỂN CƠ BẢN</div>
           <p><span class="guide-key">W A S D</span> hoặc Mũi tên: Di chuyển nhân vật</p>
-          <p><span class="guide-key">Chuột Trái</span>: Tấn công thường / Thu hoạch quặng, thảo dược, đập trứng quái vật</p>
+          <p><span class="guide-key">Chuột Trái</span>: Tấn công thường / Giữ chuột xả đạn Súng Plasma / Thu hoạch quặng</p>
           <p><span class="guide-key">SPACE</span>: <strong>Lướt nhanh (Dash)</strong> - Tăng tốc tức thì, né đòn tấn công</p>
-          <p><span class="guide-key">1, 2, 3, 4</span>: Đổi nhanh 4 loại vũ khí (Giáo, Gậy, Dao, Cung)</p>
-          <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 12 ô & 5 ô Trang bị</p>
+          <p><span class="guide-key">1, 2, 3, 4, G</span>: Đổi nhanh 5 loại vũ khí (Giáo, Gậy, Dao, Cung, <strong>Súng Trường Plasma [G]</strong>)</p>
+          <p><span class="guide-key">9</span> hoặc <span class="guide-key">R</span>: <strong>Nâng cấp / Sửa chữa Tường & Súng Thủ Thành</strong> (Lv.1 ➔ Lv.2 ➔ Lv.3)</p>
+          <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 20 ô & 5 ô Trang bị</p>
           <p><span class="guide-key">U</span>: <strong>Cứu Hộ Khẩn Cấp (Thoát Kẹt)</strong> - Dịch chuyển về an toàn khi bị kẹt địa hình / kẹt quái vật</p>
           <p><span class="guide-key">M</span>: Bật / Tắt âm thanh</p>
         </div>
 
         <div class="guide-section">
-          <div class="guide-heading">🗡 4 BỘ VŨ KHÍ & 8 KỸ NĂNG GIẢI VÂY</div>
-          <p><strong>1. Giáo (Spear):</strong> Tầm đánh xa, giữ khoảng cách tốt.</p>
-          <p>• <span class="guide-key">Q</span> <em>Quét Ngang:</em> Hất văng quái vật phía trước theo hình nón rộng 120°.</p>
-          <p>• <span class="guide-key">E</span> <em>Chống Sào Nhảy Vọt:</em> Cắm giáo bật nhảy qua đầu bầy quái vật và vật cản.</p>
-
-          <br>
-          <p><strong>2. Gậy (Staff):</strong> Chuyên khống chế diện rộng và phòng vệ.</p>
-          <p>• <span class="guide-key">Q</span> <em>Chấn Động:</em> Đập mạnh xuống đất phát sóng xung kích làm choáng (Stun) quái 1.5 giây.</p>
-          <p>• <span class="guide-key">E</span> <em>Lốc Xoáy Đẩy Lùi:</em> Tạo cơn lốc đẩy lùi toàn bộ quái áp sát và tăng 30% tốc độ chạy 2s.</p>
-
-          <br>
-          <p><strong>3. Dao (Dagger):</strong> Tốc độ cực nhanh, ám sát và thoát hiểm.</p>
-          <p>• <span class="guide-key">Q</span> <em>Bom Khói Sinh Học:</em> Tung khói độc, nhân vật tàng hình và đi xuyên quái vật 2s.</p>
-          <p>• <span class="guide-key">E</span> <em>Đâm Xuyên Bóng Tối:</em> Lướt xuyên qua đám quái vật và làm chậm chúng 50% trong 3s.</p>
-
-          <br>
-          <p><strong>4. Cung (Bow):</strong> Tầm xa cơ động, khống chế từ xa.</p>
-          <p>• <span class="guide-key">Q</span> <em>Tên Lưới Năng Lượng:</em> Bắn tấm lưới trói chân (Root) cả một cụm quái vật 2.5s.</p>
-          <p>• <span class="guide-key">E</span> <em>Bắn Giật Lùi:</em> Bắn đạn nổ làm chậm quái, đồng thời hất văng bản thân về phía sau.</p>
+          <div class="guide-heading">🔫 5 BỘ VŨ KHÍ & NÂNG CẤP SÚNG (LV.1 ➔ LV.3)</div>
+          <p><strong>1. Giáo [1]:</strong> Tầm đánh xa, <span class="guide-key">Q</span> Quét Ngang 120°, <span class="guide-key">E</span> Chống Sào Nhảy Vọt.</p>
+          <p><strong>2. Gậy [2]:</strong> Khống chế diện rộng, <span class="guide-key">Q</span> Chấn Động Stun, <span class="guide-key">E</span> Lốc Xoáy Đẩy Lùi.</p>
+          <p><strong>3. Dao [3]:</strong> Ám sát tốc độ cao, <span class="guide-key">Q</span> Bom Khói Tàng Hình, <span class="guide-key">E</span> Đâm Xuyên Bóng Tối.</p>
+          <p><strong>4. Cung [4]:</strong> Tầm xa cơ động, <span class="guide-key">Q</span> Tên Lưới Trói Chân, <span class="guide-key">E</span> Bắn Giật Lùi.</p>
+          <p><strong>5. Súng Trường Plasma [G] (MỚI!):</strong> Xả đạn năng lượng tốc độ cao (Lv.2 bắn đôi Laser, Lv.3 bắn ba tia Rail-Plasma xuyên giáp). <span class="guide-key">Q</span> <em>Pháo Điện Từ EMP</em> làm choáng AoE 2.2s, <span class="guide-key">E</span> <em>Xả Đạn Hủy Diệt</em> 5 tia quạt đẩy lùi quái.</p>
+          <p>• <strong>Nâng cấp Vũ Khí & Súng:</strong> Mở <strong>Bàn Chế Tạo [F]</strong> hoặc <strong>Xưởng Thủ Thành [F]</strong> để nâng cấp cả 5 vũ khí từ Lv.1 ➔ Lv.2 (Tinh Chế Titan) ➔ Lv.3 (Siêu Nạp Plasma)!</p>
         </div>
 
         <div class="guide-section">
-          <div class="guide-heading">🗺 BẢN ĐỒ 3 VÙNG ĐỊA HÌNH</div>
-          <p>• <strong>Núi (Phía trên):</strong> Đầy mỏ Lưu huỳnh, Thạch anh, Tuyết liên, Rêu bạc và các ổ Trứng quái vật.</p>
-          <p>• <strong>Đồng bằng (Ở giữa):</strong> Căn cứ an toàn gồm Bio-Lab, Lò nung, Bàn chế tạo, Xưởng cơ khí và sông hồ.</p>
-          <p>• <strong>Bờ biển (Phía dưới):</strong> Bãi cát vàng, biển sâu và các mảnh vỡ phi thuyền công nghệ.</p>
-        </div>
-
-        <div class="guide-section">
-          <div class="guide-heading">🏰 HỆ THỐNG THỦ THÀNH & ĐÊM TẤN CÔNG (PHASE 3)</div>
-          <p>• <span class="guide-key">5, 6, 7, 8</span>: Đặt nhanh <strong>Tường Chắn (250 HP)</strong>, <strong>Bẫy Gai (-50% Tốc)</strong>, <strong>Tháp Canh (Bắn tỉa)</strong>, <strong>Súng Cối (AoE Nổ)</strong>.</p>
-          <p>• <span class="guide-key">Chuột Trái</span> để đặt vào ô xanh hợp lệ / <span class="guide-key">ESC</span> hoặc <span class="guide-key">Chuột Phải</span> để hủy.</p>
-          <p>• <strong>Bàn Chế Tạo [F] & Xưởng Cơ Khí [F]</strong>: Đặt tại căn cứ để đúc tường, bẫy, tháp và nâng cấp Balo lên 18 ô!</p>
-          <p>• <strong>Cơ chế đêm tấn công</strong>: Quái vật tấn công theo đợt mạnh dần theo số ngày sống sót và số lượng Trứng Quái chưa đập vỡ trên núi!</p>
-          <p>• <strong>4 Chủng Loài Quái Vật</strong>: Xenomorph Crawler (nhanh nhẹn), Kamikaze Exploder (lao nổ tung phá tường), Acid Spitter (bắn axit ăn mòn), Titan Behemoth (khổng lồ phá hoại).</p>
+          <div class="guide-heading">🏰 NÂNG CẤP TƯỜNG & THÁP SÚNG THỦ THÀNH (LV.1 ➔ LV.3)</div>
+          <p>• <span class="guide-key">5, 6, 7, 8</span>: Đặt nhanh <strong>Tường Chắn</strong>, <strong>Bẫy Gai</strong>, <strong>Tháp Canh</strong>, <strong>Súng Cối</strong>.</p>
+          <p>• <span class="guide-key">9</span> hoặc <span class="guide-key">R</span> (hoặc click trực tiếp lên công trình đã xây): <strong>Nâng cấp Tường & Súng Thủ Thành lên Lv.2 & Lv.3!</strong></p>
+          <p>• <strong>Tường Chắn:</strong> Lv.1 Gỗ Đá (250 HP) ➔ Lv.2 <em>Tường Bọc Thép Titan</em> (550 HP, Giáp 4, Phản đòn gai 8 DMG) ➔ Lv.3 <em>Tường Khiên Điện Từ Plasma</em> (1050 HP, Giáp 9, Phản xung điện 18 DMG, Tự hồi 6 HP/s).</p>
+          <p>• <strong>Tháp Canh Súng:</strong> Lv.1 Tháp Tiêu Chuẩn ➔ Lv.2 <em>Tháp Súng Kép Gatling Laser</em> (Bắn 2 tia) ➔ Lv.3 <em>Tháp Pháo Railgun Tesla</em> (Sát thương 52, giật sét dây chuyền 3 mục tiêu).</p>
+          <p>• <strong>Súng Cối:</strong> Lv.1 Cối Thường ➔ Lv.2 <em>Pháo Cối Nhiệt Hạch Napalm</em> ➔ Lv.3 <em>Pháo Quỹ Đạo Hạt Nhân Mini</em> (135 AoE DMG + Choáng 1.2s).</p>
+          <p>• <strong>Nguyên Liệu Nâng Cấp Mới:</strong> Khai thác <em>Quặng Sắt Titan</em> trên núi, <em>Mạch Lõi Plasma</em> ở bờ biển, hạ quái nhặt <em>Giáp Xác Ngoại Lai</em>, và nung <em>Hợp Kim Titan</em> tại Lò Nung!</p>
         </div>
       </div>
     </div>
@@ -476,25 +474,25 @@
   </script>
 
   <!-- Import Scripts -->
-  <script src="/c:/Go/demo/js/constants.js?v=9"></script>
-  <script src="/c:/Go/demo/js/audio.js?v=9"></script>
-  <script src="/c:/Go/demo/js/pixelart.js?v=9"></script>
-  <script src="/c:/Go/demo/js/buildings.js?v=9"></script>
-  <script src="/c:/Go/demo/js/world.js?v=9"></script>
-  <script src="/c:/Go/demo/js/entities.js?v=9"></script>
-  <script src="/c:/Go/demo/js/weapons.js?v=9"></script>
-  <script src="/c:/Go/demo/js/inventory.js?v=9"></script>
-  <script src="/c:/Go/demo/js/lab.js?v=9"></script>
-  <script src="/c:/Go/demo/js/daynight.js?v=9"></script>
-  <script src="/c:/Go/demo/js/savegame.js?v=9"></script>
-  <script src="/c:/Go/demo/js/mobile.js?v=9"></script>
-  <script src="/c:/Go/demo/js/game.js?v=9"></script>
+  <script src="/c:/Go/demo/js/constants.js?v=10"></script>
+  <script src="/c:/Go/demo/js/audio.js?v=10"></script>
+  <script src="/c:/Go/demo/js/pixelart.js?v=10"></script>
+  <script src="/c:/Go/demo/js/buildings.js?v=10"></script>
+  <script src="/c:/Go/demo/js/world.js?v=10"></script>
+  <script src="/c:/Go/demo/js/entities.js?v=10"></script>
+  <script src="/c:/Go/demo/js/weapons.js?v=10"></script>
+  <script src="/c:/Go/demo/js/inventory.js?v=10"></script>
+  <script src="/c:/Go/demo/js/lab.js?v=10"></script>
+  <script src="/c:/Go/demo/js/daynight.js?v=10"></script>
+  <script src="/c:/Go/demo/js/savegame.js?v=10"></script>
+  <script src="/c:/Go/demo/js/mobile.js?v=10"></script>
+  <script src="/c:/Go/demo/js/game.js?v=10"></script>
 
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=9')
+        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=10')
           .then((reg) => console.log('✅ PWA Service Worker Registered! Scope:', reg.scope))
           .catch((err) => console.warn('PWA Service Worker Warning:', err));
       });

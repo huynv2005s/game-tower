@@ -4,6 +4,7 @@
 class PixelArt {
   constructor() {
     this.cache = {};
+    this.dataUrlCache = {};
   }
 
   init() {
@@ -15,6 +16,7 @@ class PixelArt {
     this.generateMonsterSprites();
     this.generatePhase2Sprites();
     this.generatePhase3Sprites();
+    this.generatePhase5UpgradeSprites();
   }
 
   createCanvas(width, height, smooth = true) {
@@ -3099,8 +3101,539 @@ class PixelArt {
     }
   }
 
+  // ===========================================================================
+  // 9. PHASE 5 SPRITES: UPGRADED WALLS & GUNS (LV.2 - LV.3), PLASMA RIFLE, NEW MATERIALS & CACHED FX
+  // ===========================================================================
+  generatePhase5UpgradeSprites() {
+    const S = 32;
+
+    // 1. Wall Lv.2: Titanium Armored Wall (32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(1, 2, 30, 28);
+
+      // Brushed Titanium Top Bevel
+      const topG = ctx.createLinearGradient(2, 2, 30, 9);
+      topG.addColorStop(0, '#e2e8f0');
+      topG.addColorStop(1, '#64748b');
+      ctx.fillStyle = topG;
+      ctx.fillRect(2, 2, 28, 7);
+
+      // Metallic Blue-Steel Front Plate
+      const frontG = ctx.createLinearGradient(0, 9, 0, 29);
+      frontG.addColorStop(0, '#475569');
+      frontG.addColorStop(0.5, '#1e293b');
+      frontG.addColorStop(1, '#0f172a');
+      ctx.fillStyle = frontG;
+      ctx.fillRect(2, 9, 28, 20);
+
+      // Diagonal Titanium X-Armor Straps
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(4, 11); ctx.lineTo(28, 27);
+      ctx.moveTo(28, 11); ctx.lineTo(4, 27);
+      ctx.stroke();
+
+      // Glowing Cyan Thorns Energy Strip
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(3, 17, 26, 4);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(4, 18, 24, 2);
+
+      // Border Frame
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(1.5, 2.5, 29, 27);
+
+      this.cache['defense_wall_lv2'] = canvas;
+    }
+
+    // 2. Wall Lv.3: Plasma Forcefield Wall (32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(1, 1, 30, 30);
+
+      // Golden-Titanium Outer Pillars
+      const pilG = ctx.createLinearGradient(0, 2, 0, 30);
+      pilG.addColorStop(0, '#facc15');
+      pilG.addColorStop(0.5, '#ca8a04');
+      pilG.addColorStop(1, '#422006');
+      ctx.fillStyle = pilG;
+      ctx.fillRect(1, 2, 7, 28);
+      ctx.fillRect(24, 2, 7, 28);
+
+      // Glowing Plasma Energy Barrier Core
+      const coreG = ctx.createLinearGradient(8, 3, 24, 29);
+      coreG.addColorStop(0, '#22d3ee');
+      coreG.addColorStop(0.5, '#a855f7');
+      coreG.addColorStop(1, '#06b6d4');
+      ctx.fillStyle = coreG;
+      ctx.fillRect(8, 3, 16, 26);
+
+      // Horizontal Laser Forcefield Beams
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(8, 7, 16, 2);
+      ctx.fillRect(8, 15, 16, 2.5);
+      ctx.fillRect(8, 23, 16, 2);
+
+      // Gold Crown Trim
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(1.5, 2, 29, 28);
+
+      this.cache['defense_wall_lv3'] = canvas;
+    }
+
+    // 3. Turret Lv.2: Twin Gatling Laser Turret (32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Armored Hex Base
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath(); ctx.arc(13, 16, 12.5, 0, Math.PI * 2); ctx.fill();
+
+      const domeG = ctx.createRadialGradient(11, 14, 1, 13, 16, 11);
+      domeG.addColorStop(0, '#94a3b8');
+      domeG.addColorStop(0.6, '#334155');
+      domeG.addColorStop(1, '#0f172a');
+      ctx.fillStyle = domeG;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(13, 16, 10.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Quad Gatling Laser Barrels pointing RIGHT (+X)
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(17, 8, 14, 5);
+      ctx.fillRect(17, 19, 14, 5);
+
+      ctx.fillStyle = '#e879f9';
+      ctx.fillRect(19, 9.5, 12, 2);
+      ctx.fillRect(19, 20.5, 12, 2);
+
+      // Glowing Magenta/Cyan Laser Tips
+      ctx.fillStyle = '#fdf4ff';
+      ctx.fillRect(28, 9, 3, 3);
+      ctx.fillRect(28, 20, 3, 3);
+
+      // Center Overclocked Core
+      ctx.fillStyle = '#d946ef';
+      ctx.beginPath(); ctx.arc(13, 16, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(13, 16, 2.2, 0, Math.PI * 2); ctx.fill();
+
+      this.cache['defense_turret_lv2'] = canvas;
+    }
+
+    // 4. Turret Lv.3: Railgun Tesla Turret (32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.fillStyle = '#090d16';
+      ctx.beginPath(); ctx.arc(13, 16, 13, 0, Math.PI * 2); ctx.fill();
+
+      // Gold & Titanium Chasis
+      const domeG = ctx.createRadialGradient(11, 14, 1, 13, 16, 11);
+      domeG.addColorStop(0, '#fef08a');
+      domeG.addColorStop(0.55, '#ca8a04');
+      domeG.addColorStop(1, '#1e1b4b');
+      ctx.fillStyle = domeG;
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(13, 16, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Heavy Twin Electromagnetic Railgun Rails pointing RIGHT (+X)
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(15, 7, 16, 6);
+      ctx.fillRect(15, 19, 16, 6);
+
+      // Cyan Tesla Coils along barrel
+      ctx.fillStyle = '#22d3ee';
+      for (let x = 18; x <= 28; x += 4) {
+        ctx.fillRect(x, 7.5, 2.5, 5);
+        ctx.fillRect(x, 19.5, 2.5, 5);
+      }
+
+      // Central Lightning Arc between rails
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(17, 14.5, 14, 3);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(18, 13.5, 12, 5);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(19, 15, 11, 2);
+
+      // Core
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath(); ctx.arc(12, 16, 5.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(12, 16, 2.6, 0, Math.PI * 2); ctx.fill();
+
+      this.cache['defense_turret_lv3'] = canvas;
+    }
+
+    // 5. Mortar Lv.2: Thermobaric Napalm Mortar (32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(16, 18, 13.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // Twin Napalm Fuel Tanks on sides
+      ctx.fillStyle = '#ea580c';
+      ctx.fillRect(3, 11, 5, 13);
+      ctx.fillRect(24, 11, 5, 13);
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(4, 14, 3, 4);
+      ctx.fillRect(25, 14, 3, 4);
+
+      // Reinforced Mortar Barrel
+      const tubeG = ctx.createLinearGradient(8, 3, 24, 23);
+      tubeG.addColorStop(0, '#cbd5e1');
+      tubeG.addColorStop(0.5, '#475569');
+      tubeG.addColorStop(1, '#0f172a');
+      ctx.fillStyle = tubeG;
+      ctx.beginPath(); ctx.roundRect(8.5, 3, 15, 20, 3); ctx.fill(); ctx.stroke();
+
+      // Glowing Orange Thermobaric Bore
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath(); ctx.ellipse(16, 5.5, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath(); ctx.ellipse(16, 5.5, 4, 2, 0, 0, Math.PI * 2); ctx.fill();
+
+      this.cache['defense_mortar_lv2'] = canvas;
+    }
+
+    // 6. Mortar Lv.3: Orbital Mini-Nuke Cannon (32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.fillStyle = '#1e1b4b';
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(16, 18, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // Plasma Stabilizer Wings
+      ctx.fillStyle = '#ca8a04';
+      ctx.fillRect(2, 10, 6, 15);
+      ctx.fillRect(24, 10, 6, 15);
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(3.5, 12, 3, 11);
+      ctx.fillRect(25.5, 12, 3, 11);
+
+      // Colossal Nuke Tube
+      const tubeG = ctx.createLinearGradient(8, 2, 24, 24);
+      tubeG.addColorStop(0, '#fef08a');
+      tubeG.addColorStop(0.5, '#7e22ce');
+      tubeG.addColorStop(1, '#312e81');
+      ctx.fillStyle = tubeG;
+      ctx.beginPath(); ctx.roundRect(8, 2, 16, 21, 4); ctx.fill(); ctx.stroke();
+
+      // Glowing Purple/Cyan Plasma Muzzle
+      ctx.fillStyle = '#d946ef';
+      ctx.beginPath(); ctx.ellipse(16, 5, 7.5, 3.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(16, 5, 4.5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+
+      this.cache['defense_mortar_lv3'] = canvas;
+    }
+
+    // 7. Trap Lv.2: Titanium Sawblade Trap (32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(2, 2, 28, 28, 4); ctx.fill(); ctx.stroke();
+
+      const spikePos = [
+        [8, 8], [16, 8], [24, 8],
+        [8, 16], [16, 16], [24, 16],
+        [8, 24], [16, 24], [24, 24]
+      ];
+      spikePos.forEach(([sx, sy]) => {
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath(); ctx.arc(sx, sy, 3.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - 4); ctx.lineTo(sx + 3, sy + 2); ctx.lineTo(sx - 3, sy + 2);
+        ctx.closePath(); ctx.fill();
+      });
+
+      this.cache['defense_trap_lv2'] = canvas;
+    }
+
+    // 8. Trap Lv.3: Tesla Shock Grid Trap (32x32)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.fillStyle = '#1e1b4b';
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.roundRect(2, 2, 28, 28, 4); ctx.fill(); ctx.stroke();
+
+      // Electric grid lines
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(5, 10); ctx.lineTo(27, 10);
+      ctx.moveTo(5, 16); ctx.lineTo(27, 16);
+      ctx.moveTo(5, 22); ctx.lineTo(27, 22);
+      ctx.moveTo(10, 5); ctx.lineTo(10, 27);
+      ctx.moveTo(16, 5); ctx.lineTo(16, 27);
+      ctx.moveTo(22, 5); ctx.lineTo(22, 27);
+      ctx.stroke();
+
+      // Glowing Tesla Nodes
+      [[9, 9], [23, 9], [16, 16], [9, 23], [23, 23]].forEach(([nx, ny]) => {
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath(); ctx.arc(nx, ny, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(nx, ny, 1.8, 0, Math.PI * 2); ctx.fill();
+      });
+
+      this.cache['defense_trap_lv3'] = canvas;
+    }
+
+    // 9. Player Weapon: Súng Trường Plasma (weapon_gun & icon_gun)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Futuristic Plasma Assault Rifle pointing RIGHT (+X)
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#090d16';
+      ctx.lineWidth = 1.2;
+      // Stock & Receiver
+      ctx.beginPath();
+      ctx.roundRect(2, 12, 22, 7, 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Pistol Grip & Magazine
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(7, 18, 4, 6);
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(14, 18, 4, 7);
+
+      // Upper Titanium Shroud & Barrel
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(6, 10, 23, 4);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(24, 11, 7, 3);
+
+      // Glowing Cyan Plasma Chamber Coils
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(11, 12, 12, 3);
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(13, 12.8, 8, 1.4);
+
+      // holographic sight
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(10, 7, 5, 3);
+
+      this.cache['weapon_gun'] = canvas;
+      this.cache['icon_gun'] = canvas;
+    }
+
+    // 10. New World Resource: Quặng Sắt Titan (ORE_TITANIUM tile_9, obj_titanium_ore, icon_iron_ore)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.drawImage(this.cache['tile_' + CONSTANTS.TILES.MOUNTAIN_ROCK], 0, 0);
+      this.cache['tile_' + CONSTANTS.TILES.ORE_TITANIUM] = canvas;
+    }
+    {
+      const W = 44, H = 44;
+      const { canvas, ctx } = this.createCanvas(W, H);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath(); ctx.ellipse(22, 35, 16, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+
+      // Dark rock boulder with gleaming silver-blue Titanium veins
+      const rockG = ctx.createLinearGradient(8, 8, 36, 36);
+      rockG.addColorStop(0, '#94a3b8');
+      rockG.addColorStop(0.5, '#475569');
+      rockG.addColorStop(1, '#1e293b');
+      ctx.fillStyle = rockG;
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(8, 34); ctx.lineTo(11, 16); ctx.lineTo(22, 8); ctx.lineTo(34, 15); ctx.lineTo(37, 34);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+
+      // Metallic Silver-Cyan Titanium Crystals
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.moveTo(16, 26); ctx.lineTo(20, 12); ctx.lineTo(25, 25); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(24, 28); ctx.lineTo(29, 16); ctx.lineTo(33, 28); ctx.closePath(); ctx.fill();
+
+      this.cache['obj_titanium_ore'] = canvas;
+
+      const iconC = this.createCanvas(S, S);
+      iconC.ctx.drawImage(canvas, 0, 0, S, S);
+      this.cache['icon_iron_ore'] = iconC.canvas;
+    }
+
+    // 11. New Material Icon: Hợp Kim Titan (icon_titanium_alloy)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      // Stacked Gleaming Titanium Ingots
+      const drawBar = (bx, by) => {
+        const g = ctx.createLinearGradient(bx, by, bx + 20, by + 10);
+        g.addColorStop(0, '#f8fafc');
+        g.addColorStop(0.45, '#94a3b8');
+        g.addColorStop(1, '#334155');
+        ctx.fillStyle = g;
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, 20, 9, 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(bx + 4, by + 3, 12, 2);
+      };
+      drawBar(4, 16);
+      drawBar(8, 9);
+      this.cache['icon_titanium_alloy'] = canvas;
+    }
+
+    // 12. New Material Icon: Giáp Xác Ngoại Lai (icon_alien_chitin)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      const g = ctx.createRadialGradient(14, 12, 2, 16, 16, 13);
+      g.addColorStop(0, '#c084fc');
+      g.addColorStop(0.5, '#6b21a8');
+      g.addColorStop(1, '#1e1b4b');
+      ctx.fillStyle = g;
+      ctx.strokeStyle = '#e879f9';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(16, 3);
+      ctx.quadraticCurveTo(28, 8, 26, 22);
+      ctx.lineTo(16, 29);
+      ctx.lineTo(6, 22);
+      ctx.quadraticCurveTo(4, 8, 16, 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Chitin ridges
+      ctx.strokeStyle = '#f0abfc';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(10, 12); ctx.lineTo(22, 12);
+      ctx.moveTo(9, 18); ctx.lineTo(23, 18);
+      ctx.stroke();
+
+      this.cache['icon_alien_chitin'] = canvas;
+    }
+
+    // 13. New Material & Node: Lõi Năng Lượng Plasma (PLASMA_NODE tile_26, obj_plasma_node, icon_plasma_core)
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.drawImage(this.cache['tile_' + CONSTANTS.TILES.SAND], 0, 0);
+      this.cache['tile_' + CONSTANTS.TILES.PLASMA_NODE] = canvas;
+    }
+    {
+      const W = 44, H = 44;
+      const { canvas, ctx } = this.createCanvas(W, H);
+      // Glowing Containment Pylon on Beach
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath(); ctx.ellipse(22, 36, 15, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(12, 10, 20, 26, 4); ctx.fill(); ctx.stroke();
+
+      const coreG = ctx.createRadialGradient(22, 22, 2, 22, 22, 9);
+      coreG.addColorStop(0, '#ffffff');
+      coreG.addColorStop(0.4, '#22d3ee');
+      coreG.addColorStop(0.8, '#0284c7');
+      coreG.addColorStop(1, '#1e3a8a');
+      ctx.fillStyle = coreG;
+      ctx.beginPath(); ctx.arc(22, 22, 8, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(13, 8, 18, 3);
+      ctx.fillRect(13, 33, 18, 3);
+
+      this.cache['obj_plasma_node'] = canvas;
+
+      const iconC = this.createCanvas(S, S);
+      iconC.ctx.drawImage(canvas, -4, -4, 40, 40);
+      this.cache['icon_plasma_core'] = iconC.canvas;
+    }
+
+    // 14. Pre-rendered Performance FX Sprites (Eliminates per-frame createRadialGradient in render loops!)
+    // A. Mist Cloud (128x64)
+    {
+      const W = 128, H = 64;
+      const { canvas, ctx } = this.createCanvas(W, H);
+      const grad = ctx.createRadialGradient(W / 2, H / 2, 6, W / 2, H / 2, W / 2);
+      grad.addColorStop(0, 'rgba(224, 242, 254, 0.28)');
+      grad.addColorStop(0.55, 'rgba(186, 230, 253, 0.14)');
+      grad.addColorStop(1, 'rgba(186, 230, 253, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(W / 2, H / 2, W / 2, H / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      this.cache['fx_mist_cloud'] = canvas;
+    }
+
+    // B. Bio-Lab Quarantine Field Aura (308x308)
+    {
+      const R = 150;
+      const S2 = R * 2 + 8;
+      const cx = S2 / 2, cy = S2 / 2;
+      const { canvas, ctx } = this.createCanvas(S2, S2);
+      const fieldGrad = ctx.createRadialGradient(cx, cy, R * 0.4, cx, cy, R);
+      fieldGrad.addColorStop(0, 'rgba(16, 185, 129, 0.03)');
+      fieldGrad.addColorStop(0.85, 'rgba(16, 185, 129, 0.10)');
+      fieldGrad.addColorStop(1, 'rgba(52, 211, 153, 0.22)');
+      ctx.fillStyle = fieldGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(52, 211, 153, 0.48)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.stroke();
+      this.cache['fx_biolab_aura'] = canvas;
+    }
+
+    // C. Kamikaze Exploder Aura (64x64)
+    {
+      const W = 64, H = 64;
+      const { canvas, ctx } = this.createCanvas(W, H);
+      const glowGrad = ctx.createRadialGradient(32, 32, 4, 32, 32, 30);
+      glowGrad.addColorStop(0, 'rgba(251, 146, 60, 0.45)');
+      glowGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.beginPath();
+      ctx.arc(32, 32, 30, 0, Math.PI * 2);
+      ctx.fill();
+      this.cache['fx_kamikaze_glow'] = canvas;
+    }
+  }
+
   get(name) {
     return this.cache[name];
+  }
+
+  getDataURL(name) {
+    if (this.dataUrlCache[name]) {
+      return this.dataUrlCache[name];
+    }
+    const c = this.cache[name];
+    if (!c) return '';
+    const url = c.toDataURL();
+    this.dataUrlCache[name] = url;
+    return url;
   }
 }
 

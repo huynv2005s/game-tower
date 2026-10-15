@@ -1,7 +1,8 @@
 // Entities: Player, Monsters/Dummies, Projectiles, Particles, Floating Combat Text
+// Optimized for 60FPS Canvas Rendering (Frustum Culling, Zero ctx.filter, Cached Gradients)
 
 class Particle {
-  constructor(x, y, vx, vy, color, size, life, shape = 'circle') {
+  constructor(x, y, vx, vy, color, size, life, shape = 'circle', extra = null) {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -11,6 +12,7 @@ class Particle {
     this.life = life;
     this.maxLife = life;
     this.shape = shape;
+    this.extra = extra;
   }
 
   update(dt) {
@@ -21,24 +23,37 @@ class Particle {
   }
 
   render(ctx, camera) {
+    const sx = this.x - camera.x;
+    const sy = this.y - camera.y;
+    if (sx < -120 || sx > camera.width + 120 || sy < -120 || sy > camera.height + 120) return;
+
     const alpha = Math.max(0, this.life / this.maxLife);
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = this.color;
-    const sx = this.x - camera.x;
-    const sy = this.y - camera.y;
 
     if (this.shape === 'circle') {
+      ctx.fillStyle = this.color;
       ctx.beginPath();
       ctx.arc(sx, sy, this.size, 0, Math.PI * 2);
       ctx.fill();
     } else if (this.shape === 'ring') {
       ctx.strokeStyle = this.color;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.8;
       ctx.beginPath();
-      ctx.arc(sx, sy, this.size * (1 + (1 - alpha) * 2), 0, Math.PI * 2);
+      ctx.arc(sx, sy, this.size * (0.4 + (1 - alpha) * 0.7), 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (this.shape === 'lightning' && this.extra) {
+      const ex = this.extra.x2 - camera.x;
+      const ey = this.extra.y2 - camera.y;
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo((sx + ex) * 0.5 + (Math.random() - 0.5) * 12, (sy + ey) * 0.5 + (Math.random() - 0.5) * 12);
+      ctx.lineTo(ex, ey);
       ctx.stroke();
     } else {
+      ctx.fillStyle = this.color;
       ctx.fillRect(sx - this.size / 2, sy - this.size / 2, this.size, this.size);
     }
     ctx.restore();
@@ -64,14 +79,15 @@ class FloatingText {
   }
 
   render(ctx, camera) {
+    const sx = this.x - camera.x;
+    const sy = this.y - camera.y;
+    if (sx < -150 || sx > camera.width + 150 || sy < -60 || sy > camera.height + 60) return;
+
     const alpha = Math.max(0, this.duration / this.maxDuration);
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.font = `bold ${this.fontSize}px 'Press Start 2P', monospace, sans-serif`;
+    ctx.font = `bold ${this.fontSize}px 'Chakra Petch', 'Segoe UI', sans-serif`;
     ctx.fillStyle = '#000000';
-    const sx = this.x - camera.x;
-    const sy = this.y - camera.y;
-    // Outline
     ctx.fillText(this.text, sx + 1, sy + 1);
     ctx.fillStyle = this.color;
     ctx.fillText(this.text, sx, sy);
@@ -89,9 +105,9 @@ class Projectile {
     this.startY = y;
     this.maxRange = range;
     this.damage = damage;
-    this.type = type; // 'arrow', 'net_arrow', 'recoil_blast'
-    this.extra = extra;
-    this.radius = 6;
+    this.type = type; // 'arrow', 'net_arrow', 'recoil_blast', 'acid_spit', 'plasma_bullet', 'emp_blast', 'turret_railgun'
+    this.extra = extra || {};
+    this.radius = (type === 'emp_blast') ? 9 : 6;
     this.isDead = false;
   }
 
@@ -119,7 +135,9 @@ class Projectile {
 
       // Check hit defenses
       if (world && world.game && world.game.buildingManager) {
-        for (let d of world.game.buildingManager.defenses) {
+        const defs = world.game.buildingManager.defenses;
+        for (let i = 0; i < defs.length; i++) {
+          const d = defs[i];
           const distSq = (this.x - d.x) * (this.x - d.x) + (this.y - d.y) * (this.y - d.y);
           if (distSq <= (this.radius + 16) * (this.radius + 16)) {
             world.game.buildingManager.damageStructure(d, this.damage);
@@ -130,7 +148,8 @@ class Projectile {
       }
     } else {
       // Check hit monsters
-      for (let m of monsters) {
+      for (let i = 0; i < monsters.length; i++) {
+        const m = monsters[i];
         if (m.isDead) continue;
         const distSq = (this.x - m.x) * (this.x - m.x) + (this.y - m.y) * (this.y - m.y);
         if (distSq <= (this.radius + m.radius) * (this.radius + m.radius)) {
@@ -147,26 +166,67 @@ class Projectile {
     if (this.isDead) return;
     this.isDead = true;
 
-    if (this.type === 'arrow') {
+    if (this.type === 'arrow' || this.type === 'plasma_bullet') {
       if (hitTarget) {
         hitTarget.takeDamage(this.damage, particles, floatingTexts);
       }
-      // Spark particles
-      for (let i = 0; i < 6; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const spd = 40 + Math.random() * 60;
-        particles.push(new Particle(this.x, this.y, Math.cos(angle) * spd, Math.sin(angle) * spd, '#ffb74d', 3, 0.25));
+      if (particles.length < 160) {
+        const col = (this.extra && this.extra.color) ? this.extra.color : (this.type === 'plasma_bullet' ? '#38bdf8' : '#ffb74d');
+        for (let i = 0; i < 4; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = 40 + Math.random() * 55;
+          particles.push(new Particle(this.x, this.y, Math.cos(angle) * spd, Math.sin(angle) * spd, col, 3, 0.2));
+        }
+      }
+    } else if (this.type === 'turret_railgun') {
+      // Lv.3 Railgun Tesla Shot: High impact + Chain Lightning to nearby monsters!
+      if (hitTarget) {
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
+        hitTarget.applySlow(0.6, 2.0, floatingTexts);
+      }
+      particles.push(new Particle(this.x, this.y, 0, 0, '#facc15', 24, 0.25, 'ring'));
+
+      const maxChains = (this.extra && this.extra.chainCount) ? this.extra.chainCount : 2;
+      let chained = 0;
+      const chainDamage = Math.max(8, Math.round(this.damage * 0.55));
+
+      for (let i = 0; i < monsters.length; i++) {
+        const m = monsters[i];
+        if (m.isDead || m === hitTarget) continue;
+        const dist = Math.hypot(m.x - this.x, m.y - this.y);
+        if (dist <= 95) {
+          m.takeDamage(chainDamage, particles, floatingTexts);
+          m.applySlow(0.6, 1.8, floatingTexts);
+          particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 2, 0.22, 'lightning', { x2: m.x, y2: m.y }));
+          chained++;
+          if (chained >= maxChains) break;
+        }
+      }
+    } else if (this.type === 'emp_blast') {
+      // Plasma Gun Skill 1 [Q]: EMP Overcharge AoE Stun!
+      const empRadius = 95;
+      window.audioManager.playStaffStun();
+      particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', empRadius, 0.5, 'ring'));
+      particles.push(new Particle(this.x, this.y, 0, 0, '#facc15', empRadius * 0.65, 0.35, 'ring'));
+
+      if (floatingTexts.length < 40) {
+        floatingTexts.push(new FloatingText(this.x, this.y - 15, '⚡ XUNG ĐIỆN EMP! ⚡', '#38bdf8', 13, 1.1));
+      }
+
+      for (let m of monsters) {
+        if (m.isDead) continue;
+        const dist = Math.hypot(m.x - this.x, m.y - this.y);
+        if (dist <= empRadius) {
+          m.takeDamage(this.damage, particles, floatingTexts);
+          m.applyStun(1.8, floatingTexts);
+        }
       }
     } else if (this.type === 'net_arrow') {
-      // Net Arrow: AoE Root!
       const rootRadius = 90;
       floatingTexts.push(new FloatingText(this.x, this.y - 10, 'NET EXPAND!', '#38bdf8', 12, 1.2));
       window.audioManager.playBowNet();
-
-      // Net ring particle
       particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', rootRadius, 0.6, 'ring'));
 
-      // Root all monsters in radius
       for (let m of monsters) {
         if (m.isDead) continue;
         const dist = Math.hypot(m.x - this.x, m.y - this.y);
@@ -176,7 +236,6 @@ class Projectile {
         }
       }
     } else if (this.type === 'recoil_blast') {
-      // Recoil Blast: AoE knockback + slow
       const blastRadius = 80;
       particles.push(new Particle(this.x, this.y, 0, 0, '#f97316', blastRadius, 0.4, 'ring'));
 
@@ -191,17 +250,18 @@ class Projectile {
         }
       }
     } else if (this.type === 'acid_spit') {
-      // Acid Spit Impact
       if (hitTarget) {
         if (hitTarget.takeDamage) {
           hitTarget.takeDamage(this.damage);
           if (hitTarget.addInfection) hitTarget.addInfection(10, 'AXIT ĂN MÒN');
         }
       }
-      for (let i = 0; i < 8; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const spd = 30 + Math.random() * 50;
-        particles.push(new Particle(this.x, this.y, Math.cos(a) * spd, Math.sin(a) * spd, '#84cc16', 3, 0.3));
+      if (particles.length < 160) {
+        for (let i = 0; i < 6; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = 30 + Math.random() * 50;
+          particles.push(new Particle(this.x, this.y, Math.cos(a) * spd, Math.sin(a) * spd, '#84cc16', 3, 0.25));
+        }
       }
       window.audioManager.playHit();
     }
@@ -210,6 +270,8 @@ class Projectile {
   render(ctx, camera) {
     const sx = this.x - camera.x;
     const sy = this.y - camera.y;
+    if (sx < -40 || sx > camera.width + 40 || sy < -40 || sy > camera.height + 40) return;
+
     ctx.save();
     ctx.translate(sx, sy);
     const angle = Math.atan2(this.vy, this.vx);
@@ -225,28 +287,39 @@ class Projectile {
       ctx.lineTo(4, 4);
       ctx.closePath();
       ctx.fill();
+    } else if (this.type === 'plasma_bullet') {
+      const col = (this.extra && this.extra.color) ? this.extra.color : '#38bdf8';
+      ctx.fillStyle = col;
+      ctx.fillRect(-9, -2.5, 18, 5);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-6, -1, 14, 2);
+    } else if (this.type === 'turret_railgun') {
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(-11, -3, 22, 6);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(-8, -1.8, 18, 3.6);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-5, -1, 14, 2);
+    } else if (this.type === 'emp_blast') {
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
     } else if (this.type === 'net_arrow') {
-      // Net canister glowing cyan
       ctx.fillStyle = '#06b6d4';
       ctx.fillRect(-6, -4, 12, 8);
       ctx.strokeStyle = '#ffffff';
       ctx.strokeRect(-6, -4, 12, 8);
     } else if (this.type === 'recoil_blast') {
-      // Fiery plasma slug
       ctx.fillStyle = '#ef4444';
-      ctx.beginPath();
-      ctx.arc(0, 0, 8, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fde047';
-      ctx.beginPath();
-      ctx.arc(2, 0, 5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(2, 0, 5, 0, Math.PI * 2); ctx.fill();
     } else if (this.type === 'acid_spit') {
-      // Venom acid glob
       ctx.fillStyle = '#84cc16';
-      ctx.beginPath();
-      ctx.arc(0, 0, 6, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#bef264';
       ctx.fillRect(-2, -2, 4, 4);
     }
@@ -261,7 +334,7 @@ class Monster {
     this.vx = 0;
     this.vy = 0;
     this.species = species;
-    this.type = species; // for backward compatibility
+    this.type = species;
 
     const cfg = (CONSTANTS.MONSTER_SPECIES && CONSTANTS.MONSTER_SPECIES[species]) ? CONSTANTS.MONSTER_SPECIES[species] : {
       name: 'Xenomorph Crawler', maxHp: 50, speed: 75, damage: 10, radius: 16
@@ -290,36 +363,69 @@ class Monster {
 
     this.hitFlashTimer = 0;
     this.attackCooldown = 0;
-    this.pulseTimer = 0;
+    this.pulseTimer = Math.random() * 6.28;
+  }
+
+  grantLootDrops(floatingTexts) {
+    if (this.species === 'dummy') return;
+    const game = window.gameEngine;
+    if (!game || !game.inventory) return;
+
+    if (this.isBoss) {
+      game.inventory.addItem('alien_chitin', 3);
+      game.inventory.addItem('titanium_alloy', 2);
+      game.inventory.addItem('plasma_core', 1);
+      if (floatingTexts.length < 40) {
+        floatingTexts.push(new FloatingText(this.x, this.y - 38, '🎁 +3 GIÁP XÁC, +2 HỢP KIM TITAN, +1 LÕI PLASMA!', '#facc15', 12, 1.8));
+      }
+    } else {
+      game.inventory.addItem('alien_chitin', 1);
+      let bonusText = '+1 Giáp Xác Ngoại Lai';
+      if (Math.random() < 0.35) {
+        const extraItem = (this.species === 'exploder') ? 'sulfur_dust' : 'iron_ore';
+        game.inventory.addItem(extraItem, 1);
+        const def = CONSTANTS.ITEM_TYPES[extraItem];
+        if (def) bonusText += ` & +1 ${def.name}`;
+      }
+      if (floatingTexts.length < 40) {
+        floatingTexts.push(new FloatingText(this.x, this.y - 26, bonusText, '#c084fc', 11, 1.1));
+      }
+    }
   }
 
   takeDamage(amount, particles, floatingTexts) {
     if (this.isDead) return;
     this.hp -= amount;
-    this.hitFlashTimer = 0.12;
+    this.hitFlashTimer = 0.11;
 
     window.audioManager.playHit();
-    floatingTexts.push(new FloatingText(this.x + (Math.random() - 0.5) * 16, this.y - 15, `-${amount}`, '#ef4444', 14));
+    if (floatingTexts.length < 42) {
+      floatingTexts.push(new FloatingText(this.x + (Math.random() - 0.5) * 16, this.y - 15, `-${Math.round(amount)}`, '#ef4444', 13));
+    }
 
-    // Blood / Alien acid splatter
-    const bloodColor = (this.species === 'spitter') ? '#84cc16' : (this.species === 'exploder' ? '#ea580c' : '#a855f7');
-    for (let i = 0; i < 5; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const s = 30 + Math.random() * 50;
-      particles.push(new Particle(this.x, this.y, Math.cos(a) * s, Math.sin(a) * s, bloodColor, 3, 0.3));
+    // Blood / Alien acid splatter (capped for performance)
+    if (particles.length < 160) {
+      const bloodColor = (this.species === 'spitter') ? '#84cc16' : (this.species === 'exploder' ? '#ea580c' : '#a855f7');
+      for (let i = 0; i < 4; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = 30 + Math.random() * 50;
+        particles.push(new Particle(this.x, this.y, Math.cos(a) * s, Math.sin(a) * s, bloodColor, 3, 0.25));
+      }
     }
 
     if (this.hp <= 0) {
       if (this.isKamikaze && !this.isDead) {
-        // Trigger Kamikaze Detonation on death
+        this.grantLootDrops(floatingTexts);
         this.detonate(window.gameEngine ? window.gameEngine.player : null, window.gameEngine ? window.gameEngine.world : null, particles, floatingTexts);
       } else {
         this.isDead = true;
-        floatingTexts.push(new FloatingText(this.x, this.y - 25, `${this.name} TIÊU DIỆT!`, '#fbbf24', 12, 1.2));
-        for (let i = 0; i < 14; i++) {
-          const a = Math.random() * Math.PI * 2;
-          const s = 40 + Math.random() * 90;
-          particles.push(new Particle(this.x, this.y, Math.cos(a) * s, Math.sin(a) * s, '#ec4899', 4, 0.5));
+        this.grantLootDrops(floatingTexts);
+        if (particles.length < 170) {
+          for (let i = 0; i < 10; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 40 + Math.random() * 80;
+            particles.push(new Particle(this.x, this.y, Math.cos(a) * s, Math.sin(a) * s, '#ec4899', 4, 0.4));
+          }
         }
       }
     }
@@ -331,18 +437,21 @@ class Monster {
     window.audioManager.playBowRecoil();
 
     const blastRadius = 55;
-    particles.push(new Particle(this.x, this.y, 0, 0, '#ef4444', blastRadius, 0.5, 'ring'));
-    particles.push(new Particle(this.x, this.y, 0, 0, '#f97316', blastRadius * 0.7, 0.35, 'ring'));
+    particles.push(new Particle(this.x, this.y, 0, 0, '#ef4444', blastRadius, 0.45, 'ring'));
+    particles.push(new Particle(this.x, this.y, 0, 0, '#f97316', blastRadius * 0.7, 0.32, 'ring'));
 
-    for (let i = 0; i < 18; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const spd = 40 + Math.random() * 80;
-      particles.push(new Particle(this.x, this.y, Math.cos(a) * spd, Math.sin(a) * spd, (i % 2 === 0) ? '#fde047' : '#ea580c', 4, 0.4));
+    if (particles.length < 170) {
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const spd = 40 + Math.random() * 80;
+        particles.push(new Particle(this.x, this.y, Math.cos(a) * spd, Math.sin(a) * spd, (i % 2 === 0) ? '#fde047' : '#ea580c', 4, 0.35));
+      }
     }
 
-    floatingTexts.push(new FloatingText(this.x, this.y - 20, '💥 CẢM TỬ NỔ TUNG! 💥', '#ef4444', 13, 1.4));
+    if (floatingTexts.length < 40) {
+      floatingTexts.push(new FloatingText(this.x, this.y - 20, '💥 CẢM TỬ NỔ TUNG! 💥', '#ef4444', 12, 1.2));
+    }
 
-    // Damage player if in range
     if (player && !player.isDead) {
       const distP = Math.hypot(player.x - this.x, player.y - this.y);
       if (distP <= blastRadius) {
@@ -351,12 +460,11 @@ class Monster {
       }
     }
 
-    // Damage nearby defense structures
     if (world && world.game && world.game.buildingManager) {
       for (let d of world.game.buildingManager.defenses) {
         const distD = Math.hypot(d.x - this.x, d.y - this.y);
         if (distD <= blastRadius + 16) {
-          world.game.buildingManager.damageStructure(d, this.damage);
+          world.game.buildingManager.damageStructure(d, this.damage, this);
         }
       }
     }
@@ -364,18 +472,21 @@ class Monster {
 
   applyStun(duration, floatingTexts) {
     this.stunDuration = Math.max(this.stunDuration, duration);
-    floatingTexts.push(new FloatingText(this.x, this.y - 30, '★ STUNNED! ★', '#facc15', 12, 1.2));
+    if (floatingTexts && floatingTexts.length < 40) {
+      floatingTexts.push(new FloatingText(this.x, this.y - 30, '★ CHOÁNG! ★', '#facc15', 11, 1.0));
+    }
   }
 
   applyRoot(duration, floatingTexts) {
     this.rootDuration = Math.max(this.rootDuration, duration);
-    floatingTexts.push(new FloatingText(this.x, this.y - 30, '🕸 ROOTED! 🕸', '#38bdf8', 12, 1.2));
+    if (floatingTexts && floatingTexts.length < 40) {
+      floatingTexts.push(new FloatingText(this.x, this.y - 30, '🕸 TRÓI CHÂN! 🕸', '#38bdf8', 11, 1.0));
+    }
   }
 
   applySlow(factor, duration, floatingTexts) {
-    this.slowFactor = factor;
+    this.slowFactor = Math.min(this.slowFactor, factor);
     this.slowDuration = Math.max(this.slowDuration, duration);
-    floatingTexts.push(new FloatingText(this.x, this.y - 30, '❄ SLOWED! ❄', '#a5f3fc', 11, 1.0));
   }
 
   applyKnockback(vx, vy, duration = 0.25) {
@@ -390,7 +501,6 @@ class Monster {
     this.pulseTimer += dt * 4;
     if (this.hitFlashTimer > 0) this.hitFlashTimer -= dt;
 
-    // Update status durations
     if (this.stunDuration > 0) this.stunDuration -= dt;
     if (this.rootDuration > 0) this.rootDuration -= dt;
     if (this.slowDuration > 0) {
@@ -398,7 +508,7 @@ class Monster {
       if (this.slowDuration <= 0) this.slowFactor = 1.0;
     }
 
-    // Handle Knockback physics
+    // Knockback physics
     if (this.knockbackDuration > 0) {
       this.knockbackDuration -= dt;
       const nextX = this.x + this.knockbackVx * dt;
@@ -410,30 +520,26 @@ class Monster {
       return;
     }
 
-    // If stunned or rooted, cannot move
     if (this.stunDuration > 0 || this.rootDuration > 0) return;
-
     if (this.attackCooldown > 0) this.attackCooldown -= dt;
-
     if (this.species === 'dummy') return;
 
-    // Target Selection: Player or Nearest Defensive Structure
+    // Target Selection: Player or Nearest Blocking Defensive Structure
     let target = null;
     let targetDist = Infinity;
     let isStructureTarget = false;
 
-    // 1. Check Player as target
     if (player && !player.isStealthed && !player.isDead) {
       target = player;
       targetDist = Math.hypot(player.x - this.x, player.y - this.y);
     }
 
-    // 2. Check if a defensive wall / turret is closer or blocking
     if (world && world.game && world.game.buildingManager) {
-      for (let d of world.game.buildingManager.defenses) {
+      const defs = world.game.buildingManager.defenses;
+      for (let i = 0; i < defs.length; i++) {
+        const d = defs[i];
         if (!d.blocksMovement) continue;
         const distD = Math.hypot(d.x - this.x, d.y - this.y);
-        // If structure is very close (< 45px) or significantly closer than player
         if (distD < 45 || distD < targetDist * 0.7) {
           target = d;
           targetDist = distD;
@@ -445,15 +551,12 @@ class Monster {
 
     if (!target) return;
 
-    // ----------------------------------------------------
-    // KAMIKAZE EXPLODER AI
-    // ----------------------------------------------------
+    // 1. KAMIKAZE EXPLODER AI
     if (this.isKamikaze) {
       if (targetDist <= 28) {
         this.detonate(player, world, world.game ? world.game.particles : [], world.game ? world.game.floatingTexts : []);
         return;
       }
-      // Rush towards target at high speed
       const angle = Math.atan2(target.y - this.y, target.x - this.x);
       const curSpeed = this.speed * this.slowFactor;
       this.x += Math.cos(angle) * curSpeed * dt;
@@ -461,9 +564,7 @@ class Monster {
       return;
     }
 
-    // ----------------------------------------------------
-    // ACID SPITTER AI (Ranged Kiter)
-    // ----------------------------------------------------
+    // 2. ACID SPITTER AI
     if (this.isRanged) {
       if (targetDist <= this.attackRange && this.attackCooldown <= 0) {
         this.attackCooldown = 1.8;
@@ -476,7 +577,6 @@ class Monster {
           window.audioManager.playBowShoot();
         }
       } else if (targetDist > this.attackRange * 0.8) {
-        // Move into spit range
         const angle = Math.atan2(target.y - this.y, target.x - this.x);
         const curSpeed = this.speed * this.slowFactor;
         const moveX = Math.cos(angle) * curSpeed * dt;
@@ -487,20 +587,16 @@ class Monster {
       return;
     }
 
-    // ----------------------------------------------------
-    // MELEE ATTACKERS (Crawler & Titan Behemoth)
-    // ----------------------------------------------------
+    // 3. MELEE ATTACKERS (Crawler & Titan Behemoth)
     if (targetDist <= (this.radius + (isStructureTarget ? 16 : 14)) && this.attackCooldown <= 0) {
       this.attackCooldown = this.isBoss ? 1.4 : 1.1;
 
       if (isStructureTarget) {
-        // Attack Defensive Wall / Structure!
-        world.game.buildingManager.damageStructure(target, this.damage);
-        if (world.game.floatingTexts) {
+        world.game.buildingManager.damageStructure(target, this.damage, this);
+        if (world.game.floatingTexts && world.game.floatingTexts.length < 40) {
           world.game.floatingTexts.push(new FloatingText(target.x, target.y - 15, `-${this.damage}`, '#ef4444', 12, 0.8));
         }
       } else {
-        // Attack Player
         if (!player.isVaulting && !player.isDashing) {
           player.takeDamage(this.damage);
           player.addInfection(this.isBoss ? 20 : 12, this.name);
@@ -513,19 +609,18 @@ class Monster {
       const moveX = Math.cos(angle) * curSpeed * dt;
       const moveY = Math.sin(angle) * curSpeed * dt;
 
-      // Titan Behemoths can slowly crush blocking walls directly in path
       if (!world.isColliding(this.x + moveX, this.y, this.radius)) {
         this.x += moveX;
       } else if (this.isBoss && world.game && world.game.buildingManager) {
         const blkStruct = world.game.buildingManager.getStructureAt(this.x + moveX, this.y, 24);
-        if (blkStruct) world.game.buildingManager.damageStructure(blkStruct, 15 * dt);
+        if (blkStruct) world.game.buildingManager.damageStructure(blkStruct, 15 * dt, this);
       }
 
       if (!world.isColliding(this.x, this.y + moveY, this.radius)) {
         this.y += moveY;
       } else if (this.isBoss && world.game && world.game.buildingManager) {
         const blkStruct = world.game.buildingManager.getStructureAt(this.x, this.y + moveY, 24);
-        if (blkStruct) world.game.buildingManager.damageStructure(blkStruct, 15 * dt);
+        if (blkStruct) world.game.buildingManager.damageStructure(blkStruct, 15 * dt, this);
       }
     }
   }
@@ -535,11 +630,11 @@ class Monster {
 
     const sx = this.x - camera.x;
     const sy = this.y - camera.y;
-    if (sx < -80 || sx > camera.width + 80 || sy < -80 || sy > camera.height + 80) return;
+    if (sx < -70 || sx > camera.width + 70 || sy < -70 || sy > camera.height + 70) return;
 
     ctx.save();
 
-    // 1. Ground Shadow & Threat Aura Ring
+    // 1. Ground Shadow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.beginPath();
     ctx.ellipse(sx, sy + (this.isBoss ? 26 : 17), this.isBoss ? 25 : 15, this.isBoss ? 9 : 5.5, 0, 0, Math.PI * 2);
@@ -554,16 +649,15 @@ class Monster {
       ctx.stroke();
     }
 
-    // Kamikaze Exploder Pulsing Blast Warning Ring
+    // Kamikaze Exploder Pulsing Blast Warning Ring (Uses cached sprite instead of per-frame createRadialGradient!)
     if (this.isKamikaze) {
-      const pulse = Math.sin(this.pulseTimer * 1.8) * 0.2 + 0.32;
-      const glowGrad = ctx.createRadialGradient(sx, sy, 4, sx, sy, this.radius + 14);
-      glowGrad.addColorStop(0, `rgba(251, 146, 60, ${pulse})`);
-      glowGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
-      ctx.fillStyle = glowGrad;
-      ctx.beginPath();
-      ctx.arc(sx, sy, this.radius + 14, 0, Math.PI * 2);
-      ctx.fill();
+      const kamGlow = window.pixelArt.get('fx_kamikaze_glow');
+      if (kamGlow) {
+        ctx.save();
+        ctx.globalAlpha = 0.65 + Math.sin(this.pulseTimer * 1.8) * 0.25;
+        ctx.drawImage(kamGlow, sx - 32, sy - 32);
+        ctx.restore();
+      }
     }
 
     // Slow frost aura
@@ -572,11 +666,6 @@ class Monster {
       ctx.beginPath();
       ctx.arc(sx, sy, this.radius + 5, 0, Math.PI * 2);
       ctx.fill();
-    }
-
-    // Flash white on hit
-    if (this.hitFlashTimer > 0) {
-      ctx.filter = 'brightness(2.4)';
     }
 
     // 2. Draw Realistic Creature Sprite with Organic Scuttle / Breathing Animation
@@ -604,6 +693,15 @@ class Monster {
       }
 
       ctx.drawImage(sprite, -sprSize / 2, -sprSize / 2, sprSize, sprSize);
+
+      // Fast GPU-friendly Hit Flash Overlay (Replaces slow ctx.filter = 'brightness(2.4)')
+      if (this.hitFlashTimer > 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius + 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.restore();
     }
 
@@ -626,7 +724,7 @@ class Monster {
     if (this.stunDuration > 0) {
       ctx.save();
       ctx.fillStyle = '#facc15';
-      const time = Date.now() * 0.006;
+      const time = this.pulseTimer * 1.5;
       for (let i = 0; i < 3; i++) {
         const starAngle = time + (i * Math.PI * 2 / 3);
         const starX = sx + Math.cos(starAngle) * 16;
@@ -644,7 +742,6 @@ class Monster {
     const barY = sy - (this.isBoss ? 40 : 28);
     const hpPercent = Math.max(0, this.hp / this.maxHp);
 
-    // Outer dark frame
     ctx.fillStyle = 'rgba(9, 13, 22, 0.9)';
     ctx.fillRect(sx - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
 
@@ -657,11 +754,9 @@ class Monster {
 
     ctx.fillStyle = hpColor;
     ctx.fillRect(sx - barWidth / 2, barY, barWidth * hpPercent, barHeight);
-    // Top glossy highlight on HP bar
     ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
     ctx.fillRect(sx - barWidth / 2, barY, barWidth * hpPercent, 1.5);
 
-    // Show species nameplate when Boss, Dummy, Damaged, or Hovered by Mouse
     const game = window.gameEngine;
     const distMouse = (game && game.mouse) ? Math.hypot(game.mouse.worldX - this.x, game.mouse.worldY - this.y) : 9999;
     if (this.isBoss || this.species === 'dummy' || this.hp < this.maxHp || distMouse <= 38) {
@@ -670,9 +765,7 @@ class Monster {
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(9, 13, 22, 0.85)';
       const tw = ctx.measureText(speciesTag).width + 10;
-      ctx.beginPath();
-      ctx.roundRect(sx - tw / 2, barY - 16, tw, 13, 3);
-      ctx.fill();
+      ctx.fillRect(sx - tw / 2, barY - 16, tw, 13);
       ctx.fillStyle = '#f8fafc';
       ctx.fillText(speciesTag, sx, barY - 6.5);
       ctx.restore();
@@ -711,16 +804,16 @@ class Player {
     this.dashVx = 0;
     this.dashVy = 0;
 
-    // Active weapon key: 'SPEAR', 'STAFF', 'DAGGER', 'BOW'
+    // Active weapon key: 'SPEAR', 'STAFF', 'DAGGER', 'BOW', 'GUN'
     this.activeWeapon = 'SPEAR';
     this.attackCooldownTimer = 0;
     this.skill1CooldownTimer = 0;
     this.skill2CooldownTimer = 0;
 
     // Phase 2: Infection Immunity & Life State
-    this.immunityTimer = 0; // Granted by Pure Antibody Elixir
-    this.invulnerableTimer = 0; // Hit grace invulnerability
-    this.infectionCooldownTimer = 0; // Prevent infection spike
+    this.immunityTimer = 0;
+    this.invulnerableTimer = 0;
+    this.infectionCooldownTimer = 0;
     this.isDead = false;
 
     // Escape Skill States
@@ -751,7 +844,6 @@ class Player {
   triggerDash(keys, mouseWorldX, mouseWorldY, particles, floatingTexts) {
     if (this.dashTimer > 0 || this.isDashing || this.isVaulting) return false;
 
-    // Determine dash direction from movement keys, joystick, or towards mouse
     let dx = 0;
     let dy = 0;
     if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
@@ -768,7 +860,6 @@ class Player {
     }
 
     if (dx === 0 && dy === 0) {
-      // Dash towards mouse
       const angle = Math.atan2(mouseWorldY - this.y, mouseWorldX - this.x);
       dx = Math.cos(angle);
       dy = Math.sin(angle);
@@ -787,8 +878,7 @@ class Player {
     window.audioManager.playDash();
     floatingTexts.push(new FloatingText(this.x, this.y - 20, 'DASH!', '#38bdf8', 12, 0.6));
 
-    // Particle burst
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 6; i++) {
       particles.push(new Particle(this.x, this.y, -dx * 80 + (Math.random() - 0.5) * 40, -dy * 80 + (Math.random() - 0.5) * 40, '#0284c7', 4, 0.25));
     }
 
@@ -796,13 +886,11 @@ class Player {
   }
 
   update(dt, keys, mouseWorldX, mouseWorldY, world, particles, floatingTexts) {
-    // Cooldown timers
     if (this.dashTimer > 0) this.dashTimer -= dt;
     if (this.attackCooldownTimer > 0) this.attackCooldownTimer -= dt;
     if (this.skill1CooldownTimer > 0) this.skill1CooldownTimer -= dt;
     if (this.skill2CooldownTimer > 0) this.skill2CooldownTimer -= dt;
 
-    // Status effect timers
     if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if (this.infectionCooldownTimer > 0) this.infectionCooldownTimer -= dt;
 
@@ -828,7 +916,6 @@ class Player {
       }
     }
 
-    // Check full 100% infection fatality
     if (this.infection >= 100 && !this.isDead) {
       this.isDead = true;
       if (window.gameEngine) {
@@ -836,7 +923,6 @@ class Player {
       }
     }
 
-    // Aim angle towards joystick/touch target on mobile, or towards mouse on desktop
     const mc = (world && world.game) ? world.game.mobileController : null;
     if (mc && mc.isUsingTouchAim) {
       if (mc.moveVector && (mc.moveVector.x !== 0 || mc.moveVector.y !== 0)) {
@@ -862,21 +948,17 @@ class Player {
       this.vaultTimer += dt;
       const progress = Math.min(1.0, this.vaultTimer / this.vaultMaxTime);
 
-      // Arc height
       this.vaultHeight = Math.sin(progress * Math.PI) * 45;
-
       this.x = this.vaultStartX + (this.vaultTargetX - this.vaultStartX) * progress;
       this.y = this.vaultStartY + (this.vaultTargetY - this.vaultStartY) * progress;
 
-      // Spawn dust particle during flight
-      if (Math.random() < 0.35) {
+      if (Math.random() < 0.3) {
         particles.push(new Particle(this.x, this.y + 12, 0, -10, '#cbd5e1', 3, 0.2));
       }
 
       if (progress >= 1.0) {
         this.isVaulting = false;
         this.vaultHeight = 0;
-        // Landing dust impact
         particles.push(new Particle(this.x, this.y + 8, 0, 0, '#94a3b8', 35, 0.35, 'ring'));
         floatingTexts.push(new FloatingText(this.x, this.y - 20, 'LANDING!', '#38bdf8', 12, 0.8));
       }
@@ -889,18 +971,18 @@ class Player {
       const nextX = this.x + this.dashVx * dt;
       const nextY = this.y + this.dashVy * dt;
 
-      // During stealth or dash, allow lenient collision
       if (this.isStealthed || !world.isColliding(nextX, this.y, this.radius)) this.x = nextX;
       if (this.isStealthed || !world.isColliding(this.x, nextY, this.radius)) this.y = nextY;
 
-      // Leave ghost afterimage
-      this.ghosts.push({
-        x: this.x,
-        y: this.y,
-        dir: this.facing,
-        frame: this.walkFrame,
-        alpha: 0.6
-      });
+      if (this.ghosts.length < 4) {
+        this.ghosts.push({
+          x: this.x,
+          y: this.y,
+          dir: this.facing,
+          frame: this.walkFrame,
+          alpha: 0.55
+        });
+      }
 
       if (this.dashDuration <= 0) {
         this.isDashing = false;
@@ -916,7 +998,6 @@ class Player {
     if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
     if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
 
-    // Check Mobile Virtual Joystick input
     if (world && world.game && world.game.mobileController) {
       const jv = world.game.mobileController.moveVector;
       if (jv && (jv.x !== 0 || jv.y !== 0)) {
@@ -933,7 +1014,6 @@ class Player {
       const moveX = (dx / len) * speed * dt;
       const moveY = (dy / len) * speed * dt;
 
-      // Collision checks (ignore if stealthed)
       if (this.isStealthed || !world.isColliding(this.x + moveX, this.y, this.radius)) {
         this.x += moveX;
       }
@@ -941,7 +1021,6 @@ class Player {
         this.y += moveY;
       }
 
-      // Determine facing
       if (Math.abs(dx) > Math.abs(dy)) {
         this.facing = 'side';
       } else if (dy < 0) {
@@ -950,7 +1029,6 @@ class Player {
         this.facing = 'down';
       }
 
-      // Walk animation
       this.walkAnimTimer += dt * 10;
       if (this.walkAnimTimer >= 1.0) {
         this.walkAnimTimer = 0;
@@ -958,7 +1036,6 @@ class Player {
       }
     } else {
       this.walkFrame = 0;
-      // Facing follows mouse when idle
       const deg = (this.aimAngle * 180 / Math.PI + 360) % 360;
       if (deg > 45 && deg <= 135) this.facing = 'down';
       else if (deg > 135 && deg <= 225) this.facing = 'side';
@@ -986,7 +1063,6 @@ class Player {
 
     ctx.save();
 
-    // Tactical Player Ground Locator Ring & Shadow
     const groundX = this.x - camera.x;
     const groundY = this.y - camera.y + 13;
     const shadowScale = Math.max(0.5, 1 - (this.vaultHeight / 60));
@@ -996,14 +1072,12 @@ class Player {
     ctx.ellipse(groundX, groundY, 13 * shadowScale, 5 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Subtle cyan tactical ring + directional aim pointer under player feet
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.ellipse(groundX, groundY, 15 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Directional aim chevron on ground ring
     const aimTipX = groundX + Math.cos(this.aimAngle) * 22;
     const aimTipY = groundY + Math.sin(this.aimAngle) * 10;
     ctx.fillStyle = 'rgba(56, 189, 248, 0.75)';
@@ -1011,12 +1085,10 @@ class Player {
     ctx.arc(aimTipX, aimTipY, 2.2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Stealth transparency
     if (this.isStealthed) {
       ctx.globalAlpha = 0.38;
     }
 
-    // Direction flip for left vs right
     const facingLeft = Math.cos(this.aimAngle) < 0;
 
     ctx.save();
@@ -1025,7 +1097,6 @@ class Player {
       ctx.scale(-1, 1);
     }
 
-    // Draw Realistic 40x44 Survivor Player Sprite
     const playerSprite = window.pixelArt.get(`player_${this.facing}_${this.walkFrame}`);
     if (playerSprite) {
       ctx.drawImage(playerSprite, -20, -24, 40, 44);
@@ -1035,7 +1106,6 @@ class Player {
     // Draw Held Weapon aimed at cursor
     this.renderHeldWeapon(ctx, sx, sy, facingLeft);
 
-    // Draw Sterile Immunity / Invulnerability Energy Shield Bubble
     if (this.immunityTimer > 0 || this.invulnerableTimer > 0) {
       ctx.save();
       const shieldColor = this.invulnerableTimer > 0 ? 'rgba(56, 189, 248, 0.45)' : 'rgba(16, 185, 129, 0.32)';
@@ -1062,7 +1132,6 @@ class Player {
     ctx.rotate(this.aimAngle);
 
     if (weaponConfig.id === 'spear') {
-      // Long spear extending forward
       ctx.drawImage(sprite, 8, -16);
     } else if (weaponConfig.id === 'staff') {
       ctx.drawImage(sprite, 6, -16);
@@ -1070,6 +1139,8 @@ class Player {
       ctx.drawImage(sprite, 4, -14);
     } else if (weaponConfig.id === 'bow') {
       ctx.drawImage(sprite, 6, -16);
+    } else if (weaponConfig.id === 'gun') {
+      ctx.drawImage(sprite, 4, -15);
     }
     ctx.restore();
   }
@@ -1078,7 +1149,7 @@ class Player {
     if (this.isDead || this.isVaulting || this.isDashing || this.invulnerableTimer > 0) return;
     const mitigated = Math.max(1, amount - this.armor);
     this.hp -= mitigated;
-    this.invulnerableTimer = 0.45; // brief hit invulnerability
+    this.invulnerableTimer = 0.45;
 
     if (window.gameEngine && window.gameEngine.floatingTexts) {
       window.gameEngine.floatingTexts.push(new FloatingText(this.x, this.y - 20, `-${mitigated} HP`, '#ef4444', 13, 0.8));
@@ -1103,11 +1174,9 @@ class Player {
       return;
     }
 
-    // Cooldown on monster attack infection spikes
     if (sourceText && this.infectionCooldownTimer > 0) return;
     if (sourceText) this.infectionCooldownTimer = 0.8;
 
-    // Toxin resistance reduces incoming infection
     const effective = amount * Math.max(0.1, 1 - (this.toxinResist / 100));
     this.infection = Math.min(100, this.infection + effective);
 
@@ -1129,10 +1198,10 @@ class Player {
     this.x = spawnX;
     this.y = spawnY;
     this.hp = this.maxHp;
-    this.infection = 0; // Completely cleansed inside sterile Bio-Lab!
+    this.infection = 0;
     this.isDead = false;
-    this.immunityTimer = 15; // 15s grace immunity after respawn
-    this.invulnerableTimer = 3; // 3s grace invulnerability
+    this.immunityTimer = 15;
+    this.invulnerableTimer = 3;
   }
 }
 

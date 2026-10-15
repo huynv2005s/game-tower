@@ -1,13 +1,12 @@
-// Bio-Lab & Furnace Interactive Management System
-// Tab 1: Antidote Medicine Alchemy (Huyết thanh sơ cấp & Thuốc kháng thể tinh khiết)
-// Tab 2: Furnace & Purifier (Đun nước sạch & Nung bột lưu huỳnh)
-// Tab 3: Isolated Hydroponics (Nuôi cấy thảo dược cách ly không bị nhiễm khuẩn qua đêm)
+// Bio-Lab, Furnace, Workbench & Workshop Interactive Management System
+// Includes Multi-Tier Wall & Defense Gun Upgrades (Lv.1 -> Lv.3) and Player Gun / Weapon Upgrades (Lv.1 -> Lv.3)
 
 class LabSystem {
   constructor(game) {
     this.game = game;
     this.isOpen = false;
-    this.currentTab = 'lab'; // 'lab', 'furnace', 'hydroponics'
+    this.currentTab = 'lab'; // 'lab', 'furnace', 'workbench', 'workshop', 'hydroponics'
+    this._lastHydroPercentSum = -1;
 
     // 3 Isolated Hydroponic Growth Pods inside Bio-Lab
     this.hydroPods = [
@@ -18,7 +17,7 @@ class LabSystem {
   }
 
   update(dt) {
-    // Advance hydroponics growth
+    let percentSum = 0;
     for (let pod of this.hydroPods) {
       if (pod.seedId && !pod.ready) {
         pod.progress += dt;
@@ -27,9 +26,12 @@ class LabSystem {
           pod.ready = true;
         }
       }
+      percentSum += pod.seedId ? Math.floor((pod.progress / pod.growthTime) * 100) : -1;
     }
 
-    if (this.isOpen && this.currentTab === 'hydroponics') {
+    // Only re-render Hydroponics DOM when percentage integer changes (prevents 60fps DOM thrashing!)
+    if (this.isOpen && this.currentTab === 'hydroponics' && percentSum !== this._lastHydroPercentSum) {
+      this._lastHydroPercentSum = percentSum;
       this.renderHydroponicsTab();
     }
   }
@@ -69,13 +71,16 @@ class LabSystem {
       this.renderRecipesTab('FURNACE', 'furnace-recipe-list', 'NUNG NGUYÊN LIỆU');
     } else if (tab === 'workbench') {
       this.renderRecipesTab('WORKBENCH', 'workbench-recipe-list', 'CHẾ TẠO');
+      this.appendDefenseUpgradeCards('workbench-recipe-list', ['wall', 'trap']);
     } else if (tab === 'workshop') {
-      this.renderRecipesTab('WORKSHOP', 'workshop-recipe-list', 'LẮP RÁP THỦ THÀNH');
+      this.renderRecipesTab('WORKSHOP', 'workshop-recipe-list', 'LẮP RÁP');
+      this.appendDefenseUpgradeCards('workshop-recipe-list', ['wall', 'turret', 'mortar', 'trap']);
+      this.appendWeaponUpgradeCards('workshop-recipe-list');
     } else if (tab === 'hydroponics') {
+      this._lastHydroPercentSum = -999;
       this.renderHydroponicsTab();
     }
 
-    // Toggle panels
     const labPanel = document.getElementById('tab-content-lab');
     const furnacePanel = document.getElementById('tab-content-furnace');
     const workbenchPanel = document.getElementById('tab-content-workbench');
@@ -89,7 +94,185 @@ class LabSystem {
     if (hydroPanel) hydroPanel.style.display = (tab === 'hydroponics') ? 'block' : 'none';
   }
 
-  // Render recipes for Lab or Furnace
+  // Render Defense Structure Upgrade Cards (Wall, Turret, Mortar, Trap)
+  appendDefenseUpgradeCards(containerId, structTypes) {
+    const container = document.getElementById(containerId);
+    if (!container || !this.game || !this.game.buildingManager) return;
+
+    const bm = this.game.buildingManager;
+
+    const header = document.createElement('div');
+    header.style.cssText = 'margin: 12px 0 6px 0; padding: 6px 10px; background: rgba(56, 189, 248, 0.14); border-left: 3px solid #38bdf8; color: #38bdf8; font-weight: 800; font-size: 12px; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center;';
+    header.innerHTML = `
+      <span>🏰 NÂNG CẤP TƯỜNG & SÚNG THỦ THÀNH ĐÃ ĐẶT (LV.1 ➔ LV.3)</span>
+      <button class="craft-btn can-craft" style="padding: 4px 10px; font-size: 10px;" onclick="window.labSystem.close(); window.buildingManager.enterBuildMode('upgrade');">
+        🔧 CHỌN TRÊN BẢN ĐỒ [PHÍM 9 / R]
+      </button>
+    `;
+    container.appendChild(header);
+
+    const icons = { wall: '🧱', turret: '🗼', mortar: '💣', trap: '⚙' };
+
+    structTypes.forEach(type => {
+      const baseCfg = CONSTANTS.DEFENSE[type];
+      if (!baseCfg || !baseCfg.tiers) return;
+
+      const placedList = bm.defenses.filter(d => d.type === type);
+      const upgradeableList = placedList.filter(d => (d.level || 1) < 3);
+
+      // Determine target level to display (lowest level among placed, or Lv.2 if none placed yet)
+      let targetNextLv = 2;
+      if (upgradeableList.length > 0) {
+        const minLv = Math.min(...upgradeableList.map(d => d.level || 1));
+        targetNextLv = minLv + 1;
+      } else if (placedList.length > 0) {
+        targetNextLv = 4; // All placed are max level 3!
+      }
+
+      const card = document.createElement('div');
+      card.className = 'recipe-card';
+      card.style.borderColor = targetNextLv === 3 ? 'rgba(250, 204, 21, 0.45)' : 'rgba(56, 189, 248, 0.35)';
+
+      if (targetNextLv > 3) {
+        const tier3 = baseCfg.tiers[3];
+        card.innerHTML = `
+          <div class="recipe-info">
+            <div class="recipe-name" style="color: #facc15;">${icons[type]} ${tier3.name} (Đã Đặt: ${placedList.length} cái)</div>
+            <div class="recipe-desc">${tier3.desc}</div>
+          </div>
+          <div class="recipe-action">
+            <button class="craft-btn disabled" disabled>★ ĐÃ MAX LV.3</button>
+          </div>
+        `;
+      } else {
+        const nextTier = baseCfg.tiers[targetNextLv];
+        let canAfford = true;
+        const reqHtml = nextTier.cost.map(req => {
+          const has = this.getItemCountInInventory(req.id);
+          const enough = has >= req.count;
+          if (!enough) canAfford = false;
+          const def = CONSTANTS.ITEM_TYPES[req.id];
+          return `
+            <div class="recipe-req ${enough ? 'req-met' : 'req-missing'}">
+              <span>${def ? def.name : req.name}:</span>
+              <span>${has} / ${req.count}</span>
+            </div>
+          `;
+        }).join('');
+
+        const canUpgradeNow = canAfford && upgradeableList.length > 0;
+        const statusText = placedList.length === 0
+          ? `<span style="color:#f59e0b;">(Chưa đặt trên bản đồ - Hãy đặt công trình ra trước!)</span>`
+          : `<span style="color:#38bdf8;">(Đang đặt: ${placedList.length} cái | Cần nâng: ${upgradeableList.length} cái)</span>`;
+
+        card.innerHTML = `
+          <div class="recipe-info">
+            <div class="recipe-name" style="color: ${targetNextLv === 3 ? '#facc15' : '#38bdf8'};">
+              ${icons[type]} Nâng Cấp: ${nextTier.name} ${statusText}
+            </div>
+            <div class="recipe-desc">${nextTier.desc}</div>
+            <div class="recipe-ingredients">${reqHtml}</div>
+          </div>
+          <div class="recipe-action">
+            <button class="craft-btn ${canUpgradeNow ? 'can-craft' : 'disabled'}" ${canUpgradeNow ? '' : 'disabled'}>
+              ${placedList.length === 0 ? 'CHƯA ĐẶT' : `⬆ NÂNG LV.${targetNextLv}`}
+            </button>
+          </div>
+        `;
+
+        if (canUpgradeNow) {
+          card.querySelector('.craft-btn').onclick = () => {
+            bm.upgradeOneByType(type);
+            this.switchTab(this.currentTab);
+          };
+        }
+      }
+
+      container.appendChild(card);
+    });
+  }
+
+  // Render Player Gun & Weapon Upgrade Cards (Lv.1 -> Lv.3)
+  appendWeaponUpgradeCards(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container || !this.game || !this.game.weapons) return;
+
+    const ws = this.game.weapons;
+    const header = document.createElement('div');
+    header.style.cssText = 'margin: 14px 0 6px 0; padding: 6px 10px; background: rgba(250, 204, 21, 0.14); border-left: 3px solid #facc15; color: #facc15; font-weight: 800; font-size: 12px; letter-spacing: 0.5px;';
+    header.innerHTML = `🔫 NÂNG CẤP SÚNG TRƯỜNG PLASMA & VŨ KHÍ CHIẾN ĐẤU (LV.1 ➔ LV.3)`;
+    container.appendChild(header);
+
+    const weaponKeys = ['GUN', 'BOW', 'SPEAR', 'STAFF', 'DAGGER'];
+    const emojis = { GUN: '🔫', BOW: '🏹', SPEAR: '🗡', STAFF: '🪄', DAGGER: '🔪' };
+
+    weaponKeys.forEach(wKey => {
+      const wStats = ws.getWeaponStats(wKey);
+      if (!wStats) return;
+      const curLv = wStats.level;
+
+      const card = document.createElement('div');
+      card.className = 'recipe-card';
+
+      if (curLv >= 3) {
+        card.innerHTML = `
+          <div class="recipe-info">
+            <div class="recipe-name" style="color: #facc15;">${emojis[wKey]} ${wStats.name} [Lv.3 MAX]</div>
+            <div class="recipe-desc">Sát thương: ${wStats.damage} DMG | Tốc đánh: ${wStats.attackCooldown.toFixed(2)}s | Tầm: ${wStats.range}px (Đã đạt cấp tối đa!)</div>
+          </div>
+          <div class="recipe-action">
+            <button class="craft-btn disabled" disabled>★ ĐÃ MAX LV.3</button>
+          </div>
+        `;
+      } else {
+        const nextLv = curLv + 1;
+        const tierCfg = CONSTANTS.WEAPON_TIERS[nextLv];
+        const nextDmg = Math.round(wStats.baseDamage * tierCfg.dmgMult);
+        const nextRange = Math.round(CONSTANTS.WEAPONS[wKey].range * tierCfg.rangeMult);
+
+        let canAfford = true;
+        const reqHtml = tierCfg.cost.map(req => {
+          const has = this.getItemCountInInventory(req.id);
+          const enough = has >= req.count;
+          if (!enough) canAfford = false;
+          const def = CONSTANTS.ITEM_TYPES[req.id];
+          return `
+            <div class="recipe-req ${enough ? 'req-met' : 'req-missing'}">
+              <span>${def ? def.name : req.name}:</span>
+              <span>${has} / ${req.count}</span>
+            </div>
+          `;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="recipe-info">
+            <div class="recipe-name" style="color: ${nextLv === 3 ? '#facc15' : '#38bdf8'};">
+              ${emojis[wKey]} ${wStats.name} (Lv.${curLv} ➔ Lv.${nextLv})
+            </div>
+            <div class="recipe-desc">
+              Nâng sát thương: <strong>${wStats.damage} ➔ ${nextDmg} DMG</strong> | Tầm: <strong>${wStats.range} ➔ ${nextRange}px</strong> | Tăng tốc bắn & hiệu ứng đạn cấp cao!
+            </div>
+            <div class="recipe-ingredients">${reqHtml}</div>
+          </div>
+          <div class="recipe-action">
+            <button class="craft-btn ${canAfford ? 'can-craft' : 'disabled'}" ${canAfford ? '' : 'disabled'}>
+              ⬆ NÂNG LV.${nextLv}
+            </button>
+          </div>
+        `;
+
+        if (canAfford) {
+          card.querySelector('.craft-btn').onclick = () => {
+            ws.upgradeWeapon(wKey);
+          };
+        }
+      }
+
+      container.appendChild(card);
+    });
+  }
+
+  // Render recipes for Lab, Furnace, Workbench, Workshop
   renderRecipesTab(recipeGroup, containerId, actionBtnText) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -101,7 +284,6 @@ class LabSystem {
       const card = document.createElement('div');
       card.className = 'recipe-card';
 
-      // Check ingredients in inventory
       let canCraft = true;
       const ingredientsHtml = recipe.inputs.map(input => {
         const hasCount = this.getItemCountInInventory(input.id);
@@ -116,8 +298,6 @@ class LabSystem {
           </div>
         `;
       }).join('');
-
-      const outDef = CONSTANTS.ITEM_TYPES[recipe.output.id];
 
       card.innerHTML = `
         <div class="recipe-info">
@@ -144,6 +324,9 @@ class LabSystem {
   }
 
   getItemCountInInventory(itemId) {
+    if (this.game && this.game.inventory && this.game.inventory.getItemCount) {
+      return this.game.inventory.getItemCount(itemId);
+    }
     let total = 0;
     for (let slot of this.game.inventory.slots) {
       if (slot && slot.id === itemId) {
@@ -154,7 +337,6 @@ class LabSystem {
   }
 
   craftRecipe(recipe) {
-    // 1. Double check materials
     for (let input of recipe.inputs) {
       if (this.getItemCountInInventory(input.id) < input.count) {
         this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, 'THIẾU NGUYÊN LIỆU!', '#ef4444', 12, 0.8));
@@ -162,7 +344,6 @@ class LabSystem {
       }
     }
 
-    // 2. Consume materials
     for (let input of recipe.inputs) {
       let needed = input.count;
       for (let i = 0; i < this.game.inventory.slotCount; i++) {
@@ -179,24 +360,22 @@ class LabSystem {
       }
     }
 
-    // 3. Grant output
     if (recipe.output.id === 'backpack_upgraded') {
-      this.game.inventory.expandCapacity(6);
+      this.game.inventory.expandCapacity(4);
     } else {
       this.game.inventory.addItem(recipe.output.id, recipe.output.count);
     }
 
-    // Audio & Visual feedback
     window.audioManager.playEquip();
     const outDef = CONSTANTS.ITEM_TYPES[recipe.output.id];
     this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, `ĐÃ HOÀN TẤT: +${recipe.output.count} ${outDef.name}!`, '#38bdf8', 13, 1.2));
 
-    // Refresh UI
-    this.game.inventory.renderUI();
+    if (this.game.inventory.isOpen) {
+      this.game.inventory.renderUI();
+    }
     this.switchTab(this.currentTab);
   }
 
-  // Render Hydroponics Pods
   renderHydroponicsTab() {
     const container = document.getElementById('hydroponics-pods');
     if (!container) return;
@@ -207,7 +386,6 @@ class LabSystem {
       podEl.className = 'hydro-pod';
 
       if (!pod.seedId) {
-        // Empty pod
         podEl.innerHTML = `
           <div class="pod-title">🌱 LỒNG CẤY SỐ ${idx + 1}: TRỐNG</div>
           <div class="pod-status">Môi trường vô trùng 100%, sẵn sàng gieo giống.</div>
@@ -247,7 +425,6 @@ class LabSystem {
       return;
     }
 
-    // Deduct 1 seed
     this.game.inventory.removeItem(this.game.inventory.slots.findIndex(s => s && s.id === seedId), 1);
 
     const pod = this.hydroPods[podIndex];
@@ -257,6 +434,7 @@ class LabSystem {
 
     window.audioManager.playEquip();
     this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, 'ĐÃ CẤY MẦM VÀO LỒNG VÔ TRÙNG!', '#22c55e', 12, 1.0));
+    this._lastHydroPercentSum = -999;
     this.renderHydroponicsTab();
   }
 
@@ -265,19 +443,18 @@ class LabSystem {
     if (!pod || !pod.ready) return;
 
     const seedDef = CONSTANTS.ITEM_TYPES[pod.seedId];
-    const cropId = seedDef.targetCrop; // 'snow_lotus' or 'silver_moss'
+    const cropId = seedDef.targetCrop;
 
-    // Add 2 clean herbs
     this.game.inventory.addItem(cropId, 2);
 
     window.audioManager.playEquip();
     this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, `THU HOẠCH THÀNH CÔNG: +2 ${CONSTANTS.ITEM_TYPES[cropId].name}!`, '#38bdf8', 13, 1.2));
 
-    // Reset pod
     pod.seedId = null;
     pod.progress = 0;
     pod.ready = false;
 
+    this._lastHydroPercentSum = -999;
     this.renderHydroponicsTab();
   }
 }

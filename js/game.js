@@ -54,6 +54,9 @@ class GameEngine {
 
     this.lastTime = performance.now();
     this.isPaused = false;
+    this.frameCount = 0;
+    this.minimapBgCanvas = null;
+    this._hudCache = null;
   }
 
   init() {
@@ -66,6 +69,9 @@ class GameEngine {
 
     // Generate world map
     this.world.generate();
+
+    // Pre-render static minimap background once
+    this.buildMinimapCache();
 
     // Spawn player in the central Plains near the wooden bridge
     // Row 38, Col 35 (safe plains area)
@@ -90,7 +96,7 @@ class GameEngine {
 
     // Initial UI render
     this.inventory.renderUI();
-    this.updateHUD();
+    this.updateHUD(true);
 
     // Start Game Loop
     requestAnimationFrame((t) => this.loop(t));
@@ -157,17 +163,24 @@ class GameEngine {
         this.weapons.triggerSkill2(this.player, this.mouse.worldX, this.mouse.worldY);
       }
 
-      // Quick Weapon Switching [1, 2, 3, 4]
+      // Quick Weapon Switching [1, 2, 3, 4, G]
       if (e.code === 'Digit1') this.weapons.switchWeapon('SPEAR');
       if (e.code === 'Digit2') this.weapons.switchWeapon('STAFF');
       if (e.code === 'Digit3') this.weapons.switchWeapon('DAGGER');
       if (e.code === 'Digit4') this.weapons.switchWeapon('BOW');
+      if (e.code === 'KeyG') this.weapons.switchWeapon('GUN');
 
-      // Quick Defense Build Shortcuts [5, 6, 7, 8]
+      // Quick Defense Build & Upgrade Shortcuts [5, 6, 7, 8, 9, R]
       if (e.code === 'Digit5') this.buildingManager.enterBuildMode('wall');
       if (e.code === 'Digit6') this.buildingManager.enterBuildMode('trap');
       if (e.code === 'Digit7') this.buildingManager.enterBuildMode('turret');
       if (e.code === 'Digit8') this.buildingManager.enterBuildMode('mortar');
+      if (e.code === 'Digit9') this.buildingManager.enterBuildMode('upgrade');
+      if (e.code === 'KeyR') {
+        if (this.buildingManager) {
+          this.buildingManager.upgradeNearestOrHovered();
+        }
+      }
 
       // Escape to cancel build mode
       if (e.code === 'Escape') {
@@ -278,7 +291,7 @@ class GameEngine {
           this.mouse.worldX = e.clientX + this.camera.x;
           this.mouse.worldY = e.clientY + this.camera.y;
 
-          // If in Build Mode, place structure!
+          // If in Build Mode, place or upgrade structure!
           if (this.buildingManager.buildMode) {
             this.buildingManager.updateHoverTile(this.mouse.worldX, this.mouse.worldY);
             this.buildingManager.placeStructure(
@@ -304,21 +317,35 @@ class GameEngine {
   update(dt) {
     // Clamp delta time to avoid spiral of death
     dt = Math.min(dt, 0.1);
+    this.frameCount++;
 
     // Update world mouse coords
     this.mouse.worldX = this.mouse.screenX + this.camera.x;
     this.mouse.worldY = this.mouse.screenY + this.camera.y;
 
     // Check if UI modal is open (Crafting, Inventory, Help, GameOver)
+    if (!this._modalEls) {
+      this._modalEls = {
+        help: document.getElementById('help-modal'),
+        gameover: document.getElementById('gameover-modal')
+      };
+    }
     const isModalOpen = (this.lab && this.lab.isOpen) ||
                         (this.inventory && this.inventory.isOpen) ||
-                        (document.getElementById('help-modal') && document.getElementById('help-modal').style.display === 'flex') ||
-                        (document.getElementById('gameover-modal') && document.getElementById('gameover-modal').style.display === 'flex');
+                        (this._modalEls.help && this._modalEls.help.style.display === 'flex') ||
+                        (this._modalEls.gameover && this._modalEls.gameover.style.display === 'flex');
 
     if (isModalOpen) {
       if (this.lab) this.lab.update(dt);
       this.updateHUD();
       return; // Pause combat and environment while menu is active
+    }
+
+    // Continuous fire while holding mouse down with ranged weapon (Bow / Plasma Gun)
+    if (this.mouse.isDown && this.player && !this.player.isDead && (!this.buildingManager || !this.buildingManager.buildMode)) {
+      if (this.player.activeWeapon === 'GUN' || this.player.activeWeapon === 'DAGGER') {
+        this.weapons.performBasicAttack(this.player, this.mouse.worldX, this.mouse.worldY);
+      }
     }
 
     // Day/Night progression
@@ -364,10 +391,20 @@ class GameEngine {
       }
     }
 
+    // Cap particle count to prevent lag spikes during massive explosions
+    if (this.particles.length > 180) {
+      this.particles.splice(0, this.particles.length - 180);
+    }
+
     // Update Particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const alive = this.particles[i].update(dt);
       if (!alive) this.particles.splice(i, 1);
+    }
+
+    // Cap floating texts to prevent lag spikes
+    if (this.floatingTexts.length > 45) {
+      this.floatingTexts.splice(0, this.floatingTexts.length - 45);
     }
 
     // Update Floating Combat Texts
@@ -376,7 +413,7 @@ class GameEngine {
       if (!alive) this.floatingTexts.splice(i, 1);
     }
 
-    // Phase 3: Update Building Manager (Defenses, Turrets, Mortars, Placement Hover)
+    // Phase 3 & 5: Update Building Manager (Defenses, Turrets, Mortars, Placement/Upgrade Hover)
     if (this.buildingManager) {
       if (!(this.mobileController && this.mobileController.isUsingTouchAim)) {
         this.buildingManager.updateHoverTile(this.mouse.worldX, this.mouse.worldY);
@@ -391,7 +428,7 @@ class GameEngine {
   render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // 1. Render World Map Tiles, Mountains & Forests
+    // 1. Render World Map Tiles, Mountains & Forests (Cached offscreen ground + frustum culled nodes)
     this.world.render(this.ctx, this.camera, this.player);
 
     // 2. Render Placed Defenses & Build Ghost Preview (Walls, Traps, Turrets, Mortars)
@@ -404,29 +441,31 @@ class GameEngine {
       m.render(this.ctx, this.camera);
     }
 
-    // 3. Render Player
+    // 4. Render Player
     this.player.render(this.ctx, this.camera);
 
-    // 4. Render Projectiles
+    // 5. Render Projectiles
     for (let p of this.projectiles) {
       p.render(this.ctx, this.camera);
     }
 
-    // 5. Render Particles
+    // 6. Render Particles
     for (let part of this.particles) {
       part.render(this.ctx, this.camera);
     }
 
-    // 6. Day / Night Environmental Darkness & Lantern Beam
+    // 7. Day / Night Environmental Darkness & Lantern Beam
     this.dayNight.renderLighting(this.ctx, this.camera, this.player);
 
-    // 7. Render Floating Combat Text (above lighting)
+    // 8. Render Floating Combat Text (above lighting)
     for (let ft of this.floatingTexts) {
       ft.render(this.ctx, this.camera);
     }
 
-    // 8. Render Minimap
-    this.renderMinimap();
+    // 9. Render Minimap (throttled every 4 frames for 60 FPS performance)
+    if (this.frameCount % 4 === 0) {
+      this.renderMinimap();
+    }
   }
 
   loop(timestamp) {
@@ -441,202 +480,287 @@ class GameEngine {
     requestAnimationFrame((t) => this.loop(t));
   }
 
-  updateHUD() {
+  initHUDCache() {
+    this._hudCache = {
+      els: {
+        hpBar: document.getElementById('hp-bar-fill'),
+        hpText: document.getElementById('hp-bar-text'),
+        bloodOverlay: document.getElementById('blood-screen-overlay'),
+        toxinBar: document.getElementById('toxin-bar-fill'),
+        toxinText: document.getElementById('toxin-bar-text'),
+        dangerBadge: document.getElementById('toxin-danger-level'),
+        toxicOverlay: document.getElementById('toxic-screen-overlay'),
+        biomeText: document.getElementById('biome-text-label'),
+        biomeBadge: document.getElementById('current-biome-badge'),
+        clockTime: document.getElementById('clock-time'),
+        clockDay: document.getElementById('clock-day'),
+        clockPhase: document.getElementById('clock-phase'),
+        phaseIcon: document.getElementById('phase-icon'),
+        phaseDesc: document.getElementById('phase-desc'),
+        s1Name: document.getElementById('skill-1-name'),
+        s1Cd: document.getElementById('skill-1-cd'),
+        s2Name: document.getElementById('skill-2-name'),
+        s2Cd: document.getElementById('skill-2-cd'),
+        dashCd: document.getElementById('dash-cd'),
+        immunityBadge: document.getElementById('immunity-badge'),
+        promptBanner: document.getElementById('interaction-prompt'),
+        weaponSlots: [
+          document.getElementById('weapon-slot-1'),
+          document.getElementById('weapon-slot-2'),
+          document.getElementById('weapon-slot-3'),
+          document.getElementById('weapon-slot-4'),
+          document.getElementById('weapon-slot-5')
+        ],
+        weaponLvs: [
+          document.getElementById('weapon-lv-1'),
+          document.getElementById('weapon-lv-2'),
+          document.getElementById('weapon-lv-3'),
+          document.getElementById('weapon-lv-4'),
+          document.getElementById('weapon-lv-5')
+        ],
+        defSlots: {
+          wall: document.getElementById('def-slot-1'),
+          trap: document.getElementById('def-slot-2'),
+          turret: document.getElementById('def-slot-3'),
+          mortar: document.getElementById('def-slot-4'),
+          upgrade: document.getElementById('def-slot-5')
+        }
+      },
+      vals: {}
+    };
+  }
+
+  updateHUD(force = false) {
     if (!this.player) return;
+    if (!this._hudCache || force) this.initHUDCache();
+    const { els, vals } = this._hudCache;
 
-    // HP Bar & Horror Panic Overlay
-    const hpBar = document.getElementById('hp-bar-fill');
-    const hpText = document.getElementById('hp-bar-text');
-    const hpPercent = Math.max(0, Math.min(100, (this.player.hp / this.player.maxHp) * 100));
-    if (hpBar) hpBar.style.width = `${hpPercent}%`;
-    if (hpText) hpText.innerText = `${Math.round(this.player.hp)} / ${this.player.maxHp}`;
-
-    // Low HP Panic Blood Screen Edge Vignette
-    const bloodOverlay = document.getElementById('blood-screen-overlay');
-    if (bloodOverlay) {
-      if (hpPercent < 38) {
-        bloodOverlay.classList.add('active-panic');
-      } else {
-        bloodOverlay.classList.remove('active-panic');
+    // 1. HP Bar & Horror Panic Overlay
+    const hpRound = Math.round(this.player.hp);
+    const maxHp = this.player.maxHp;
+    if (vals.hpRound !== hpRound || vals.maxHp !== maxHp) {
+      vals.hpRound = hpRound;
+      vals.maxHp = maxHp;
+      const hpPercent = Math.max(0, Math.min(100, (this.player.hp / maxHp) * 100));
+      if (els.hpBar) els.hpBar.style.width = `${hpPercent}%`;
+      if (els.hpText) els.hpText.innerText = `${hpRound} / ${maxHp}`;
+      const isPanic = hpPercent < 38;
+      if (vals.isPanic !== isPanic && els.bloodOverlay) {
+        vals.isPanic = isPanic;
+        els.bloodOverlay.classList.toggle('active-panic', isPanic);
       }
     }
 
-    // Infection / Mutagen Bar & Toxic Screen Overlay
-    const toxinBar = document.getElementById('toxin-bar-fill');
-    const toxinText = document.getElementById('toxin-bar-text');
-    const dangerBadge = document.getElementById('toxin-danger-level');
-    const toxicOverlay = document.getElementById('toxic-screen-overlay');
+    // 2. Infection / Mutagen Bar & Toxic Screen Overlay
+    const infRound = Math.round(this.player.infection);
+    if (vals.infRound !== infRound) {
+      vals.infRound = infRound;
+      if (els.toxinBar) els.toxinBar.style.width = `${this.player.infection}%`;
+      if (els.toxinText) els.toxinText.innerText = `${infRound}%`;
 
-    if (toxinBar) toxinBar.style.width = `${this.player.infection}%`;
-    if (toxinText) toxinText.innerText = `${Math.round(this.player.infection)}%`;
-
-    if (toxicOverlay) {
-      if (this.player.infection > 40) {
-        toxicOverlay.classList.add('active-toxic');
-      } else {
-        toxicOverlay.classList.remove('active-toxic');
+      const isToxic = this.player.infection > 40;
+      if (vals.isToxic !== isToxic && els.toxicOverlay) {
+        vals.isToxic = isToxic;
+        els.toxicOverlay.classList.toggle('active-toxic', isToxic);
       }
-    }
 
-    if (dangerBadge) {
-      if (this.player.infection < 25) {
-        dangerBadge.innerText = 'AN TOÀN';
-        dangerBadge.className = 'toxin-badge-safe';
-        dangerBadge.style.color = '#86efac';
-        dangerBadge.style.borderColor = '#22c55e';
-        dangerBadge.style.background = 'rgba(34, 197, 94, 0.15)';
-      } else if (this.player.infection < 65) {
-        dangerBadge.innerText = 'NHIỄM ĐỘC';
-        dangerBadge.className = 'toxin-badge-safe';
-        dangerBadge.style.color = '#facc15';
-        dangerBadge.style.borderColor = '#eab308';
-        dangerBadge.style.background = 'rgba(234, 179, 8, 0.2)';
-      } else {
-        dangerBadge.innerText = 'ĐỘT BIẾN GẦN KỀ';
-        dangerBadge.className = 'toxin-badge-safe';
-        dangerBadge.style.color = '#ef4444';
-        dangerBadge.style.borderColor = '#ef4444';
-        dangerBadge.style.background = 'rgba(239, 68, 68, 0.25)';
-      }
-    }
-
-    // Biome Indicator (Tactical GPS Wasteland)
-    const biome = this.world.getBiomeAt(this.player.x, this.player.y);
-    const biomeText = document.getElementById('biome-text-label');
-    const biomeBadge = document.getElementById('current-biome-badge');
-    if (biomeBadge && biomeText) {
-      if (biome.id === 'mountain') {
-        biomeText.innerText = 'NÚI TỬ THẦN - VÙNG ĐỈNH NÚI';
-        biomeBadge.style.borderColor = '#64748b';
-        biomeBadge.style.color = '#94a3b8';
-      } else if (biome.id === 'ocean') {
-        biomeText.innerText = 'BỜ BIỂN NHIỄM XẠ - VÙNG NƯỚC ĐỘC';
-        biomeBadge.style.borderColor = '#0ea5e9';
-        biomeBadge.style.color = '#38bdf8';
-      } else {
-        biomeText.innerText = 'ĐỒNG BẰNG HOANG TÀN - CĂN CỨ';
-        biomeBadge.style.borderColor = '#22c55e';
-        biomeBadge.style.color = '#86efac';
-      }
-    }
-
-    // Day/Night Doomsday Clock Widget
-    const clockTime = document.getElementById('clock-time');
-    const clockDay = document.getElementById('clock-day');
-    const clockPhase = document.getElementById('clock-phase');
-    const phaseIcon = document.getElementById('phase-icon');
-    const phaseDesc = document.getElementById('phase-desc');
-
-    if (clockTime) clockTime.innerText = this.dayNight.getTimeFormatted();
-    if (clockDay) clockDay.innerText = `NGÀY SINH TỒN ${this.dayNight.dayCount}`;
-    if (clockPhase) {
-      if (this.dayNight.isNight) {
-        if (phaseIcon) phaseIcon.innerText = '💀';
-        if (phaseDesc) phaseDesc.innerText = 'HUYẾT NGUYỆT: TẬN DIỆT!';
-        clockPhase.style.color = '#ef4444';
-      } else {
-        if (phaseIcon) phaseIcon.innerText = '☀';
-        if (phaseDesc) phaseDesc.innerText = 'BÌNH MINH HOANG TÀN';
-        clockPhase.style.color = '#38bdf8';
-      }
-    }
-
-    // Weapon Action Slots & Skill Cooldowns
-    const activeW = CONSTANTS.WEAPONS[this.player.activeWeapon];
-    ['SPEAR', 'STAFF', 'DAGGER', 'BOW'].forEach((key, idx) => {
-      const slotEl = document.getElementById(`weapon-slot-${idx + 1}`);
-      if (slotEl) {
-        if (this.player.activeWeapon === key) {
-          slotEl.classList.add('active-weapon');
+      const dangerTier = this.player.infection < 25 ? 0 : (this.player.infection < 65 ? 1 : 2);
+      if (vals.dangerTier !== dangerTier && els.dangerBadge) {
+        vals.dangerTier = dangerTier;
+        if (dangerTier === 0) {
+          els.dangerBadge.innerText = 'AN TOÀN';
+          els.dangerBadge.style.color = '#86efac';
+          els.dangerBadge.style.borderColor = '#22c55e';
+          els.dangerBadge.style.background = 'rgba(34, 197, 94, 0.15)';
+        } else if (dangerTier === 1) {
+          els.dangerBadge.innerText = 'NHIỄM ĐỘC';
+          els.dangerBadge.style.color = '#facc15';
+          els.dangerBadge.style.borderColor = '#eab308';
+          els.dangerBadge.style.background = 'rgba(234, 179, 8, 0.2)';
         } else {
-          slotEl.classList.remove('active-weapon');
+          els.dangerBadge.innerText = 'ĐỘT BIẾN GẦN KỀ';
+          els.dangerBadge.style.color = '#ef4444';
+          els.dangerBadge.style.borderColor = '#ef4444';
+          els.dangerBadge.style.background = 'rgba(239, 68, 68, 0.25)';
         }
       }
-    });
+    }
 
-    // Skill 1 [Q] UI
-    const s1Name = document.getElementById('skill-1-name');
-    const s1CdOverlay = document.getElementById('skill-1-cd');
-    if (s1Name && activeW) s1Name.innerText = activeW.skill1.name;
-    if (s1CdOverlay) {
-      if (this.player.skill1CooldownTimer > 0) {
-        s1CdOverlay.style.display = 'flex';
-        s1CdOverlay.innerText = this.player.skill1CooldownTimer.toFixed(1);
+    // 3. Biome Indicator
+    const biome = this.world.getBiomeAt(this.player.x, this.player.y);
+    if (vals.biomeId !== biome.id && els.biomeBadge && els.biomeText) {
+      vals.biomeId = biome.id;
+      if (biome.id === 'mountain') {
+        els.biomeText.innerText = 'NÚI TỬ THẦN - VÙNG ĐỈNH NÚI';
+        els.biomeBadge.style.borderColor = '#64748b';
+        els.biomeBadge.style.color = '#94a3b8';
+      } else if (biome.id === 'ocean') {
+        els.biomeText.innerText = 'BỜ BIỂN NHIỄM XẠ - VÙNG NƯỚC ĐỘC';
+        els.biomeBadge.style.borderColor = '#0ea5e9';
+        els.biomeBadge.style.color = '#38bdf8';
       } else {
-        s1CdOverlay.style.display = 'none';
+        els.biomeText.innerText = 'ĐỒNG BẰNG HOANG TÀN - CĂN CỨ';
+        els.biomeBadge.style.borderColor = '#22c55e';
+        els.biomeBadge.style.color = '#86efac';
       }
     }
 
-    // Skill 2 [E] UI
-    const s2Name = document.getElementById('skill-2-name');
-    const s2CdOverlay = document.getElementById('skill-2-cd');
-    if (s2Name && activeW) s2Name.innerText = activeW.skill2.name;
-    if (s2CdOverlay) {
-      if (this.player.skill2CooldownTimer > 0) {
-        s2CdOverlay.style.display = 'flex';
-        s2CdOverlay.innerText = this.player.skill2CooldownTimer.toFixed(1);
+    // 4. Day/Night Doomsday Clock Widget
+    const timeStr = this.dayNight.getTimeFormatted();
+    if (vals.timeStr !== timeStr && els.clockTime) {
+      vals.timeStr = timeStr;
+      els.clockTime.innerText = timeStr;
+    }
+    if (vals.dayCount !== this.dayNight.dayCount && els.clockDay) {
+      vals.dayCount = this.dayNight.dayCount;
+      els.clockDay.innerText = `NGÀY SINH TỒN ${this.dayNight.dayCount}`;
+    }
+    if (vals.isNight !== this.dayNight.isNight && els.clockPhase) {
+      vals.isNight = this.dayNight.isNight;
+      if (this.dayNight.isNight) {
+        if (els.phaseIcon) els.phaseIcon.innerText = '💀';
+        if (els.phaseDesc) els.phaseDesc.innerText = 'HUYẾT NGUYỆT: TẬN DIỆT!';
+        els.clockPhase.style.color = '#ef4444';
       } else {
-        s2CdOverlay.style.display = 'none';
+        if (els.phaseIcon) els.phaseIcon.innerText = '☀';
+        if (els.phaseDesc) els.phaseDesc.innerText = 'BÌNH MINH HOANG TÀN';
+        els.clockPhase.style.color = '#38bdf8';
       }
     }
 
-    // Dash [Space] UI
-    const dashCdOverlay = document.getElementById('dash-cd');
-    if (dashCdOverlay) {
-      if (this.player.dashTimer > 0) {
-        dashCdOverlay.style.display = 'flex';
-        dashCdOverlay.innerText = this.player.dashTimer.toFixed(1);
-      } else {
-        dashCdOverlay.style.display = 'none';
+    // 5. Weapon Action Slots & Level Badges (5 Weapons)
+    const weaponKeys = ['SPEAR', 'STAFF', 'DAGGER', 'BOW', 'GUN'];
+    const lvSig = this.weapons && this.weapons.weaponLevels
+      ? weaponKeys.map(k => this.weapons.weaponLevels[k] || 1).join(',')
+      : '1,1,1,1,1';
+
+    if (vals.activeWeapon !== this.player.activeWeapon || vals.lvSig !== lvSig) {
+      vals.activeWeapon = this.player.activeWeapon;
+      vals.lvSig = lvSig;
+      const activeW = CONSTANTS.WEAPONS[this.player.activeWeapon];
+      weaponKeys.forEach((key, idx) => {
+        const slotEl = els.weaponSlots[idx];
+        if (slotEl) {
+          slotEl.classList.toggle('active-weapon', this.player.activeWeapon === key);
+        }
+        const lvEl = els.weaponLvs[idx];
+        if (lvEl && this.weapons && this.weapons.weaponLevels) {
+          const lv = this.weapons.weaponLevels[key] || 1;
+          lvEl.innerText = `Lv.${lv}`;
+          lvEl.className = `slot-lv-badge lv-${lv}`;
+        }
+      });
+      if (els.s1Name && activeW) els.s1Name.innerText = activeW.skill1.name;
+      if (els.s2Name && activeW) els.s2Name.innerText = activeW.skill2.name;
+    }
+
+    // Highlight active Defense / Upgrade mode slot
+    const curBuildMode = this.buildingManager ? this.buildingManager.buildMode : null;
+    if (vals.curBuildMode !== curBuildMode) {
+      vals.curBuildMode = curBuildMode;
+      for (const [modeKey, slotEl] of Object.entries(els.defSlots)) {
+        if (slotEl) {
+          slotEl.classList.toggle('active-weapon', curBuildMode === modeKey);
+        }
       }
     }
 
-    // Phase 2: Immunity Badge
-    const immunityBadge = document.getElementById('immunity-badge');
-    if (immunityBadge) {
-      if (this.player.immunityTimer > 0) {
-        immunityBadge.style.display = 'inline-flex';
-        immunityBadge.innerText = `🛡 KHÁNG ĐỘC: ${Math.ceil(this.player.immunityTimer)}s`;
-      } else {
-        immunityBadge.style.display = 'none';
-      }
+    // 6. Skill Cooldowns (only update when 0.1s string changes)
+    const s1Txt = this.player.skill1CooldownTimer > 0 ? this.player.skill1CooldownTimer.toFixed(1) : '';
+    if (vals.s1Txt !== s1Txt && els.s1Cd) {
+      vals.s1Txt = s1Txt;
+      els.s1Cd.style.display = s1Txt ? 'flex' : 'none';
+      if (s1Txt) els.s1Cd.innerText = s1Txt;
     }
 
-    // Phase 2 & 3: Interaction Prompt Banner
-    const promptBanner = document.getElementById('interaction-prompt');
-    if (promptBanner) {
+    const s2Txt = this.player.skill2CooldownTimer > 0 ? this.player.skill2CooldownTimer.toFixed(1) : '';
+    if (vals.s2Txt !== s2Txt && els.s2Cd) {
+      vals.s2Txt = s2Txt;
+      els.s2Cd.style.display = s2Txt ? 'flex' : 'none';
+      if (s2Txt) els.s2Cd.innerText = s2Txt;
+    }
+
+    const dashTxt = this.player.dashTimer > 0 ? this.player.dashTimer.toFixed(1) : '';
+    if (vals.dashTxt !== dashTxt && els.dashCd) {
+      vals.dashTxt = dashTxt;
+      els.dashCd.style.display = dashTxt ? 'flex' : 'none';
+      if (dashTxt) els.dashCd.innerText = dashTxt;
+    }
+
+    // 7. Immunity Badge
+    const immSec = this.player.immunityTimer > 0 ? Math.ceil(this.player.immunityTimer) : 0;
+    if (vals.immSec !== immSec && els.immunityBadge) {
+      vals.immSec = immSec;
+      els.immunityBadge.style.display = immSec > 0 ? 'inline-flex' : 'none';
+      if (immSec > 0) els.immunityBadge.innerText = `🛡 KHÁNG ĐỘC: ${immSec}s`;
+    }
+
+    // 8. Interaction Prompt Banner
+    if (els.promptBanner) {
+      let promptKey = '';
+      let promptHtml = '';
+      let onClickMode = null;
+
       if (this.buildingManager && this.buildingManager.buildMode) {
-        promptBanner.style.display = 'block';
-        promptBanner.style.cursor = 'pointer';
-        promptBanner.onclick = () => this.buildingManager.exitBuildMode();
-        promptBanner.innerHTML = `🏗 XÂY [${this.buildingManager.buildMode.toUpperCase()}]: Chạm đất / ⚔ để đặt &nbsp;|&nbsp; <span class="key-hint" style="background:#ef4444;color:#fff;">✖ HỦY</span>`;
+        const bm = this.buildingManager.buildMode;
+        promptKey = `build_${bm}`;
+        onClickMode = 'exit_build';
+        if (bm === 'upgrade') {
+          promptHtml = `🔧 CHẾ ĐỘ NÂNG CẤP / SỬA CHỮA: Click vào Tường / Tháp / Súng Cối để nâng cấp (Lv.1 ➔ Lv.3) &nbsp;|&nbsp; <span class="key-hint" style="background:#ef4444;color:#fff;">✖ HỦY [ESC]</span>`;
+        } else {
+          promptHtml = `🏗 XÂY [${bm.toUpperCase()}]: Click đất trống để đặt (hoặc click công trình cũ để Nâng Cấp!) &nbsp;|&nbsp; <span class="key-hint" style="background:#ef4444;color:#fff;">✖ HỦY</span>`;
+        }
       } else {
         const struct = this.world.getStructureNear(this.player.x, this.player.y, 90);
         if (struct) {
-          promptBanner.style.display = 'block';
-          promptBanner.style.cursor = 'pointer';
-          promptBanner.onclick = () => {
-            if (this.mobileController) this.mobileController.handleInteract();
-          };
+          promptKey = `struct_${struct.type}`;
+          onClickMode = 'interact';
           if (struct.type === 'biolab') {
-            promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>PHÒNG LAB CÁCH LY</strong>`;
+            promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>PHÒNG LAB CÁCH LY</strong>`;
           } else if (struct.type === 'furnace') {
-            promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>LÒ NUNG KHỬ TRÙNG</strong>`;
+            promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>LÒ NUNG KHỬ TRÙNG</strong>`;
           } else if (struct.type === 'workbench') {
-            promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>BÀN CHẾ TẠO</strong>`;
+            promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>BÀN CHẾ TẠO & NÂNG CẤP SÚNG</strong>`;
           } else if (struct.type === 'workshop') {
-            promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>XƯỞNG THỦ THÀNH</strong>`;
+            promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>XƯỞNG THỦ THÀNH & NÂNG CẤP TƯỜNG/THÁP</strong>`;
           }
         } else if (this.world.isNearWater(this.player.x, this.player.y, 50)) {
-          promptBanner.style.display = 'block';
-          promptBanner.style.cursor = 'pointer';
-          promptBanner.onclick = () => {
-            if (this.mobileController) this.mobileController.handleInteract();
-          };
-          promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>MÚC NƯỚC AO SÔNG</strong>`;
+          promptKey = 'water';
+          onClickMode = 'interact';
+          promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>MÚC NƯỚC AO SÔNG</strong>`;
+        } else if (this.buildingManager) {
+          const hoveredDef = this.buildingManager.getStructureAt(this.buildingManager.hoverTile.col, this.buildingManager.hoverTile.row);
+          if (hoveredDef) {
+            const lv = hoveredDef.level || 1;
+            promptKey = `def_${hoveredDef.col}_${hoveredDef.row}_${lv}_${Math.round(hoveredDef.hp)}`;
+            onClickMode = 'upgrade';
+            if (lv < 3) {
+              promptHtml = `🔧 BẤM <span class="key-hint">[R]</span> HOẶC CLICK: <strong>NÂNG CẤP ${hoveredDef.name.toUpperCase()} LÊN CẤP ${lv + 1}</strong>`;
+            } else if (hoveredDef.hp < hoveredDef.maxHp) {
+              promptHtml = `🔧 BẤM <span class="key-hint">[R]</span>: <strong>SỬA CHỮA ${hoveredDef.name.toUpperCase()} (${Math.round(hoveredDef.hp)}/${hoveredDef.maxHp})</strong>`;
+            }
+          }
+        }
+      }
+
+      if (vals.promptKey !== promptKey) {
+        vals.promptKey = promptKey;
+        if (promptHtml) {
+          els.promptBanner.style.display = 'block';
+          els.promptBanner.style.cursor = 'pointer';
+          els.promptBanner.innerHTML = promptHtml;
+          if (onClickMode === 'exit_build') {
+            els.promptBanner.onclick = () => this.buildingManager.exitBuildMode();
+          } else if (onClickMode === 'upgrade') {
+            els.promptBanner.onclick = () => this.buildingManager.upgradeNearestOrHovered();
+          } else {
+            els.promptBanner.onclick = () => {
+              if (this.mobileController) this.mobileController.handleInteract();
+            };
+          }
         } else {
-          promptBanner.style.display = 'none';
-          promptBanner.onclick = null;
+          els.promptBanner.style.display = 'none';
+          els.promptBanner.onclick = null;
         }
       }
     }
@@ -716,21 +840,24 @@ class GameEngine {
     }
   }
 
-  renderMinimap() {
+  // Pre-render static minimap terrain & base structures once
+  buildMinimapCache() {
     const miniCanvas = document.getElementById('minimap-canvas');
-    if (!miniCanvas) return;
-    const mctx = miniCanvas.getContext('2d');
-    const mw = miniCanvas.width;
-    const mh = miniCanvas.height;
+    const mw = miniCanvas ? miniCanvas.width : 140;
+    const mh = miniCanvas ? miniCanvas.height : 112;
 
-    mctx.clearRect(0, 0, mw, mh);
+    if (!this.minimapBgCanvas) {
+      this.minimapBgCanvas = document.createElement('canvas');
+    }
+    this.minimapBgCanvas.width = mw;
+    this.minimapBgCanvas.height = mh;
+    const mctx = this.minimapBgCanvas.getContext('2d');
 
     const scaleX = mw / this.world.cols;
     const scaleY = mh / this.world.rows;
 
-    // 1. Draw Terrain & Water Features from World Grid (sampled every 2 tiles for 60fps speed)
-    for (let r = 0; r < this.world.rows; r += 2) {
-      for (let c = 0; c < this.world.cols; c += 2) {
+    for (let r = 0; r < this.world.rows; r++) {
+      for (let c = 0; c < this.world.cols; c++) {
         const t = this.world.tiles[r][c];
         let col = '#2d5a27';
         if (t === CONSTANTS.TILES.SNOW_PEAK) col = '#cbd5e1';
@@ -744,20 +871,11 @@ class GameEngine {
         else if (t === CONSTANTS.TILES.TREE_ALIEN_PINE || t === CONSTANTS.TILES.TREE_POST_APOC) col = '#14532d';
 
         mctx.fillStyle = col;
-        mctx.fillRect(c * scaleX, r * scaleY, Math.ceil(scaleX * 2), Math.ceil(scaleY * 2));
+        mctx.fillRect(c * scaleX, r * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
       }
     }
 
-    // 2. Draw Unhatched Alien Eggs on Minimap (Magenta dots)
-    mctx.fillStyle = '#e879f9';
-    for (let h of this.world.harvestables) {
-      if (h.isDestroyed || h.type !== 'alien_egg') continue;
-      const ex = (h.x / this.world.width) * mw;
-      const ey = (h.y / this.world.height) * mh;
-      mctx.fillRect(ex - 1, ey - 1, 2, 2);
-    }
-
-    // 3. Draw Base Structures (Bio-Lab Safe Zone in Emerald)
+    // Draw Base Structures (Bio-Lab Safe Zone in Emerald)
     for (let s of this.world.structures) {
       const sx = ((s.x + s.width / 2) / this.world.width) * mw;
       const sy = ((s.y + s.height / 2) / this.world.height) * mh;
@@ -774,18 +892,43 @@ class GameEngine {
         mctx.fillRect(sx - 1.5, sy - 1.5, 3, 3);
       }
     }
+  }
 
-    // 4. Draw Placed Defenses (Cyan dots)
+  renderMinimap() {
+    if (!this._miniCanvas) {
+      this._miniCanvas = document.getElementById('minimap-canvas');
+      if (this._miniCanvas) this._miniCtx = this._miniCanvas.getContext('2d');
+    }
+    if (!this._miniCanvas || !this._miniCtx) return;
+
+    const mctx = this._miniCtx;
+    const mw = this._miniCanvas.width;
+    const mh = this._miniCanvas.height;
+
+    // 1. Blit pre-rendered static terrain in a single GPU call
+    if (!this.minimapBgCanvas) this.buildMinimapCache();
+    mctx.drawImage(this.minimapBgCanvas, 0, 0);
+
+    // 2. Draw Unhatched Alien Eggs on Minimap (Magenta dots)
+    mctx.fillStyle = '#e879f9';
+    for (let h of this.world.harvestables) {
+      if (h.isDestroyed || h.type !== 'alien_egg') continue;
+      const ex = (h.x / this.world.width) * mw;
+      const ey = (h.y / this.world.height) * mh;
+      mctx.fillRect(ex - 1, ey - 1, 2, 2);
+    }
+
+    // 3. Draw Placed Defenses (color-coded by upgrade level)
     if (this.buildingManager) {
-      mctx.fillStyle = '#38bdf8';
       for (let d of this.buildingManager.defenses) {
         const dx = (d.x / this.world.width) * mw;
         const dy = (d.y / this.world.height) * mh;
-        mctx.fillRect(dx - 1, dy - 1, 2, 2);
+        mctx.fillStyle = d.level === 3 ? '#facc15' : (d.level === 2 ? '#c084fc' : '#38bdf8');
+        mctx.fillRect(dx - 1, dy - 1, 2.2, 2.2);
       }
     }
 
-    // 5. Draw Monsters on Minimap
+    // 4. Draw Monsters on Minimap
     for (let m of this.monsters) {
       if (m.isDead) continue;
       const mx = (m.x / this.world.width) * mw;
@@ -802,7 +945,7 @@ class GameEngine {
       }
     }
 
-    // 6. Draw Camera Viewport Rectangle
+    // 5. Draw Camera Viewport Rectangle
     const camX = (this.camera.x / this.world.width) * mw;
     const camY = (this.camera.y / this.world.height) * mh;
     const camW = (this.camera.width / this.world.width) * mw;
@@ -811,7 +954,7 @@ class GameEngine {
     mctx.lineWidth = 0.8;
     mctx.strokeRect(camX, camY, camW, camH);
 
-    // 7. Draw Player on Minimap (Bright green pulsing beacon)
+    // 6. Draw Player on Minimap (Bright green pulsing beacon)
     const px = (this.player.x / this.world.width) * mw;
     const py = (this.player.y / this.world.height) * mh;
     mctx.fillStyle = '#4ade80';

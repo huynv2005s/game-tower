@@ -143,31 +143,96 @@ c:/Go/demo/
 
 ---
 
-## 4. BẢNG THÔNG SỐ VŨ KHÍ, CÔNG TRÌNH & QUÁI VẬT
+### ⚡ PHASE 5: HỆ THỐNG NÂNG CẤP TƯỜNG & SÚNG (LV.1 ➔ LV.3), SÚNG TRƯỜNG PLASMA [G], NGUYÊN LIỆU MỚI & TỐI ƯU HIỆU NĂNG 60FPS
 
-### 🗡 Bảng Vũ Khí
-| Vũ Khí | Loại | Sát Thương | Tầm / Tốc Độ | Kỹ Năng 1 [Q] | Kỹ Năng 2 [E] |
+1. **Vũ Khí Thứ 5 Mới — Súng Trường Plasma (`GUN` - Phím `[G]`, [weapons.js](file:///c:/Go/demo/js/weapons.js)):**
+   * **Đánh thường (Giữ chuột xả đạn liên thanh):**
+     * **Lv.1:** Bắn tia đạn năng lượng Plasma tốc độ cao (24 DMG, tầm 330px, 0.25s/phát).
+     * **Lv.2 (Tinh Chế Titan):** Bắn **2 tia đạn Laser song song** (`twin plasma bolts`).
+     * **Lv.3 (Siêu Nạp Plasma):** Bắn **1 tia chính Rail-Plasma xuyên thấu + 2 tia phụ hai bên** (tổng 3 tia đạn hủy diệt).
+   * **Kỹ năng 1 [Q] — *Pháo Điện Từ EMP (`gun_emp`):*** Phóng cầu xung điện từ phát nổ diện rộng (85px), gây 38 sát thương và **làm choáng (Stun) toàn bộ quái vật 2.2 giây**.
+   * **Kỹ năng 2 [E] — *Xả Đạn Hủy Diệt (`gun_barrage`):*** Xả loạt **5 viên đạn Plasma hạng nặng** tỏa hình quạt đẩy lùi đàn quái và lùi nhẹ giữ khoảng cách an toàn.
+
+2. **Hệ Thống Nâng Cấp Toàn Bộ 5 Vũ Khí & Súng (`Lv.1 ➔ Lv.2 ➔ Lv.3`, [weapons.js](file:///c:/Go/demo/js/weapons.js), [lab.js](file:///c:/Go/demo/js/lab.js)):**
+   * Nâng cấp trực tiếp tại **Bàn Chế Tạo (`Workbench`)** hoặc **Xưởng Thủ Thành (`Workshop`)**:
+     * **Cấp 1 (Cơ Bản):** Sát thương x1.0, Tầm x1.0, Tốc đánh chuẩn.
+     * **Cấp 2 (Tinh Chế Titan - Lv.2):** **+35% Sát thương**, **+12% Tầm đánh**, **+12% Tốc độ đánh**, giảm 12% hồi chiêu kỹ năng.
+       * *Chi phí:* `3x Đá Quặng` + `2x Hợp Kim Titan` + `2x Giáp Xác Ngoại Lai`.
+     * **Cấp 3 (Siêu Nạp Plasma - Lv.3):** **+80% Sát thương**, **+25% Tầm đánh**, **+22% Tốc độ đánh**, giảm 25% hồi chiêu kỹ năng.
+       * *Chi phí:* `3x Hợp Kim Titan` + `2x Lõi Năng Lượng Plasma` + `3x Giáp Xác Ngoại Lai` + `2x Linh Kiện Điện Tử`.
+
+3. **Hệ Thống Nâng Cấp & Sửa Chữa Công Trình Thủ Thành (`Lv.1 ➔ Lv.2 ➔ Lv.3`, [buildings.js](file:///c:/Go/demo/js/buildings.js)):**
+   * **3 Cách Nâng Cấp Tiện Lợi:**
+     1. Bấm phím **`[9]`** (chế độ Nâng Cấp 🔧) hoặc click trực tiếp vào công trình đã đặt trên bản đồ.
+     2. Chỉ chuột vào công trình (hoặc đứng gần) và bấm phím tắt **`[R]`** để nâng cấp tức thì (hoặc sửa chữa đầy máu nếu đã đạt Lv.3).
+     3. Mở **Xưởng Thủ Thành (`[F]`)** hoặc **Bàn Chế Tạo (`[F]`)** để nâng cấp nhanh từng loại công trình bằng bảng điều khiển.
+   * **Chi tiết 3 Cấp Độ Công Trình:**
+     * 🧱 **Tường Chắn (`wall`):**
+       * **Lv.1 (Tường Chắn Cấp 1):** 250 HP.
+       * **Lv.2 (Tường Bọc Thép Titan):** **550 HP**, Giáp giảm **4 sát thương/đòn**, **Phản đòn gai 8 DMG** vào quái cận chiến, tự hồi **2 HP/s**. (*Chi phí:* `3x Gỗ`, `3x Đá`, `1x Hợp Kim Titan`).
+       * **Lv.3 (Tường Khiên Điện Từ Plasma):** **1050 HP**, Giáp giảm **9 sát thương/đòn**, **Phản xung điện 18 DMG**, tự hồi **6 HP/s**. (*Chi phí:* `2x Hợp Kim Titan`, `2x Giáp Xác Ngoại Lai`, `1x Lõi Plasma`).
+     * 🗼 **Tháp Canh Súng Tự Động (`turret`):**
+       * **Lv.1 (Tháp Canh Cấp 1):** 160 HP, tầm 175px, bắn đơn 16 DMG (0.45s/phát).
+       * **Lv.2 (Tháp Súng Kép Gatling Laser):** **320 HP**, tầm **225px**, bắn **2 tia Laser song song** 28 DMG (0.30s/phát). (*Chi phí:* `2x Hợp Kim Titan`, `2x Linh Kiện`, `2x Thạch Anh`).
+       * **Lv.3 (Tháp Pháo Railgun Tesla):** **580 HP**, tầm **285px**, bắn tia **Railgun 52 DMG (0.22s/phát) giật sét dây chuyền (Chain Lightning) sang 3 quái vật lân cận** gây thêm 55% sát thương sét. (*Chi phí:* `3x Hợp Kim Titan`, `2x Lõi Plasma`, `2x Giáp Xác Ngoại Lai`).
+     * 💣 **Súng Cối Hạng Nặng (`mortar`):**
+       * **Lv.1 (Súng Cối Cấp 1):** 140 HP, tầm 80-280px, 55 AoE DMG (bán kính nổ 65px).
+       * **Lv.2 (Pháo Cối Nhiệt Hạch Napalm):** **280 HP**, tầm **70-340px**, **90 AoE DMG** (bán kính nổ 90px, tốc bắn nhanh hơn). (*Chi phí:* `2x Hợp Kim Titan`, `3x Bột Lưu Huỳnh`, `2x Linh Kiện`).
+       * **Lv.3 (Pháo Quỹ Đạo Hạt Nhân Mini):** **500 HP**, tầm **60-410px**, **135 AoE DMG** (bán kính nổ 125px) + **Làm choáng toàn bộ quái trong vùng nổ 1.2 giây**. (*Chi phí:* `3x Hợp Kim Titan`, `2x Lõi Plasma`, `3x Dịch Tuyến Trứng`).
+     * ⚙ **Bẫy Gai Sinh Học (`trap`):**
+       * **Lv.1 (Bẫy Gai Cấp 1):** 60 HP, 22 DMG, làm chậm 50%, 12 lần kích hoạt.
+       * **Lv.2 (Bẫy Lưỡi Cưa Titan):** **140 HP**, **42 DMG**, làm chậm **65%**, **24 lần kích hoạt**. (*Chi phí:* `1x Hợp Kim Titan`, `2x Giáp Xác Ngoại Lai`, `2x Bột Lưu Huỳnh`).
+       * **Lv.3 (Bẫy Lưới Điện Từ Tesla):** **280 HP**, **70 DMG**, làm chậm **80% + Choáng 0.6s**, **45 lần kích hoạt**. (*Chi phí:* `2x Hợp Kim Titan`, `1x Lõi Plasma`, `2x Linh Kiện`).
+
+4. **Bổ Sung Nguyên Liệu Mới & Công Thức Chế Tác ([constants.js](file:///c:/Go/demo/js/constants.js), [world.js](file:///c:/Go/demo/js/world.js), [entities.js](file:///c:/Go/demo/js/entities.js)):**
+   * ⛏ **Quặng Sắt Titan (`iron_ore`):** Khai thác từ các **Mỏ Quặng Sắt Titan (`titanium_ore`, Tile 9)** phân bố trên vùng Núi Đá, hoặc rớt từ quái vật.
+   * 🔩 **Hợp Kim Titan (`titanium_alloy`):** Nung tại **Lò Nung (`Furnace`)** từ `2x Quặng Sắt Titan + 2x Đá Quặng` (hoặc tái chế tại Xưởng từ `2x Linh Kiện Điện Tử + 2x Đá Quặng`). Rớt trực tiếp khi hạ gục siêu quái **Titan Behemoth**.
+   *  carapace **Giáp Xác Ngoại Lai (`alien_chitin`):** Chiến lợi phẩm tự động thu thập khi tiêu diệt quái vật (`Crawler`, `Kamikaze`, `Spitter`, `Behemoth`). Dùng để gia cố tường giáp phản đòn và nâng cấp vũ khí.
+   * 🔮 **Lõi Năng Lượng Plasma (`plasma_core`):** Khai thác từ **Mạch Năng Lượng Plasma (`plasma_node`, Tile 26)** dọc bờ biển nhiễm xạ, tổng hợp tại **Phòng Lab (`Bio-Lab`)** từ `2x Tinh Thể Thạch Anh + 1x Dịch Tuyến Trứng + 1x Linh Kiện Điện Tử`, hoặc rớt từ Boss **Titan Behemoth**.
+   * 🦺 **Giáp Chiến Đấu Titan-Plasma (`vest_titanium`):** Chế tạo tại Bàn Chế Tạo (`3x Hợp Kim Titan + 3x Giáp Xác Ngoại Lai + 1x Lõi Plasma`), cộng **+18 Giáp vật lý** và **+35% Kháng Độc Tố**.
+   * 🎒 **Mở rộng Balo Kho Đồ:** Nâng mặc định lên **20 ô (Max Stack 25)**, và nâng cấp tối đa lên **28 ô**.
+
+5. **Tối Ưu Hóa Hiệu Năng Toàn Diện Chống Lag (60FPS Smooth Optimization):**
+   * **Offscreen Static Ground Map Cache ([world.js](file:///c:/Go/demo/js/world.js)):** Toàn bộ 8,000 ô địa hình nền, vách đá và đỉnh núi tuyết được vẽ sẵn 1 lần duy nhất vào `this.groundCanvas` (`3200x2560`). Mỗi khung hình chỉ tốn **1 lệnh `ctx.drawImage`** thay vì hơn 650 vòng lặp vẽ tile lẻ tẻ.
+   * **Loại Bỏ Cấp Phát Canvas Mỗi Frame Trong Hệ Thống Ánh Sáng Đêm ([daynight.js](file:///c:/Go/demo/js/daynight.js)):** Thay thế việc gọi `document.createElement('canvas')` full-screen 60 lần/giây bằng bộ đệm `this.lightCanvas` cố định ở độ phân giải tối ưu `0.5x` (giảm **75% số điểm ảnh fillrate** mà vẫn giữ nguyên chất lượng ánh sáng đèn pha mềm mại).
+   * **Loại Bỏ `ctx.filter = 'brightness(2.4)'` & `createRadialGradient` Mỗi Frame ([entities.js](file:///c:/Go/demo/js/entities.js), [world.js](file:///c:/Go/demo/js/world.js), [pixelart.js](file:///c:/Go/demo/js/pixelart.js)):**
+     * Thay thế `ctx.filter` (vốn ép trình duyệt rơi về chế độ CPU Software Rendering cực lag khi bắn trúng nhiều quái) bằng lớp phủ Alpha Flash trên GPU.
+     * Pre-render toàn bộ hiệu ứng sương mù núi (`fx_mist_cloud`), hào quang Bio-Lab (`fx_biolab_aura`), và bụng phát sáng Kamikaze (`fx_kamikaze_glow`) thành Sprite tĩnh trong `pixelart.js`.
+   * **Pre-rendered Minimap Cache & Throttling ([game.js](file:///c:/Go/demo/js/game.js)):** Địa hình Minimap được vẽ sẵn vào `this.minimapBgCanvas` 1 lần khi khởi tạo và cập nhật vị trí thực thể ở tần số 15 FPS, loại bỏ **2,000 lệnh `fillRect` mỗi frame**.
+   * **DOM State Caching & DataURL Caching ([game.js](file:///c:/Go/demo/js/game.js), [inventory.js](file:///c:/Go/demo/js/inventory.js), [lab.js](file:///c:/Go/demo/js/lab.js), [mobile.js](file:///c:/Go/demo/js/mobile.js)):**
+     * Lưu cache `window.pixelArt.getDataURL(name)` để không bao giờ mã hóa lại PNG `.toDataURL()` khi mở Balo hay Bàn Chế Tạo.
+     * `updateHUD()` và `renderHydroponicsTab()` chỉ ghi vào DOM khi giá trị thực sự thay đổi, chấm dứt hoàn toàn hiện tượng Layout Thrashing 60 lần/giây.
+   * **GPU Opacity Animation ([style.css](file:///c:/Go/demo/css/style.css)):** Chuyển hiệu ứng chớp đỏ/tím toàn màn hình (`bloodPulse`, `toxicPulse`) từ animate `box-shadow` blur radius sang animate `opacity` trên GPU Compositor.
+
+---
+
+## 4. BẢNG THÔNG SỐ VŨ KHÍ, CÔNG TRÌNH, NGUYÊN LIỆU & QUÁI VẬT
+
+### 🔫 Bảng 5 Vũ Khí (Hỗ Trợ Nâng Cấp Lv.1 ➔ Lv.2 [+35% DMG] ➔ Lv.3 [+80% DMG])
+| Vũ Khí | Phím | Sát Thương (Lv1 / Lv2 / Lv3) | Tầm / Tốc Độ | Kỹ Năng 1 [Q] | Kỹ Năng 2 [E] |
 | :--- | :---: | :---: | :---: | :--- | :--- |
-| **Giáo (Spear)** | Cận chiến | 18 | 65px (0.42s) | Quét Ngang (AoE 120°, Knockback 130px) | Chống Sào Nhảy Vọt (Vượt chướng ngại 180px) |
-| **Gậy (Staff)** | Khống chế | 14 | 55px (0.55s) | Chấn Động (Sóng xung kích choáng 1.5s) | Lốc Xoáy Đẩy Lùi (Bảo vệ diện rộng) |
-| **Dao Găm (Dagger)**| Sát thủ | 11 (Crit x2.5) | 42px (0.22s) | Đâm Lén Chớp Nhoáng (Lướt xuyên quái 32 DMG)| Tàng Hình Ẩn Thân (Tàng hình 3s, +40% Speed)|
-| **Cung (Bow)** | Tầm xa | 16 | 320px (0.60s) | Mũi Tên Lưới Trói (Trói chân 2.5s) | Phát Bắn Giật Lùi (Bắn 3 đạn lửa + lùi 80px)|
+| **Giáo (Spear)** | `[1]` | 18 / 24 / 32 | 65px (0.42s) | Quét Ngang (AoE 120°, Knockback 130px) | Chống Sào Nhảy Vọt (Vượt chướng ngại 180px) |
+| **Gậy (Staff)** | `[2]` | 14 / 19 / 25 | 55px (0.55s) | Chấn Động (Sóng xung kích choáng 1.5s) | Lốc Xoáy Đẩy Lùi (Bảo vệ diện rộng +30% Tốc) |
+| **Dao Găm (Dagger)**| `[3]` | 11 / 15 / 20 | 42px (0.22s) | Bom Khói Sinh Học (Tàng hình 2s, xuyên quái)| Đâm Xuyên Bóng Tối (Lướt đâm + Chậm 50%)|
+| **Cung (Bow)** | `[4]` | 16 / 22 / 29 | 320px (0.60s) | Mũi Tên Lưới Trói (Trói chân AoE 2.5s) | Phát Bắn Giật Lùi (Đạn nổ chậm + Lùi 80px)|
+| **Súng Plasma (Gun)**| `[G]` | 24 / 32 (x2 tia) / 43 (x3 tia)| 330px (0.25s) | Pháo Điện Từ EMP (38 DMG + Choáng AoE 2.2s)| Xả Đạn Hủy Diệt (5 tia đạn quạt + Đẩy lùi) |
 
-### 🗼 Bảng Công Trình Thủ Thành
-| Công Trình | Máu (HP) | Tầm Hoạt Động | Sát Thương | Công Dụng Đặc Biệt |
-| :--- | :---: | :---: | :---: | :--- |
-| **Tường Chắn** | 250 HP | - | - | Chặn quái vật, hướng quái vào choke-point bẫy |
-| **Bẫy Gai** | 60 HP | 18px (tiếp xúc)| 22 | Làm chậm 50% trong 2s, độ bền 12 lần kích hoạt |
-| **Tháp Canh** | 160 HP | 175px | 16 / viên | Tự động xoay 360° xả đạn plasma tốc độ cao (0.45s/phát) |
-| **Súng Cối** | 140 HP | 80px - 280px | 55 AoE | Bắn pháo cầu vồng nổ diện rộng 65px + hất văng (Knockback) |
+### 🏰 Bảng Công Trình Thủ Thành 3 Cấp Độ (Lv.1 ➔ Lv.2 ➔ Lv.3)
+| Công Trình | Cấp 1 (Cơ Bản) | Cấp 2 (Tinh Chế Titan) | Cấp 3 (Siêu Nạp Plasma) |
+| :--- | :--- | :--- | :--- |
+| **🧱 Tường Chắn** | 250 HP | **550 HP**, Giáp 4, Phản đòn 8 DMG, Hồi 2 HP/s | **1050 HP**, Giáp 9, Phản xung điện 18 DMG, Hồi 6 HP/s |
+| **⚙ Bẫy Gai** | 60 HP, 22 DMG, Chậm 50% (12 lần) | **140 HP**, **42 DMG**, Chậm 65% (24 lần) | **280 HP**, **70 DMG**, Chậm 80% + **Choáng 0.6s** (45 lần) |
+| **🗼 Tháp Canh Súng**| 160 HP, Tầm 175, 16 DMG (0.45s) | **320 HP**, Tầm 225, **28 DMG x2 tia Laser** (0.30s) | **580 HP**, Tầm 285, **52 DMG Railgun giật sét 3 mục tiêu** (0.22s) |
+| **💣 Súng Cối** | 140 HP, Tầm 280, 55 AoE DMG | **280 HP**, Tầm 340, **90 AoE DMG** (Nổ rộng 90px) | **500 HP**, Tầm 410, **135 AoE DMG + Choáng 1.2s** (Nổ 125px) |
 
-### 👾 Bảng Quái Vật
-| Chủng Loài | HP | Tốc Độ | Sát Thương | Đặc Tính Chiến Thuật |
-| :--- | :---: | :---: | :---: | :--- |
-| **Xenomorph Crawler** | 50 | 75 px/s | 10 | Bò nhanh nhẹn, cận chiến lây nhiễm độc tố |
-| **Kamikaze Exploder** | 40 | 110 px/s | 45 AoE | Lao tự sát nổ tung 55px phá tường và gây sát thương lớn |
-| **Acid Spitter** | 65 | 55 px/s | 14 | Thả đạn axit từ cự ly 190px ăn mòn công trình |
-| **Titan Behemoth** | 280 | 45 px/s | 32 | Siêu quái giáp dày, càn quét nghiền nát mọi công trình |
+### 🧪 Bảng Nguyên Liệu Nâng Cấp & Chế Tác Bổ Sung (Phase 5)
+| Mã Item | Tên Nguyên Liệu | Nguồn Thu Thập / Chế Tạo | Công Dụng Chính |
+| :--- | :--- | :--- | :--- |
+| `iron_ore` | **Quặng Sắt Titan** | Đập Mỏ Quặng Sắt Titan trên Núi Đá / Hạ quái vật | Nung thành Hợp Kim Titan tại Lò Nung |
+| `titanium_alloy` | **Hợp Kim Titan** | Lò Nung (`2x Quặng Sắt Titan + 2x Đá`) / Hạ Boss Behemoth | Nâng cấp Tường, Tháp Súng, Súng Cối & 5 Vũ Khí lên Lv.2 - Lv.3 |
+| `alien_chitin` | **Giáp Xác Ngoại Lai** | Rớt tự động khi tiêu diệt mọi chủng loài quái vật | Chế tạo Giáp Titan, nâng cấp Tường phản đòn & Vũ khí Lv.2 - Lv.3 |
+| `plasma_core` | **Lõi Năng Lượng Plasma**| Khai thác Mạch Plasma bờ biển / Bào chế tại Bio-Lab / Boss | Nâng cấp Tường Khiên Điện Từ, Tháp Railgun, Cối Hạt Nhân & Vũ khí Lv.3 |
+| `vest_titanium` | **Giáp Chiến Đấu Titan** | Bàn Chế Tạo (`3x Hợp Kim Titan + 3x Giáp Xác + 1x Lõi Plasma`)| Trang bị Áo Giáp cuối (+18 Giáp bảo vệ, +35% Kháng Độc) |
 
 ---
 
@@ -176,16 +241,18 @@ c:/Go/demo/
 | Phím Tắt | Chức Năng |
 | :---: | :--- |
 | **W, A, S, D** / Mũi tên | Di chuyển nhân vật (Hỗ trợ Virtual Joystick trên Mobile) |
-| **Chuột Trái / Nút TẤN CÔNG** | Tấn công thường / Thu hoạch tài nguyên / Đặt công trình |
-| **Chuột Phải / Phím ESC** | Hủy chế độ đặt công trình Thủ thành |
+| **Chuột Trái / Nút TẤN CÔNG** | Tấn công thường (Giữ chuột xả đạn Súng Plasma) / Thu hoạch / Đặt & Nâng cấp công trình |
+| **Chuột Phải / Phím ESC** | Hủy chế độ đặt hoặc nâng cấp công trình Thủ thành |
 | **Phím SPACE / Nút LƯỚT** | Kích hoạt Lướt nhanh (Dash) né đòn |
 | **Phím Q / Nút KỸ NĂNG 1** | Kích hoạt Kỹ năng 1 của vũ khí đang cầm |
 | **Phím E / Nút KỸ NĂNG 2** | Kích hoạt Kỹ năng 2 của vũ khí đang cầm |
-| **Phím 1, 2, 3, 4** | Đổi nhanh giữa 4 loại vũ khí: Giáo, Gậy, Dao, Cung |
-| **Phím 5, 6, 7, 8** | Bật nhanh chế độ đặt: [5] Tường, [6] Bẫy Gai, [7] Tháp Canh, [8] Súng Cối |
+| **Phím 1, 2, 3, 4, G** | Đổi nhanh 5 loại vũ khí: `[1]` Giáo, `[2]` Gậy, `[3]` Dao, `[4]` Cung, **`[G]` Súng Trường Plasma** |
+| **Phím 5, 6, 7, 8** | Bật nhanh chế độ đặt: `[5]` Tường, `[6]` Bẫy Gai, `[7]` Tháp Canh, `[8]` Súng Cối |
+| **Phím 9 / Phím R** | **`[9]`** Bật chế độ click nâng cấp công trình / **`[R]`** Nâng cấp hoặc sửa chữa nhanh công trình dưới trỏ chuột / gần người chơi |
 | **Phím F** | Tương tác trạm (Bio-Lab, Lò Nung, Bàn Chế Tạo, Xưởng) hoặc Múc nước suối |
-| **Phím I / TAB** | Đóng / Mở Balo Kho đồ (12-18 ô) và Trang bị Giáp |
+| **Phím I / TAB** | Đóng / Mở Balo Kho đồ (20-28 ô) và Trang bị Giáp |
 | **Phím K** | Lưu tiến trình game thủ công vào `localStorage` |
+| **Phím U** | Cứu hộ khẩn cấp (Thoát kẹt địa hình / quái vật) |
 | **Phím H** | Đóng / Mở Bảng Trợ giúp và Hướng dẫn chơi |
 | **Phím M** | Bật / Tắt toàn bộ Âm thanh game |
 
@@ -220,12 +287,13 @@ cd android
 
 ## 7. GỢI Ý ĐỊNH HƯỚNG CHO CÁC PHASE TIẾP THEO (ROADMAP)
 
-Nếu người dùng yêu cầu tiếp tục phát triển Phase 5 hoặc Endgame:
+Nếu người dùng yêu cầu tiếp tục phát triển Phase 6 hoặc Endgame:
 1. **Nhiệm vụ Sửa Chữa Tàu Không Gian Thoát Hiểm (Escape Spaceship Quest):**
    * Bãi biển chứa mảnh xác tàu vũ trụ rơi (`tech_debris`).
-   * Yêu cầu thu thập đủ linh kiện liên biome (Nhiên liệu lưu huỳnh từ Núi, Vi mạch từ Bờ biển, Dung dịch kháng thể tinh khiết từ Bio-Lab) để sửa chữa phi thuyền và bấm nút phóng thoát hiểm (Điều kiện Thắng Game).
+   * Yêu cầu thu thập đủ linh kiện liên biome (Nhiên liệu lưu huỳnh từ Núi, Lõi Năng Lượng Plasma từ Bờ biển, Dung dịch kháng thể tinh khiết từ Bio-Lab) để sửa chữa phi thuyền và bấm nút phóng thoát hiểm (Điều kiện Thắng Game).
 2. **Trận Chiến Trùm Cuối (Alien Queen Mega-Boss):**
    * Lối vào hang động bí mật trên đỉnh núi đá.
    * Trùm Chúa Tể Alien có 3 giai đoạn biến hình: Phun mưa axit diện rộng, đẻ trứng liên tục và triệu hồi đàn quái Behemoth hộ vệ.
 3. **Mở Rộng Thú Cưng / Drone Hỗ Trợ (Support Companion):**
    * Chế tạo Robot Drone theo chân người chơi tự động nhặt tài nguyên và bắn đạn hỗ trợ phòng thủ.
+
