@@ -108,24 +108,33 @@ class WeaponSystem {
 
   // Harvestable world interact (break eggs, mine ores, gather herbs, scoop water, harvest berries, click lab)
   checkHarvestableHit(player, targetX, targetY, reach) {
-    // 1. Check clicking on Bio-Lab or Furnace when nearby
-    const struct = this.game.world.getStructureNear(player.x, player.y, 85);
+    // 1. Check clicking on Bio-Lab, Furnace, Workbench, or Workshop when nearby
+    const struct = this.game.world.getStructureNear(player.x, player.y, 90);
     if (struct) {
       const distToClick = Math.hypot(targetX - (struct.x + struct.width / 2), targetY - (struct.y + struct.height / 2));
-      if (distToClick < 60) {
-        if (struct.type === 'biolab' && window.labSystem) {
+      if (distToClick < 65 && window.labSystem) {
+        if (struct.type === 'biolab') {
           window.labSystem.open('lab');
           return;
-        } else if (struct.type === 'furnace' && window.labSystem) {
+        } else if (struct.type === 'furnace') {
           window.labSystem.open('furnace');
+          return;
+        } else if (struct.type === 'workbench') {
+          window.labSystem.open('workbench');
+          return;
+        } else if (struct.type === 'workshop') {
+          window.labSystem.open('workshop');
           return;
         }
       }
     }
 
-    // 2. Check Harvesting Wild Flora (Berries)
-    const bush = this.game.world.getWildFloraAt(targetX, targetY, reach);
-    if (bush) {
+    const nearRadius = Math.min(reach + 16, 68);
+
+    // 2. Check Harvesting Wild Flora (Berries) at target point or right next to player
+    const bush = this.game.world.getWildFloraAt(targetX, targetY, reach) ||
+                 this.game.world.getWildFloraAt(player.x, player.y, nearRadius);
+    if (bush && Math.hypot(bush.x - player.x, bush.y - player.y) <= reach + 28) {
       const dropItemId = this.game.world.harvestWildFlora(bush);
       if (dropItemId) {
         this.game.inventory.addItem(dropItemId, 2);
@@ -140,9 +149,10 @@ class WeaponSystem {
       }
     }
 
-    // 3. Check Harvesting Ores, Herbs, Alien Eggs, Debris
-    const h = this.game.world.getHarvestableAt(targetX, targetY, reach);
-    if (h) {
+    // 3. Check Harvesting Ores, Herbs, Alien Eggs, Debris at target point or right next to player
+    const h = this.game.world.getHarvestableAt(targetX, targetY, reach) ||
+              this.game.world.getHarvestableAt(player.x, player.y, nearRadius);
+    if (h && Math.hypot(h.x - player.x, h.y - player.y) <= reach + 28) {
       const isDestroyed = this.game.world.damageHarvestable(h, 15);
       this.game.floatingTexts.push(new FloatingText(h.x, h.y - 10, isDestroyed ? `THU HOẠCH!` : `${h.hp}/${h.maxHp}`, '#facc15', 11, 0.6));
 
@@ -166,7 +176,7 @@ class WeaponSystem {
 
     // 4. Check Scooping Water from River or Lake
     if (this.game.world.isNearWater(targetX, targetY, 25)) {
-      if (Math.hypot(player.x - targetX, player.y - targetY) <= reach + 20) {
+      if (Math.hypot(player.x - targetX, player.y - targetY) <= reach + 25) {
         this.game.inventory.addItem('dirty_water', 1);
         window.audioManager.playEquip();
         this.game.floatingTexts.push(new FloatingText(player.x, player.y - 20, '+1 NƯỚC AO SÔNG Ô NHIỄM', '#65a30d', 12, 1.0));

@@ -535,94 +535,148 @@ class Monster {
 
     const sx = this.x - camera.x;
     const sy = this.y - camera.y;
+    if (sx < -80 || sx > camera.width + 80 || sy < -80 || sy > camera.height + 80) return;
 
     ctx.save();
 
-    // Ground Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    // 1. Ground Shadow & Threat Aura Ring
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.beginPath();
-    ctx.ellipse(sx, sy + (this.isBoss ? 24 : 14), this.isBoss ? 22 : 12, this.isBoss ? 9 : 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx, sy + (this.isBoss ? 26 : 17), this.isBoss ? 25 : 15, this.isBoss ? 9 : 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // Boss Juggernaut Ground Ring
+    if (this.isBoss) {
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy + 24, 29, 11, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Kamikaze Exploder Pulsing Blast Warning Ring
+    if (this.isKamikaze) {
+      const pulse = Math.sin(this.pulseTimer * 1.8) * 0.2 + 0.32;
+      const glowGrad = ctx.createRadialGradient(sx, sy, 4, sx, sy, this.radius + 14);
+      glowGrad.addColorStop(0, `rgba(251, 146, 60, ${pulse})`);
+      glowGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.beginPath();
+      ctx.arc(sx, sy, this.radius + 14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Slow frost aura
+    if (this.slowDuration > 0) {
+      ctx.fillStyle = 'rgba(103, 232, 249, 0.35)';
+      ctx.beginPath();
+      ctx.arc(sx, sy, this.radius + 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Flash white on hit
     if (this.hitFlashTimer > 0) {
-      ctx.filter = 'brightness(2.5)';
+      ctx.filter = 'brightness(2.4)';
     }
 
-    // Slow frost tint
-    if (this.slowDuration > 0) {
-      ctx.fillStyle = 'rgba(165, 243, 252, 0.4)';
-      ctx.beginPath();
-      ctx.arc(sx, sy, this.radius + 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Exploder Pulsing Glow
-    if (this.isKamikaze) {
-      const pulse = Math.sin(this.pulseTimer) * 0.2 + 0.3;
-      ctx.fillStyle = `rgba(234, 88, 12, ${pulse})`;
-      ctx.beginPath();
-      ctx.arc(sx, sy, this.radius + 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Draw Proper Pixel Sprite
+    // 2. Draw Realistic Creature Sprite with Organic Scuttle / Breathing Animation
     let spriteName = 'monster_crawler';
+    let sprSize = 48;
     if (this.species === 'dummy') spriteName = 'monster_dummy';
     else if (this.species === 'exploder') spriteName = 'monster_exploder';
     else if (this.species === 'spitter') spriteName = 'monster_spitter';
-    else if (this.species === 'behemoth') spriteName = 'monster_behemoth';
+    else if (this.species === 'behemoth') {
+      spriteName = 'monster_behemoth';
+      sprSize = 68;
+    }
 
     const sprite = window.pixelArt.get(spriteName);
     if (sprite) {
-      const offset = (this.species === 'behemoth') ? 26 : 18;
-      ctx.drawImage(sprite, sx - offset, sy - offset);
+      ctx.save();
+      ctx.translate(sx, sy);
+
+      if (this.species !== 'dummy' && this.stunDuration <= 0 && this.rootDuration <= 0) {
+        const tilt = Math.sin(this.pulseTimer * 2.2) * (this.isBoss ? 0.04 : 0.07);
+        const breatheX = 1 + Math.sin(this.pulseTimer * 1.6) * (this.isKamikaze ? 0.08 : 0.03);
+        const breatheY = 1 - Math.sin(this.pulseTimer * 1.6) * (this.isKamikaze ? 0.06 : 0.03);
+        ctx.rotate(tilt);
+        ctx.scale(breatheX, breatheY);
+      }
+
+      ctx.drawImage(sprite, -sprSize / 2, -sprSize / 2, sprSize, sprSize);
+      ctx.restore();
     }
 
     ctx.restore();
 
-    // Draw Root Net
+    // 3. Draw Root Energy Net
     if (this.rootDuration > 0) {
       ctx.save();
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 2;
-      ctx.strokeRect(sx - 16, sy - 8, 32, 24);
+      ctx.strokeRect(sx - 18, sy - 12, 36, 28);
       ctx.beginPath();
-      ctx.moveTo(sx - 16, sy - 8); ctx.lineTo(sx + 16, sy + 16);
-      ctx.moveTo(sx + 16, sy - 8); ctx.lineTo(sx - 16, sy + 16);
+      ctx.moveTo(sx - 18, sy - 12); ctx.lineTo(sx + 18, sy + 16);
+      ctx.moveTo(sx + 18, sy - 12); ctx.lineTo(sx - 18, sy + 16);
       ctx.stroke();
       ctx.restore();
     }
 
-    // Draw Stun Stars
+    // 4. Draw Stun Stars
     if (this.stunDuration > 0) {
       ctx.save();
       ctx.fillStyle = '#facc15';
       const time = Date.now() * 0.006;
       for (let i = 0; i < 3; i++) {
         const starAngle = time + (i * Math.PI * 2 / 3);
-        const starX = sx + Math.cos(starAngle) * 14;
-        const starY = sy - 22 + Math.sin(starAngle) * 5;
-        ctx.fillRect(starX - 2, starY - 2, 4, 4);
+        const starX = sx + Math.cos(starAngle) * 16;
+        const starY = sy - 26 + Math.sin(starAngle) * 5;
+        ctx.beginPath();
+        ctx.arc(starX, starY, 3, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.restore();
     }
 
-    // HP Bar
-    const barWidth = this.isBoss ? 44 : 28;
-    const barHeight = this.isBoss ? 5 : 4;
+    // 5. High-Contrast Framed Health Bar & Species Label
+    const barWidth = this.isBoss ? 56 : 36;
+    const barHeight = this.isBoss ? 6 : 5;
+    const barY = sy - (this.isBoss ? 40 : 28);
     const hpPercent = Math.max(0, this.hp / this.maxHp);
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(sx - barWidth / 2, sy - (this.isBoss ? 34 : 26), barWidth, barHeight);
-    
+
+    // Outer dark frame
+    ctx.fillStyle = 'rgba(9, 13, 22, 0.9)';
+    ctx.fillRect(sx - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
+
     let hpColor = '#ef4444';
-    if (this.species === 'dummy') hpColor = '#f59e0b';
-    else if (this.species === 'behemoth') hpColor = '#a855f7';
-    else if (this.species === 'exploder') hpColor = '#f97316';
-    else if (this.species === 'spitter') hpColor = '#84cc16';
+    let speciesTag = '🕷 Xenomorph';
+    if (this.species === 'dummy') { hpColor = '#f59e0b'; speciesTag = '🎯 Bù Nhìn Tập Luyện'; }
+    else if (this.species === 'behemoth') { hpColor = '#c084fc'; speciesTag = '👑 TITAN BEHEMOTH'; }
+    else if (this.species === 'exploder') { hpColor = '#f97316'; speciesTag = '💥 Cảm Tử Nổ'; }
+    else if (this.species === 'spitter') { hpColor = '#84cc16'; speciesTag = '🧪 Phun Axit'; }
 
     ctx.fillStyle = hpColor;
-    ctx.fillRect(sx - barWidth / 2, sy - (this.isBoss ? 34 : 26), barWidth * hpPercent, barHeight);
+    ctx.fillRect(sx - barWidth / 2, barY, barWidth * hpPercent, barHeight);
+    // Top glossy highlight on HP bar
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.fillRect(sx - barWidth / 2, barY, barWidth * hpPercent, 1.5);
+
+    // Show species nameplate when Boss, Dummy, Damaged, or Hovered by Mouse
+    const game = window.gameEngine;
+    const distMouse = (game && game.mouse) ? Math.hypot(game.mouse.worldX - this.x, game.mouse.worldY - this.y) : 9999;
+    if (this.isBoss || this.species === 'dummy' || this.hp < this.maxHp || distMouse <= 38) {
+      ctx.save();
+      ctx.font = 'bold 10px "Segoe UI", Tahoma, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(9, 13, 22, 0.85)';
+      const tw = ctx.measureText(speciesTag).width + 10;
+      ctx.beginPath();
+      ctx.roundRect(sx - tw / 2, barY - 16, tw, 13, 3);
+      ctx.fill();
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(speciesTag, sx, barY - 6.5);
+      ctx.restore();
+    }
   }
 }
 
@@ -782,8 +836,18 @@ class Player {
       }
     }
 
-    // Aim angle towards mouse
-    this.aimAngle = Math.atan2(mouseWorldY - this.y, mouseWorldX - this.x);
+    // Aim angle towards joystick/touch target on mobile, or towards mouse on desktop
+    const mc = (world && world.game) ? world.game.mobileController : null;
+    if (mc && mc.isUsingTouchAim) {
+      if (mc.moveVector && (mc.moveVector.x !== 0 || mc.moveVector.y !== 0)) {
+        this.aimAngle = Math.atan2(mc.moveVector.y, mc.moveVector.x);
+        mc.lastAimAngle = this.aimAngle;
+      } else {
+        this.aimAngle = mc.lastAimAngle;
+      }
+    } else {
+      this.aimAngle = Math.atan2(mouseWorldY - this.y, mouseWorldX - this.x);
+    }
 
     // Update ghost afterimages
     for (let i = this.ghosts.length - 1; i >= 0; i--) {
@@ -915,23 +979,41 @@ class Player {
       if (spr) {
         ctx.save();
         ctx.globalAlpha = g.alpha * 0.45;
-        ctx.drawImage(spr, gx - 16, gy - 16);
+        ctx.drawImage(spr, gx - 20, gy - 24, 40, 44);
         ctx.restore();
       }
     }
 
     ctx.save();
 
-    // Shadow under player (stays on ground during vault)
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.beginPath();
+    // Tactical Player Ground Locator Ring & Shadow
+    const groundX = this.x - camera.x;
+    const groundY = this.y - camera.y + 13;
     const shadowScale = Math.max(0.5, 1 - (this.vaultHeight / 60));
-    ctx.ellipse(this.x - camera.x, this.y - camera.y + 12, 10 * shadowScale, 4 * shadowScale, 0, 0, Math.PI * 2);
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(groundX, groundY, 13 * shadowScale, 5 * shadowScale, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Subtle cyan tactical ring + directional aim pointer under player feet
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(groundX, groundY, 15 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Directional aim chevron on ground ring
+    const aimTipX = groundX + Math.cos(this.aimAngle) * 22;
+    const aimTipY = groundY + Math.sin(this.aimAngle) * 10;
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.75)';
+    ctx.beginPath();
+    ctx.arc(aimTipX, aimTipY, 2.2, 0, Math.PI * 2);
     ctx.fill();
 
     // Stealth transparency
     if (this.isStealthed) {
-      ctx.globalAlpha = 0.35;
+      ctx.globalAlpha = 0.38;
     }
 
     // Direction flip for left vs right
@@ -943,15 +1025,27 @@ class Player {
       ctx.scale(-1, 1);
     }
 
-    // Draw Player Sprite
+    // Draw Realistic 40x44 Survivor Player Sprite
     const playerSprite = window.pixelArt.get(`player_${this.facing}_${this.walkFrame}`);
     if (playerSprite) {
-      ctx.drawImage(playerSprite, -16, -16);
+      ctx.drawImage(playerSprite, -20, -24, 40, 44);
     }
     ctx.restore();
 
     // Draw Held Weapon aimed at cursor
     this.renderHeldWeapon(ctx, sx, sy, facingLeft);
+
+    // Draw Sterile Immunity / Invulnerability Energy Shield Bubble
+    if (this.immunityTimer > 0 || this.invulnerableTimer > 0) {
+      ctx.save();
+      const shieldColor = this.invulnerableTimer > 0 ? 'rgba(56, 189, 248, 0.45)' : 'rgba(16, 185, 129, 0.32)';
+      ctx.strokeStyle = shieldColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy - 2, 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     ctx.restore();
   }

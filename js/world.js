@@ -589,19 +589,61 @@ class WorldMap {
     return false;
   }
 
+  // Helper to draw a sleek floating world recognition label / badge
+  drawObjectBadge(ctx, x, y, text, borderColor = '#38bdf8', textColor = '#f8fafc', bgAlpha = 0.82) {
+    ctx.save();
+    ctx.font = 'bold 10px "Segoe UI", Tahoma, sans-serif';
+    const paddingX = 7;
+    const textWidth = ctx.measureText(text).width;
+    const boxW = textWidth + paddingX * 2;
+    const boxH = 18;
+    const bx = x - boxW / 2;
+    const by = y - boxH / 2;
+
+    ctx.fillStyle = `rgba(9, 13, 22, ${bgAlpha})`;
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, boxH, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y + 0.5);
+    ctx.restore();
+  }
+
   render(ctx, camera, player = null) {
     const startCol = Math.max(0, Math.floor(camera.x / this.tileSize));
     const endCol = Math.min(this.cols - 1, Math.ceil((camera.x + camera.width) / this.tileSize));
     const startRow = Math.max(0, Math.floor(camera.y / this.tileSize));
     const endRow = Math.min(this.rows - 1, Math.ceil((camera.y + camera.height) / this.tileSize));
+    const now = Date.now();
+    const mouseWorldX = (this.game && this.game.mouse) ? this.game.mouse.worldX : -9999;
+    const mouseWorldY = (this.game && this.game.mouse) ? this.game.mouse.worldY : -9999;
 
-    // 1. Render Base Ground Tiles
+    // 1. Render Base Ground Tiles (with natural underlying biome ground for 2.5D standing objects)
     for (let r = startRow; r <= endRow; r++) {
       for (let c = startCol; c <= endCol; c++) {
-        let tileId = this.tiles[r][c];
-        // If it's a tree tile, render grass underneath so ground is beautiful
+        const rawTileId = this.tiles[r][c];
+        let tileId = rawTileId;
+
+        // Render clean natural biome ground underneath standing 2.5D objects
         if (tileId === CONSTANTS.TILES.TREE_ALIEN_PINE || tileId === CONSTANTS.TILES.TREE_POST_APOC) {
           tileId = CONSTANTS.TILES.GRASS;
+        } else if (
+          tileId === CONSTANTS.TILES.ORE_SULFUR ||
+          tileId === CONSTANTS.TILES.ORE_QUARTZ ||
+          tileId === CONSTANTS.TILES.HERB_SILVER_MOSS ||
+          tileId === CONSTANTS.TILES.ALIEN_EGG
+        ) {
+          tileId = CONSTANTS.TILES.MOUNTAIN_ROCK;
+        } else if (tileId === CONSTANTS.TILES.HERB_SNOW_LOTUS) {
+          tileId = (r < 9) ? CONSTANTS.TILES.SNOW_PEAK : CONSTANTS.TILES.MOUNTAIN_ROCK;
+        } else if (tileId === CONSTANTS.TILES.TECH_DEBRIS) {
+          tileId = CONSTANTS.TILES.SAND;
         }
 
         const sprite = window.pixelArt.get('tile_' + tileId);
@@ -609,10 +651,22 @@ class WorldMap {
         const screenY = r * this.tileSize - camera.y;
 
         if (sprite) {
-          ctx.drawImage(sprite, screenX, screenY);
+          ctx.drawImage(sprite, screenX, screenY, this.tileSize, this.tileSize);
         } else {
-          ctx.fillStyle = '#1e293b';
+          ctx.fillStyle = '#2d5a27';
           ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+        }
+
+        // Animated water caustic shimmer for River, Lake & Ocean tiles
+        if (
+          rawTileId === CONSTANTS.TILES.RIVER_WATER ||
+          rawTileId === CONSTANTS.TILES.LAKE_WATER ||
+          rawTileId === CONSTANTS.TILES.OCEAN_SHALLOW ||
+          rawTileId === CONSTANTS.TILES.OCEAN_DEEP
+        ) {
+          const waveOffset = Math.sin(now * 0.003 + c * 0.7 + r * 0.5) * 3;
+          ctx.fillStyle = 'rgba(186, 230, 253, 0.16)';
+          ctx.fillRect(screenX + 6 + waveOffset, screenY + 14, 14, 2);
         }
       }
     }
@@ -624,10 +678,8 @@ class WorldMap {
         if (cb.col >= startCol - 1 && cb.col <= endCol + 1) {
           const sx = cb.x - camera.x;
           const sy = cb.y - camera.y;
-          // Render cliff facade
           ctx.drawImage(cliffWallSprite, sx, sy);
-          // Drop shadow cast onto the plains below
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
           ctx.fillRect(sx, sy + this.tileSize, this.tileSize, 8);
         }
       }
@@ -647,122 +699,227 @@ class WorldMap {
       }
     }
 
-    // 4. Render Wild Flora (Berry Bushes)
-    for (let f of this.wildFlora) {
-      if (f.isHarvested) continue;
-      const sx = f.x - this.tileSize / 2 - camera.x;
-      const sy = f.y - this.tileSize / 2 - camera.y;
-      const spriteName = f.isBlighted ? 'tile_berry_blighted' : 'tile_berry_clean';
-      const sprite = window.pixelArt.get(spriteName);
+    // 4. Render 2.5D Standing Harvestables (Sulfur, Quartz, Snow Lotus, Silver Moss, Alien Egg, Tech Debris)
+    const resourceVisualMap = {
+      sulfur_ore:   { sprite: 'obj_sulfur_ore',   w: 44, h: 44, color: '#facc15', icon: '🟡', tag: 'Quặng Lưu Huỳnh' },
+      quartz_ore:   { sprite: 'obj_quartz_ore',   w: 44, h: 44, color: '#38bdf8', icon: '💎', tag: 'Tinh Thể Thạch Anh' },
+      snow_lotus:   { sprite: 'obj_snow_lotus',   w: 44, h: 44, color: '#e879f9', icon: '🪷', tag: 'Tuyết Liên Núi Cao' },
+      silver_moss:  { sprite: 'obj_silver_moss',  w: 44, h: 44, color: '#4ade80', icon: '🌿', tag: 'Rêu Bạc Đỉnh Núi' },
+      alien_egg:    { sprite: 'obj_alien_egg',    w: 48, h: 48, color: '#f43f5e', icon: '🥚', tag: 'Ổ Trứng Quái Vật (Đập Vỡ!)' },
+      tech_debris:  { sprite: 'obj_tech_debris',  w: 48, h: 44, color: '#fb923c', icon: '🛸', tag: 'Mảnh Vỡ Phi Thuyền' }
+    };
+
+    for (let h of this.harvestables) {
+      if (h.isDestroyed || h.type === 'alien_tree') continue;
+      const vis = resourceVisualMap[h.type];
+      if (!vis) continue;
+
+      const sx = h.x - camera.x;
+      const sy = h.y - camera.y;
+      if (sx < -60 || sx > camera.width + 60 || sy < -60 || sy > camera.height + 60) continue;
+
+      // Subtle colored recognition ring on ground so resources never blend into rock/sand
+      const pulse = 0.22 + Math.sin(now * 0.004 + h.col) * 0.08;
+      ctx.save();
+      ctx.strokeStyle = vis.color;
+      ctx.globalAlpha = pulse;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy + 8, vis.w * 0.36, 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      const sprite = window.pixelArt.get(vis.sprite);
       if (sprite) {
-        ctx.drawImage(sprite, sx, sy);
+        if (h.type === 'alien_egg') {
+          // Organic breathing pulse for Alien Egg
+          const scaleX = 1 + Math.sin(now * 0.005 + h.row) * 0.045;
+          const scaleY = 1 - Math.sin(now * 0.005 + h.row) * 0.045;
+          ctx.save();
+          ctx.translate(sx, sy + 10);
+          ctx.scale(scaleX, scaleY);
+          ctx.drawImage(sprite, -vis.w / 2, -vis.h + 8, vis.w, vis.h);
+          ctx.restore();
+        } else {
+          ctx.drawImage(sprite, sx - vis.w / 2, sy - vis.h / 2 - 2, vis.w, vis.h);
+        }
+      }
+
+      // Draw HP bar if damaged
+      if (h.hp < h.maxHp) {
+        const bw = 30, bh = 4;
+        const pct = Math.max(0, h.hp / h.maxHp);
+        ctx.fillStyle = '#090d16';
+        ctx.fillRect(sx - bw / 2 - 1, sy - 25, bw + 2, bh + 2);
+        ctx.fillStyle = vis.color;
+        ctx.fillRect(sx - bw / 2, sy - 24, bw * pct, bh);
+      }
+
+      // Show floating recognition badge when player is nearby or mouse hovers
+      const distPlayer = player ? Math.hypot(player.x - h.x, player.y - h.y) : 9999;
+      const distMouse = Math.hypot(mouseWorldX - h.x, mouseWorldY - h.y);
+      if (distPlayer <= 115 || distMouse <= 34) {
+        this.drawObjectBadge(ctx, sx, sy - 28, `${vis.icon} ${vis.tag}`, vis.color, '#ffffff');
       }
     }
 
-    // 5. Render Structures (Bio-Lab & Furnace, Workbench, Workshop)
+    // 5. Render Wild Flora (Realistic 40x40 Berry Bushes with Sway & Recognition Tag)
+    for (let f of this.wildFlora) {
+      if (f.isHarvested) continue;
+      const sx = f.x - camera.x;
+      const sy = f.y - camera.y;
+      if (sx < -50 || sx > camera.width + 50 || sy < -50 || sy > camera.height + 50) continue;
+
+      const spriteName = f.isBlighted ? 'tile_berry_blighted' : 'tile_berry_clean';
+      const sprite = window.pixelArt.get(spriteName);
+      const sway = Math.sin(now * 0.0025 + f.col) * 1.0;
+
+      // Ground indicator ring
+      ctx.save();
+      ctx.strokeStyle = f.isBlighted ? '#d946ef' : '#22c55e';
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy + 9, 14, 5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      if (sprite) {
+        ctx.drawImage(sprite, sx - 20 + sway, sy - 22, 40, 40);
+      }
+
+      const distPlayer = player ? Math.hypot(player.x - f.x, player.y - f.y) : 9999;
+      const distMouse = Math.hypot(mouseWorldX - f.x, mouseWorldY - f.y);
+      if (distPlayer <= 110 || distMouse <= 32) {
+        const label = f.isBlighted ? '☣ Quả Đột Biến (Nhiễm Độc!)' : '🍓 Quả Rừng Sạch (+18 HP)';
+        const borderCol = f.isBlighted ? '#e879f9' : '#4ade80';
+        this.drawObjectBadge(ctx, sx, sy - 26, label, borderCol, '#ffffff');
+      }
+    }
+
+    // 6. Render Central Base Structures (Bio-Lab, Furnace, Workbench, Workshop) with Station Nameplates
+    const stationMeta = {
+      biolab:    { sprite: 'building_biolab',    label: '🧬 PHÒNG LAB CÁCH LY [F]',   color: '#10b981' },
+      furnace:   { sprite: 'building_furnace',   label: '🔥 LÒ NUNG KHỬ TRÙNG [F]',   color: '#f97316' },
+      workbench: { sprite: 'building_workbench', label: '🔨 BÀN CHẾ TẠO [F]',         color: '#eab308' },
+      workshop:  { sprite: 'building_workshop',  label: '⚙ XƯỞNG THỦ THÀNH [F]',      color: '#38bdf8' }
+    };
+
     for (let s of this.structures) {
       const sx = s.x - camera.x;
       const sy = s.y - camera.y;
+      const cx = sx + s.width / 2;
+      const cy = sy + s.height / 2;
 
       if (s.type === 'biolab') {
         // Draw Quarantine Safe Zone Field Glow
         ctx.save();
+        const fieldGrad = ctx.createRadialGradient(cx, cy, s.isolationRadius * 0.4, cx, cy, s.isolationRadius);
+        fieldGrad.addColorStop(0, 'rgba(16, 185, 129, 0.03)');
+        fieldGrad.addColorStop(0.85, 'rgba(16, 185, 129, 0.10)');
+        fieldGrad.addColorStop(1, 'rgba(52, 211, 153, 0.22)');
+        ctx.fillStyle = fieldGrad;
         ctx.beginPath();
-        const cx = sx + s.width / 2;
-        const cy = sy + s.height / 2;
         ctx.arc(cx, cy, s.isolationRadius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(52, 211, 153, 0.35)';
+
+        ctx.strokeStyle = 'rgba(52, 211, 153, 0.45)';
         ctx.lineWidth = 2;
-        ctx.setLineDash([6, 6]);
+        ctx.setLineDash([8, 6]);
         ctx.stroke();
         ctx.restore();
+      }
 
-        const sprite = window.pixelArt.get('building_biolab');
+      const meta = stationMeta[s.type];
+      if (meta) {
+        const sprite = window.pixelArt.get(meta.sprite);
         if (sprite) {
-          ctx.drawImage(sprite, sx, sy);
+          ctx.drawImage(sprite, sx, sy, s.width, s.height);
         }
-      } else if (s.type === 'furnace') {
-        const sprite = window.pixelArt.get('building_furnace');
-        if (sprite) {
-          ctx.drawImage(sprite, sx, sy);
-        }
-      } else if (s.type === 'workbench') {
-        const sprite = window.pixelArt.get('building_workbench');
-        if (sprite) {
-          ctx.drawImage(sprite, sx, sy);
-        }
-      } else if (s.type === 'workshop') {
-        const sprite = window.pixelArt.get('building_workshop');
-        if (sprite) {
-          ctx.drawImage(sprite, sx, sy);
-        }
+        // Always display a clear station nameplate above base facilities
+        const distP = player ? Math.hypot(player.x - (s.x + s.width / 2), player.y - (s.y + s.height / 2)) : 9999;
+        const isNear = distP <= 95;
+        this.drawObjectBadge(
+          ctx,
+          cx,
+          sy - 10,
+          meta.label,
+          isNear ? '#ffffff' : meta.color,
+          isNear ? '#fef08a' : '#f8fafc',
+          isNear ? 0.95 : 0.78
+        );
       }
     }
 
-    // 6. Render Majestic Multi-tier Trees with Cast Shadows & Wind Sway
-    const now = Date.now();
+    // 7. Render Majestic Multi-tier Trees (64px wide) with Cast Shadows, Canopy Fade & Wind Sway
     for (let h of this.harvestables) {
       if (h.type !== 'alien_tree') continue;
       const screenX = h.x - camera.x;
       const screenY = h.y - camera.y;
 
-      // Viewport culling with generous margin for tall trees
-      if (screenX < -64 || screenX > camera.width + 64 || screenY < -100 || screenY > camera.height + 64) {
+      if (screenX < -80 || screenX > camera.width + 80 || screenY < -110 || screenY > camera.height + 80) {
         continue;
       }
 
       if (h.isDestroyed) {
-        // Render Cut Tree Stump
         const stumpSprite = window.pixelArt.get('tree_stump');
         if (stumpSprite) {
           ctx.drawImage(stumpSprite, screenX - 16, screenY - 12);
         }
       } else {
-        // Determine tree variant & dimensions
         const variant = h.treeVariant || 'ancient_pine';
         let spriteKey = 'tree_ancient_pine';
-        let treeW = 48, treeH = 72;
+        let treeW = 64, treeH = 92;
 
         if (variant === 'alien_pine') {
           spriteKey = 'tree_alien_pine';
-          treeH = 76;
+          treeH = 96;
         } else if (variant === 'dead_apoc') {
           spriteKey = 'tree_dead_apoc';
-          treeH = 68;
+          treeH = 88;
         }
 
         const treeSprite = window.pixelArt.get(spriteKey) || window.pixelArt.get('tree_ancient_pine');
         if (treeSprite) {
-          // Subtle natural wind sway
-          const sway = Math.sin(now * 0.0016 + (h.swayOffset || 0)) * 1.5;
-          const drawX = screenX - 24 + sway;
-          const drawY = screenY - (treeH - 14); // Ground trunk root aligns with h.y
+          const sway = Math.sin(now * 0.0018 + (h.swayOffset || 0)) * 1.8;
+          const drawX = screenX - treeW / 2 + sway;
+          const drawY = screenY - (treeH - 14);
 
-          // Check if player is standing behind/underneath this tree's canopy
           let isPlayerUnder = false;
           if (player) {
             const dx = Math.abs(player.x - h.x);
-            const dy = player.y - (h.y - 28);
-            if (dx < 26 && dy > -38 && dy < 18) {
+            const dy = player.y - (h.y - 34);
+            if (dx < 32 && dy > -46 && dy < 22) {
               isPlayerUnder = true;
             }
           }
 
           if (isPlayerUnder) {
             ctx.save();
-            ctx.globalAlpha = 0.62;
-            ctx.drawImage(treeSprite, drawX, drawY);
+            ctx.globalAlpha = 0.55;
+            ctx.drawImage(treeSprite, drawX, drawY, treeW, treeH);
             ctx.restore();
           } else {
-            ctx.drawImage(treeSprite, drawX, drawY);
+            ctx.drawImage(treeSprite, drawX, drawY, treeW, treeH);
+          }
+
+          // Show tree HP bar if being chopped or hovered
+          const distMouse = Math.hypot(mouseWorldX - h.x, mouseWorldY - h.y);
+          if (h.hp < h.maxHp) {
+            const bw = 32, bh = 4;
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(screenX - bw / 2 - 1, screenY - 22, bw + 2, bh + 2);
+            ctx.fillStyle = '#22c55e';
+            ctx.fillRect(screenX - bw / 2, screenY - 21, bw * (h.hp / h.maxHp), bh);
+          }
+          if (distMouse <= 28) {
+            this.drawObjectBadge(ctx, screenX, drawY + 12, `🌲 ${h.name} (+4 Gỗ)`, '#4ade80', '#ffffff');
           }
         }
       }
     }
 
-    // 7. Render Atmospheric Mountain Mist & Valley Clouds across Mountain Zone
+    // 8. Render Atmospheric Mountain Mist & Valley Clouds across Mountain Zone
     if (this.mountainMists && camera.y < CONSTANTS.BIOME_MOUNTAIN_END * this.tileSize + 200) {
       ctx.save();
       for (let mist of this.mountainMists) {
@@ -789,7 +946,7 @@ class WorldMap {
       ctx.restore();
     }
 
-    // 8. Render Drifting Ambient Forest Spores & Embers
+    // 9. Render Drifting Ambient Forest Spores & Embers
     if (this.ambientSpores) {
       ctx.save();
       for (let spore of this.ambientSpores) {

@@ -1352,6 +1352,25 @@ html, body, #canvas-container, #gameCanvas {
   color: var(--text-dim);
   max-width: 420px;
   line-height: 1.6;
+  margin-bottom: 18px;
+}
+
+.rotate-dismiss-btn {
+  background: linear-gradient(90deg, #0284c7, #06b6d4);
+  color: #ffffff;
+  border: 2px solid #7dd3fc;
+  border-radius: 8px;
+  padding: 12px 22px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rotate-dismiss-btn:hover, .rotate-dismiss-btn:active {
+  transform: scale(1.04);
+  box-shadow: 0 0 28px rgba(56, 189, 248, 0.9);
 }
 
 /* Mobile Controls Overlay */
@@ -1359,17 +1378,17 @@ html, body, #canvas-container, #gameCanvas {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 20;
+  z-index: 25;
   display: none;
 }
 
 /* Left: Virtual Joystick */
 #joystick-zone {
   position: absolute;
-  bottom: 25px;
-  left: 25px;
-  width: 140px;
-  height: 140px;
+  bottom: 18px;
+  left: 18px;
+  width: 136px;
+  height: 136px;
   pointer-events: auto;
   touch-action: none;
 }
@@ -1378,8 +1397,8 @@ html, body, #canvas-container, #gameCanvas {
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border: 3px solid rgba(6, 182, 212, 0.5);
+  background: radial-gradient(circle, rgba(30, 41, 59, 0.72) 0%, rgba(15, 23, 42, 0.92) 100%);
+  border: 3px solid rgba(6, 182, 212, 0.55);
   box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), inset 0 0 15px rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
@@ -1399,8 +1418,8 @@ html, body, #canvas-container, #gameCanvas {
 .joystick-arrow-right { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #38bdf8; }
 
 #joystick-knob {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: linear-gradient(135deg, #38bdf8, #0284c7);
   border: 2px solid #ffffff;
@@ -1413,18 +1432,18 @@ html, body, #canvas-container, #gameCanvas {
 /* Right: Touch Actions Container */
 #touch-actions {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
+  bottom: 14px;
+  right: 16px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 12px;
+  gap: 8px;
   pointer-events: auto;
 }
 
 .touch-aux-row {
   display: flex;
-  gap: 10px;
+  gap: 7px;
   align-items: center;
 }
 
@@ -1434,7 +1453,7 @@ html, body, #canvas-container, #gameCanvas {
     "s1   s2   empty"
     "dash atk  atk"
     "dash atk  atk";
-  grid-gap: 12px;
+  grid-gap: 10px;
   align-items: center;
   justify-items: center;
 }
@@ -1463,8 +1482,8 @@ html, body, #canvas-container, #gameCanvas {
 /* Specific Touch Button Styles */
 #btn-touch-attack {
   grid-area: atk;
-  width: 76px;
-  height: 76px;
+  width: 72px;
+  height: 72px;
   background: radial-gradient(circle, #dc2626 0%, #991b1b 100%);
   border: 3px solid #fca5a5;
   box-shadow: 0 0 25px rgba(239, 68, 68, 0.65);
@@ -1472,7 +1491,7 @@ html, body, #canvas-container, #gameCanvas {
 
 #btn-touch-attack .btn-label {
   font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
+  font-size: 7px;
   color: #fff;
   text-shadow: 0 1px 2px #000;
   margin-top: 2px;
@@ -1480,8 +1499,8 @@ html, body, #canvas-container, #gameCanvas {
 
 #btn-touch-dash {
   grid-area: dash;
-  width: 58px;
-  height: 58px;
+  width: 54px;
+  height: 54px;
   background: radial-gradient(circle, #0284c7 0%, #0369a1 100%);
   border: 2px solid #7dd3fc;
   box-shadow: 0 0 18px rgba(2, 132, 199, 0.6);
@@ -1489,8 +1508,8 @@ html, body, #canvas-container, #gameCanvas {
 
 #btn-touch-skill1 {
   grid-area: s1;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   background: radial-gradient(circle, #9333ea 0%, #7e22ce 100%);
   border: 2px solid #d8b4fe;
   box-shadow: 0 0 15px rgba(147, 51, 234, 0.5);
@@ -1498,26 +1517,32 @@ html, body, #canvas-container, #gameCanvas {
 
 #btn-touch-skill2 {
   grid-area: s2;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   background: radial-gradient(circle, #ea580c 0%, #c2410c 100%);
   border: 2px solid #fed7aa;
   box-shadow: 0 0 15px rgba(234, 88, 12, 0.5);
 }
 
 .touch-aux-btn {
-  width: 44px;
-  height: 44px;
-  background: rgba(30, 41, 59, 0.85);
+  width: 38px;
+  height: 38px;
+  background: rgba(15, 23, 42, 0.9);
   border: 2px solid var(--accent-cyan);
   border-radius: 8px;
-  font-size: 18px;
+  font-size: 16px;
   display: flex;
   justify-content: center;
   align-items: center;
   box-shadow: 0 0 10px rgba(6, 182, 212, 0.35);
   cursor: pointer;
   touch-action: none;
+  color: #fff;
+}
+
+.touch-aux-btn:active, .touch-aux-btn.pressed {
+  transform: scale(0.92);
+  border-color: var(--hazard-amber);
 }
 
 #btn-touch-interact {
@@ -1545,36 +1570,377 @@ html, body, #canvas-container, #gameCanvas {
   justify-content: center;
   align-items: center;
   font-family: 'Press Start 2P', monospace;
-  font-size: 10px;
+  font-size: 9px;
   color: #fff;
   border-radius: 50%;
   pointer-events: none;
 }
 
-/* Quick Defense Bar on Mobile */
-@media (max-width: 900px) {
-  #bottom-hud {
-    bottom: 85px;
-    transform: translateX(-50%) scale(0.9);
+/* When Mobile Controls are active (even on wider screens), prevent bottom-hud overlap */
+body.mobile-controls-active #bottom-hud {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 26;
+}
+
+body.mobile-controls-active #skill-bar-group {
+  display: none !important;
+}
+
+body.mobile-controls-active #quick-defense-bar {
+  display: none;
+}
+
+body.mobile-controls-active #quick-defense-bar.mobile-open {
+  display: flex !important;
+  position: absolute;
+  bottom: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  background: rgba(11, 15, 24, 0.98);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 24px rgba(6, 182, 212, 0.65);
+}
+
+/* =========================================
+   RESPONSIVE MOBILE & COMPACT VIEWPORT LAYOUT
+   ========================================= */
+@media (max-width: 1024px), (max-height: 580px) {
+  #top-hud {
+    top: 6px;
+    left: 8px;
+    right: 8px;
+    gap: 6px;
+    transform: none;
+    align-items: flex-start;
   }
-  
+
+  /* Compact Left Status Panel */
+  #status-panel {
+    min-width: 165px;
+    max-width: 215px;
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .panel-hazard-tag,
+  .ekg-monitor {
+    display: none !important;
+  }
+
+  .bar-header {
+    font-size: 9px;
+  }
+
+  .vital-title-text {
+    font-size: 9px;
+    letter-spacing: 0.3px !important;
+  }
+
+  .skull-vital-icon,
+  .toxin-vital-icon {
+    font-size: 11px;
+  }
+
+  .bar-num-text {
+    font-size: 7px;
+  }
+
+  .toxin-badge-safe {
+    font-size: 6px;
+    padding: 1px 3px;
+  }
+
+  #immunity-badge {
+    font-size: 7px;
+    padding: 1px 4px;
+  }
+
+  .bar-container {
+    height: 9px;
+  }
+
+  .current-biome {
+    font-size: 8px;
+    padding: 2px 6px;
+    gap: 5px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Compact Center Chronometer */
+  #chronometer-panel.doomsday-plate {
+    min-width: auto;
+    padding: 4px 10px;
+    gap: 2px;
+  }
+
+  .doomsday-subhead {
+    display: none;
+  }
+
+  #clock-day {
+    font-size: 8px;
+  }
+
+  #clock-time {
+    font-size: 12px;
+    padding: 1px 6px;
+  }
+
+  #clock-phase {
+    font-size: 8px;
+    gap: 4px;
+  }
+
+  /* Compact Right HUD: Minimap + 2x4 Action Grid side-by-side */
+  #right-hud {
+    flex-direction: row-reverse;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  #minimap-container.radar-plate {
+    padding: 3px;
+  }
+
+  #minimap-canvas {
+    width: 72px;
+    height: 58px;
+  }
+
+  .radar-compass-n, .radar-compass-s, .radar-compass-e, .radar-compass-w {
+    display: none;
+  }
+
+  .hud-actions {
+    display: grid;
+    grid-template-columns: repeat(4, auto);
+    gap: 4px;
+  }
+
+  .hud-btn.tactical-btn {
+    padding: 4px 6px;
+    font-size: 9px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .hud-key-hint {
+    display: none;
+  }
+
+  /* Compact Bottom HUD centered between Joystick and Touch Actions */
+  #bottom-hud {
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    gap: 4px;
+    z-index: 26;
+  }
+
+  #interaction-prompt {
+    font-size: 10px;
+    padding: 4px 10px;
+    max-width: 58vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #skill-bar-group {
+    display: none !important;
+  }
+
+  #weapon-bar-group {
+    padding: 4px;
+    gap: 4px;
+  }
+
+  #weapon-bar-group .action-slot,
+  #quick-defense-bar .action-slot {
+    width: 40px;
+    height: 40px;
+  }
+
+  .slot-emoji {
+    font-size: 14px !important;
+  }
+
+  .slot-label {
+    font-size: 7px;
+    max-width: 38px;
+    bottom: 1px;
+  }
+
+  .slot-key {
+    font-size: 6px;
+    top: 1px;
+    left: 2px;
+  }
+
   #quick-defense-bar {
     display: none;
   }
-  
+
   #quick-defense-bar.mobile-open {
     display: flex !important;
     position: absolute;
-    bottom: 160px;
+    bottom: 52px;
     left: 50%;
-    transform: translateX(-50%) scale(0.95);
-    z-index: 100;
+    transform: translateX(-50%);
+    padding: 5px;
+    gap: 5px;
+    z-index: 120;
+    background: rgba(11, 15, 24, 0.98);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 24px rgba(6, 182, 212, 0.7);
   }
 
-  #top-hud {
-    transform: scale(0.9);
-    transform-origin: top center;
+  /* Compact Joystick & Touch Buttons for Mobile Landscape */
+  #joystick-zone {
+    bottom: 10px;
+    left: 10px;
+    width: 118px;
+    height: 118px;
+  }
+
+  #joystick-knob {
+    width: 42px;
+    height: 42px;
+  }
+
+  #touch-actions {
+    bottom: 10px;
+    right: 10px;
+    gap: 6px;
+  }
+
+  .touch-aux-row {
+    gap: 5px;
+  }
+
+  .touch-aux-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .touch-combat-cluster {
+    grid-gap: 7px;
+  }
+
+  #btn-touch-attack {
+    width: 62px;
+    height: 62px;
+  }
+
+  #btn-touch-dash {
+    width: 48px;
+    height: 48px;
+  }
+
+  #btn-touch-skill1,
+  #btn-touch-skill2 {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Responsive Modals on Mobile Landscape / Small Screens */
+  .modal-window {
+    max-height: 92vh;
+    max-width: 94vw;
+    padding: 12px 14px;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    position: sticky;
+    top: 0;
+    background: #11151e;
+    z-index: 10;
+    padding-bottom: 8px;
+  }
+
+  .inventory-layout {
+    grid-template-columns: 195px 1fr;
+    gap: 12px;
+  }
+
+  .equip-slots-container {
+    padding: 8px;
+    gap: 5px;
+  }
+
+  .equip-slot {
+    width: 34px;
+    height: 34px;
+  }
+
+  .equip-slot .slot-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .equip-slot-title {
+    font-size: 10px;
+  }
+
+  #inventory-grid {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .inv-slot {
+    width: 48px;
+    height: 48px;
+  }
+
+  .inv-slot .slot-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .recipe-list {
+    max-height: 58vh;
   }
 }
+
+/* Portrait / Narrow Screen Support */
+@media (max-width: 680px) {
+  #top-hud {
+    flex-wrap: wrap;
+  }
+
+  #status-panel {
+    min-width: 145px;
+    max-width: 180px;
+  }
+
+  #minimap-container.radar-plate {
+    display: none;
+  }
+
+  .hud-btn-label {
+    font-size: 8px;
+  }
+
+  #bottom-hud {
+    bottom: 140px;
+  }
+
+  .inventory-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 

@@ -380,17 +380,39 @@ class BuildingManager {
   }
 
   render(ctx, camera) {
+    const mouseWorldX = (this.game && this.game.mouse) ? this.game.mouse.worldX : -9999;
+    const mouseWorldY = (this.game && this.game.mouse) ? this.game.mouse.worldY : -9999;
+
     // 1. Render Placed Defenses
     for (let d of this.defenses) {
-      const sx = d.x - 16 - camera.x;
-      const sy = d.y - 16 - camera.y;
+      const cx = d.x - camera.x;
+      const cy = d.y - camera.y;
+      const sx = cx - 16;
+      const sy = cy - 16;
+
+      // Ground shadow for standing defenses
+      if (d.type !== 'trap') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 15, 16, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       const sprite = window.pixelArt.get('defense_' + d.type);
       if (sprite) {
         if (d.type === 'turret') {
-          // Draw rotated turret
+          // Stationary steel tripod baseplate
+          ctx.fillStyle = '#1e293b';
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Draw rotated twin-barrel plasma turret
           ctx.save();
-          ctx.translate(d.x - camera.x, d.y - camera.y);
+          ctx.translate(cx, cy);
           ctx.rotate(d.aimAngle);
           ctx.drawImage(sprite, -16, -16);
           ctx.restore();
@@ -401,13 +423,21 @@ class BuildingManager {
 
       // Draw HP Bar if damaged
       if (d.hp < d.maxHp && d.type !== 'trap') {
-        const barW = 24;
-        const barH = 3;
+        const barW = 28;
+        const barH = 4;
         const pct = Math.max(0, d.hp / d.maxHp);
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(d.x - barW / 2 - camera.x, d.y - 20 - camera.y, barW, barH);
+        ctx.fillStyle = '#090d16';
+        ctx.fillRect(cx - barW / 2 - 1, cy - 23, barW + 2, barH + 2);
         ctx.fillStyle = (pct > 0.4) ? '#22c55e' : '#ef4444';
-        ctx.fillRect(d.x - barW / 2 - camera.x, d.y - 20 - camera.y, barW * pct, barH);
+        ctx.fillRect(cx - barW / 2, cy - 22, barW * pct, barH);
+      }
+
+      // Hover info badge on defense structures
+      if (Math.hypot(mouseWorldX - d.x, mouseWorldY - d.y) <= 22 && this.game && this.game.world) {
+        const label = (d.type === 'trap')
+          ? `⚙ ${d.name} (${d.usesLeft}/12 lần)`
+          : `🛡 ${d.name} (${Math.round(d.hp)}/${d.maxHp} HP)`;
+        this.game.world.drawObjectBadge(ctx, cx, cy - 26, label, '#38bdf8', '#ffffff');
       }
     }
 
@@ -423,7 +453,7 @@ class BuildingManager {
       const canPlace = this.canPlaceAt(this.hoverTile.col, this.hoverTile.row, this.buildMode);
 
       ctx.save();
-      ctx.globalAlpha = 0.65;
+      ctx.globalAlpha = 0.72;
       const sprite = window.pixelArt.get('defense_' + this.buildMode);
       if (sprite) {
         ctx.drawImage(sprite, gx, gy);
@@ -438,12 +468,12 @@ class BuildingManager {
       if (this.buildMode === 'turret') {
         ctx.beginPath();
         ctx.arc(this.hoverTile.x - camera.x, this.hoverTile.y - camera.y, CONSTANTS.DEFENSE.turret.range, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
         ctx.stroke();
       } else if (this.buildMode === 'mortar') {
         ctx.beginPath();
         ctx.arc(this.hoverTile.x - camera.x, this.hoverTile.y - camera.y, CONSTANTS.DEFENSE.mortar.range, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
         ctx.stroke();
       }
 

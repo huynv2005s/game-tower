@@ -1,5 +1,5 @@
 // Alien Apocalypse - PWA Service Worker for Offline Play & Standalone App
-const CACHE_NAME = 'alien-apocalypse-v6';
+const CACHE_NAME = 'alien-apocalypse-v8';
 
 const ASSETS_TO_CACHE = [
   '/',
@@ -50,29 +50,25 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Stale-while-revalidate or Cache first strategy
+  // Network-first strategy with offline cache fallback
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Return cache hit, update cache in background
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {/* Offline */});
-
-        return cachedResponse;
-      }
-
-      // Not in cache, fetch from network
-      return fetch(event.request).catch(() => {
-        // Fallback to index.html for navigation
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html') || caches.match('/c:/Go/demo/index.html');
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
         }
-      });
-    })
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html') || caches.match('/c:/Go/demo/index.html');
+          }
+        });
+      })
   );
 });

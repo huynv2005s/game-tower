@@ -9,11 +9,11 @@
   <title>Alien Apocalypse - 2D Pixel Art Survival & Tower Defense</title>
   
   <!-- PWA Manifest & App Icons -->
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+  <link rel="manifest" href="/c:/Go/demo/manifest.json">
+  <link rel="apple-touch-icon" href="/c:/Go/demo/assets/icons/icon-192.png">
 
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="/css/style.css?v=6">
+  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=8">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
         <div class="bar-header">
           <div class="bar-label-group">
             <span class="skull-vital-icon">💀</span>
-            <span style="color: #ef4444; font-weight: 800; letter-spacing: 0.8px;">SINH MỆNH (HP)</span>
+            <span class="vital-title-text" style="color: #ef4444; font-weight: 800; letter-spacing: 0.8px;">SINH MỆNH (HP)</span>
           </div>
           <div class="vital-monitor-group">
             <!-- Animated SVG EKG Heartbeat Line -->
@@ -62,7 +62,7 @@
         <div class="bar-header">
           <div class="bar-label-group">
             <span class="toxin-vital-icon">☣</span>
-            <span style="color: #a855f7; font-weight: 800; letter-spacing: 0.8px;">KÝ SINH ĐỘT BIẾN</span>
+            <span class="vital-title-text" style="color: #a855f7; font-weight: 800; letter-spacing: 0.8px;">KÝ SINH ĐỘT BIẾN</span>
           </div>
           <div class="vital-monitor-group">
             <span id="toxin-danger-level" class="toxin-badge-safe">AN TOÀN</span>
@@ -106,14 +106,14 @@
         <canvas id="minimap-canvas" width="140" height="112"></canvas>
       </div>
       <div class="hud-actions">
-        <button id="btn-toggle-touch" class="hud-btn tactical-btn" onclick="window.mobileController.toggleControls()">📱 CẢM ỨNG</button>
-        <button id="btn-save-game" class="hud-btn tactical-btn" onclick="window.saveManager.saveGame(false)">💾 LƯU [K]</button>
-        <button id="btn-biolab" class="hud-btn tactical-btn" onclick="window.labSystem.open('lab')">🧬 PHÒNG LAB [F]</button>
-        <button id="btn-workbench" class="hud-btn tactical-btn" onclick="window.labSystem.open('workbench')">🔨 BÀN CHẾ TẠO</button>
-        <button id="btn-workshop" class="hud-btn tactical-btn" onclick="window.labSystem.open('workshop')">⚙ XƯỞNG THỦ THÀNH</button>
-        <button id="btn-inventory" class="hud-btn tactical-btn" onclick="window.gameEngine.inventory.toggleUI()">🎒 KHO ĐỒ [I]</button>
-        <button id="btn-help" class="hud-btn tactical-btn" onclick="toggleHelpModal()">❓ TRỢ GIÚP [H]</button>
-        <button id="btn-sound" class="hud-btn tactical-btn" onclick="window.audioManager.toggleMute()">🔊 ÂM THANH [M]</button>
+        <button id="btn-toggle-touch" class="hud-btn tactical-btn" onclick="window.mobileController.toggleControls()">📱 <span class="hud-btn-label">CẢM ỨNG</span></button>
+        <button id="btn-save-game" class="hud-btn tactical-btn" onclick="window.saveManager.saveGame(false)">💾 <span class="hud-btn-label">LƯU</span><span class="hud-key-hint"> [K]</span></button>
+        <button id="btn-biolab" class="hud-btn tactical-btn" onclick="window.labSystem.open('lab')">🧬 <span class="hud-btn-label">LAB</span><span class="hud-key-hint"> [F]</span></button>
+        <button id="btn-workbench" class="hud-btn tactical-btn" onclick="window.labSystem.open('workbench')">🔨 <span class="hud-btn-label">CHẾ TẠO</span></button>
+        <button id="btn-workshop" class="hud-btn tactical-btn" onclick="window.labSystem.open('workshop')">⚙ <span class="hud-btn-label">XƯỞNG</span></button>
+        <button id="btn-inventory" class="hud-btn tactical-btn" onclick="window.gameEngine.inventory.toggleUI()">🎒 <span class="hud-btn-label">KHO ĐỒ</span><span class="hud-key-hint"> [I]</span></button>
+        <button id="btn-help" class="hud-btn tactical-btn" onclick="toggleHelpModal()">❓ <span class="hud-btn-label">HƯỚNG DẪN</span><span class="hud-key-hint"> [H]</span></button>
+        <button id="btn-sound" class="hud-btn tactical-btn" onclick="window.audioManager.toggleMute()">🔊 <span class="hud-btn-label">ÂM THANH</span><span class="hud-key-hint"> [M]</span></button>
       </div>
     </div>
   </div>
@@ -125,35 +125,35 @@
 
     <div id="action-bar">
       <!-- 4 Weapons Group -->
-      <div class="hud-group" title="Chuyển đổi vũ khí [1, 2, 3, 4]">
+      <div id="weapon-bar-group" class="hud-group" title="Chuyển đổi vũ khí [1, 2, 3, 4]">
         <div id="weapon-slot-1" class="action-slot active-weapon" onclick="window.gameEngine.weapons.switchWeapon('SPEAR')">
           <span class="slot-key">1</span>
-          <span style="font-size: 18px;">🗡</span>
+          <span class="slot-emoji" style="font-size: 18px;">🗡</span>
           <span class="slot-label">Giáo</span>
         </div>
         <div id="weapon-slot-2" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('STAFF')">
           <span class="slot-key">2</span>
-          <span style="font-size: 18px;">🪄</span>
+          <span class="slot-emoji" style="font-size: 18px;">🪄</span>
           <span class="slot-label">Gậy</span>
         </div>
         <div id="weapon-slot-3" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('DAGGER')">
           <span class="slot-key">3</span>
-          <span style="font-size: 18px;">🔪</span>
+          <span class="slot-emoji" style="font-size: 18px;">🔪</span>
           <span class="slot-label">Dao</span>
         </div>
         <div id="weapon-slot-4" class="action-slot" onclick="window.gameEngine.weapons.switchWeapon('BOW')">
           <span class="slot-key">4</span>
-          <span style="font-size: 18px;">🏹</span>
+          <span class="slot-emoji" style="font-size: 18px;">🏹</span>
           <span class="slot-label">Cung</span>
         </div>
       </div>
 
       <!-- Skills Group: Dash [Space], Skill 1 [Q], Skill 2 [E] -->
-      <div class="hud-group">
+      <div id="skill-bar-group" class="hud-group">
         <!-- Dash [Space] -->
         <div class="action-slot" title="Lướt nhanh [Phím SPACE]" onclick="window.gameEngine.player.triggerDash(window.gameEngine.keys, window.gameEngine.mouse.worldX, window.gameEngine.mouse.worldY, window.gameEngine.particles, window.gameEngine.floatingTexts)">
           <span class="slot-key">SPC</span>
-          <span style="font-size: 18px;">⚡</span>
+          <span class="slot-emoji" style="font-size: 18px;">⚡</span>
           <span class="slot-label">Lướt</span>
           <div id="dash-cd" class="slot-cd-overlay">0.0</div>
         </div>
@@ -161,7 +161,7 @@
         <!-- Skill 1 [Q] -->
         <div class="action-slot" title="Kỹ năng Giải Vây 1 [Phím Q]" onclick="window.gameEngine.weapons.triggerSkill1(window.gameEngine.player, window.gameEngine.mouse.worldX, window.gameEngine.mouse.worldY)">
           <span class="slot-key">Q</span>
-          <span style="font-size: 18px;">🌀</span>
+          <span class="slot-emoji" style="font-size: 18px;">🌀</span>
           <span id="skill-1-name" class="slot-label">Quét Ngang</span>
           <div id="skill-1-cd" class="slot-cd-overlay">0.0</div>
         </div>
@@ -169,7 +169,7 @@
         <!-- Skill 2 [E] -->
         <div class="action-slot" title="Kỹ năng Giải Vây 2 [Phím E]" onclick="window.gameEngine.weapons.triggerSkill2(window.gameEngine.player, window.gameEngine.mouse.worldX, window.gameEngine.mouse.worldY)">
           <span class="slot-key">E</span>
-          <span style="font-size: 18px;">💥</span>
+          <span class="slot-emoji" style="font-size: 18px;">💥</span>
           <span id="skill-2-name" class="slot-label">Chống Sào</span>
           <div id="skill-2-cd" class="slot-cd-overlay">0.0</div>
         </div>
@@ -177,31 +177,31 @@
         <!-- Emergency Unstuck [U] -->
         <div class="action-slot unstuck-slot" title="Cứu hộ khẩn cấp: Thoát kẹt địa hình hoặc quái vật [Phím U]" onclick="window.unstuckPlayer()">
           <span class="slot-key">U</span>
-          <span style="font-size: 18px;">🆘</span>
+          <span class="slot-emoji" style="font-size: 18px;">🆘</span>
           <span class="slot-label" style="color: #38bdf8;">Thoát Kẹt</span>
         </div>
       </div>
 
       <!-- Phase 3: Quick Defense Construction Group [5, 6, 7, 8] -->
-      <div class="hud-group" title="Công trình Thủ thành [5, 6, 7, 8]">
+      <div id="quick-defense-bar" class="hud-group" title="Công trình Thủ thành [5, 6, 7, 8]">
         <div id="def-slot-1" class="action-slot" onclick="window.buildingManager.enterBuildMode('wall')" title="Xây Tường Chắn [Phím 5]">
           <span class="slot-key">5</span>
-          <span style="font-size: 17px;">🧱</span>
+          <span class="slot-emoji" style="font-size: 17px;">🧱</span>
           <span class="slot-label">Tường</span>
         </div>
         <div id="def-slot-2" class="action-slot" onclick="window.buildingManager.enterBuildMode('trap')" title="Đặt Bẫy Gai Sinh Học [Phím 6]">
           <span class="slot-key">6</span>
-          <span style="font-size: 17px;">⚙</span>
+          <span class="slot-emoji" style="font-size: 17px;">⚙</span>
           <span class="slot-label">Bẫy Gai</span>
         </div>
         <div id="def-slot-3" class="action-slot" onclick="window.buildingManager.enterBuildMode('turret')" title="Đặt Tháp Canh Tự Động [Phím 7]">
           <span class="slot-key">7</span>
-          <span style="font-size: 17px;">🗼</span>
+          <span class="slot-emoji" style="font-size: 17px;">🗼</span>
           <span class="slot-label">Tháp Canh</span>
         </div>
         <div id="def-slot-4" class="action-slot" onclick="window.buildingManager.enterBuildMode('mortar')" title="Đặt Súng Cối Hạng Nặng [Phím 8]">
           <span class="slot-key">8</span>
-          <span style="font-size: 17px;">💣</span>
+          <span class="slot-emoji" style="font-size: 17px;">💣</span>
           <span class="slot-label">Súng Cối</span>
         </div>
       </div>
@@ -400,10 +400,13 @@
   <!-- LANDSCAPE ORIENTATION REMINDER OVERLAY -->
   <div id="rotate-device-overlay">
     <div class="rotate-phone-animation"></div>
-    <div class="rotate-title">VUI LÒNG XOAY NGANG THIẾT BỊ 🔄</div>
+    <div class="rotate-title">XOAY NGANG ĐỂ TỐI ƯU GÓC NHÌN 🔄</div>
     <div class="rotate-desc">
-      Game <strong>Alien Apocalypse</strong> được thiết kế tối ưu cho chế độ xoay ngang (Landscape). Hãy xoay ngang điện thoại để kích hoạt bàn điều khiển sinh tồn!
+      Game <strong>Alien Apocalypse</strong> hiển thị rộng nhất ở chế độ xoay ngang (Landscape), hoặc bạn có thể bấm nút bên dưới để chơi ngay ở chế độ dọc!
     </div>
+    <button class="rotate-dismiss-btn" onclick="window.mobileController && window.mobileController.dismissRotatePrompt()">
+      ▶ TIẾP TỤC CHƠI NGAY
+    </button>
   </div>
 
   <!-- MOBILE TOUCH CONTROLS OVERLAY -->
@@ -423,11 +426,13 @@
 
     <!-- Right: Action Buttons Cluster -->
     <div id="touch-actions">
-      <!-- Aux Row: Switch Weapon, Interact, Toggle Quick Build Bar -->
+      <!-- Aux Row: Switch Weapon, Interact, Toggle Quick Build Bar, Inventory, Unstuck -->
       <div class="touch-aux-row">
         <button id="btn-touch-switch" class="touch-aux-btn" title="Đổi vũ khí">🗡</button>
-        <button id="btn-touch-interact" class="touch-aux-btn" title="Tương tác trạm / Nước [F]">💬 F</button>
+        <button id="btn-touch-interact" class="touch-aux-btn" title="Tương tác trạm / Nước [F]">💬</button>
         <button id="btn-touch-build" class="touch-aux-btn" title="Mở danh mục Thủ thành">🧱</button>
+        <button id="btn-touch-bag" class="touch-aux-btn" title="Mở Kho Đồ [I]">🎒</button>
+        <button id="btn-touch-unstuck" class="touch-aux-btn" title="Thoát kẹt khẩn cấp [U]">🆘</button>
       </div>
 
       <!-- Combat Cluster: Dash, Skill 1, Skill 2, Big Attack -->
@@ -470,25 +475,25 @@
   </script>
 
   <!-- Import Scripts -->
-  <script src="/js/constants.js?v=6"></script>
-  <script src="/js/audio.js?v=6"></script>
-  <script src="/js/pixelart.js?v=6"></script>
-  <script src="/js/buildings.js?v=6"></script>
-  <script src="/js/world.js?v=6"></script>
-  <script src="/js/entities.js?v=6"></script>
-  <script src="/js/weapons.js?v=6"></script>
-  <script src="/js/inventory.js?v=6"></script>
-  <script src="/js/lab.js?v=6"></script>
-  <script src="/js/daynight.js?v=6"></script>
-  <script src="/js/savegame.js?v=6"></script>
-  <script src="/js/mobile.js?v=6"></script>
-  <script src="/js/game.js?v=6"></script>
+  <script src="/c:/Go/demo/js/constants.js?v=8"></script>
+  <script src="/c:/Go/demo/js/audio.js?v=8"></script>
+  <script src="/c:/Go/demo/js/pixelart.js?v=8"></script>
+  <script src="/c:/Go/demo/js/buildings.js?v=8"></script>
+  <script src="/c:/Go/demo/js/world.js?v=8"></script>
+  <script src="/c:/Go/demo/js/entities.js?v=8"></script>
+  <script src="/c:/Go/demo/js/weapons.js?v=8"></script>
+  <script src="/c:/Go/demo/js/inventory.js?v=8"></script>
+  <script src="/c:/Go/demo/js/lab.js?v=8"></script>
+  <script src="/c:/Go/demo/js/daynight.js?v=8"></script>
+  <script src="/c:/Go/demo/js/savegame.js?v=8"></script>
+  <script src="/c:/Go/demo/js/mobile.js?v=8"></script>
+  <script src="/c:/Go/demo/js/game.js?v=8"></script>
 
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
+        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=8')
           .then((reg) => console.log('✅ PWA Service Worker Registered! Scope:', reg.scope))
           .catch((err) => console.warn('PWA Service Worker Warning:', err));
       });

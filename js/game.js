@@ -5,7 +5,10 @@ class GameEngine {
   constructor() {
     this.canvas = document.getElementById('gameCanvas');
     this.ctx = this.canvas.getContext('2d');
-    this.ctx.imageSmoothingEnabled = false;
+    this.ctx.imageSmoothingEnabled = true;
+    if (this.ctx.imageSmoothingQuality) {
+      this.ctx.imageSmoothingQuality = 'high';
+    }
 
     this.camera = {
       x: 0,
@@ -99,7 +102,10 @@ class GameEngine {
     this.camera.width = this.canvas.width;
     this.camera.height = this.canvas.height;
     if (this.ctx) {
-      this.ctx.imageSmoothingEnabled = false;
+      this.ctx.imageSmoothingEnabled = true;
+      if (this.ctx.imageSmoothingQuality) {
+        this.ctx.imageSmoothingQuality = 'high';
+      }
     }
   }
 
@@ -248,6 +254,10 @@ class GameEngine {
       this.mouse.screenY = e.clientY;
       this.mouse.worldX = e.clientX + this.camera.x;
       this.mouse.worldY = e.clientY + this.camera.y;
+      if (this.mobileController && this.mobileController.joystickTouchId === null &&
+          this.mobileController.moveVector.x === 0 && this.mobileController.moveVector.y === 0) {
+        this.mobileController.isUsingTouchAim = false;
+      }
     });
 
     // Mouse click (Attack / Place Structure)
@@ -362,7 +372,9 @@ class GameEngine {
 
     // Phase 3: Update Building Manager (Defenses, Turrets, Mortars, Placement Hover)
     if (this.buildingManager) {
-      this.buildingManager.updateHoverTile(this.mouse.worldX, this.mouse.worldY);
+      if (!(this.mobileController && this.mobileController.isUsingTouchAim)) {
+        this.buildingManager.updateHoverTile(this.mouse.worldX, this.mouse.worldY);
+      }
       this.buildingManager.update(dt, this.monsters, this.particles, this.floatingTexts, this.projectiles);
     }
 
@@ -589,25 +601,36 @@ class GameEngine {
     if (promptBanner) {
       if (this.buildingManager && this.buildingManager.buildMode) {
         promptBanner.style.display = 'block';
-        promptBanner.innerHTML = `🏗 CHẾ ĐỘ XÂY [${this.buildingManager.buildMode.toUpperCase()}]: <span class="key-hint">[CHUỘT TRÁI]</span> ĐẶT &nbsp;|&nbsp; <span class="key-hint">[ESC / CHUỘT PHẢI]</span> HỦY`;
+        promptBanner.style.cursor = 'pointer';
+        promptBanner.onclick = () => this.buildingManager.exitBuildMode();
+        promptBanner.innerHTML = `🏗 XÂY [${this.buildingManager.buildMode.toUpperCase()}]: Chạm đất / ⚔ để đặt &nbsp;|&nbsp; <span class="key-hint" style="background:#ef4444;color:#fff;">✖ HỦY</span>`;
       } else {
-        const struct = this.world.getStructureNear(this.player.x, this.player.y, 85);
+        const struct = this.world.getStructureNear(this.player.x, this.player.y, 90);
         if (struct) {
           promptBanner.style.display = 'block';
+          promptBanner.style.cursor = 'pointer';
+          promptBanner.onclick = () => {
+            if (this.mobileController) this.mobileController.handleInteract();
+          };
           if (struct.type === 'biolab') {
-            promptBanner.innerHTML = `BẤM <span class="key-hint">[F]</span>: <strong>PHÒNG LAB CÁCH LY (BÀO CHẾ)</strong>`;
+            promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>PHÒNG LAB CÁCH LY</strong>`;
           } else if (struct.type === 'furnace') {
-            promptBanner.innerHTML = `BẤM <span class="key-hint">[F]</span>: <strong>LÒ NUNG KHỬ TRÙNG</strong>`;
+            promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>LÒ NUNG KHỬ TRÙNG</strong>`;
           } else if (struct.type === 'workbench') {
-            promptBanner.innerHTML = `BẤM <span class="key-hint">[F]</span>: <strong>BÀN CHẾ TẠO (WORKBENCH)</strong>`;
+            promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>BÀN CHẾ TẠO</strong>`;
           } else if (struct.type === 'workshop') {
-            promptBanner.innerHTML = `BẤM <span class="key-hint">[F]</span>: <strong>XƯỞNG CƠ KHÍ THỦ THÀNH (WORKSHOP)</strong>`;
+            promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>XƯỞNG THỦ THÀNH</strong>`;
           }
-        } else if (this.world.isNearWater(this.player.x, this.player.y, 45)) {
+        } else if (this.world.isNearWater(this.player.x, this.player.y, 50)) {
           promptBanner.style.display = 'block';
-          promptBanner.innerHTML = `BẤM <span class="key-hint">[F]</span>: <strong>MÚC NƯỚC AO SÔNG Ô NHIỄM</strong>`;
+          promptBanner.style.cursor = 'pointer';
+          promptBanner.onclick = () => {
+            if (this.mobileController) this.mobileController.handleInteract();
+          };
+          promptBanner.innerHTML = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>MÚC NƯỚC AO SÔNG</strong>`;
         } else {
           promptBanner.style.display = 'none';
+          promptBanner.onclick = null;
         }
       }
     }
@@ -696,40 +719,104 @@ class GameEngine {
 
     mctx.clearRect(0, 0, mw, mh);
 
-    // Draw background biomes
     const scaleX = mw / this.world.cols;
     const scaleY = mh / this.world.rows;
 
-    // Mountain zone
-    mctx.fillStyle = '#475569';
-    mctx.fillRect(0, 0, mw, CONSTANTS.BIOME_MOUNTAIN_END * scaleY);
+    // 1. Draw Terrain & Water Features from World Grid (sampled every 2 tiles for 60fps speed)
+    for (let r = 0; r < this.world.rows; r += 2) {
+      for (let c = 0; c < this.world.cols; c += 2) {
+        const t = this.world.tiles[r][c];
+        let col = '#2d5a27';
+        if (t === CONSTANTS.TILES.SNOW_PEAK) col = '#cbd5e1';
+        else if (t === CONSTANTS.TILES.MOUNTAIN_ROCK || t === CONSTANTS.TILES.MOUNTAIN_SLATE) col = '#475569';
+        else if (t === CONSTANTS.TILES.RIVER_WATER || t === CONSTANTS.TILES.LAKE_WATER) col = '#0284c7';
+        else if (t === CONSTANTS.TILES.WOODEN_BRIDGE) col = '#b45309';
+        else if (t === CONSTANTS.TILES.DIRT_PATH) col = '#785a40';
+        else if (t === CONSTANTS.TILES.SAND || t === CONSTANTS.TILES.SAND_WET) col = '#eab308';
+        else if (t === CONSTANTS.TILES.OCEAN_SHALLOW) col = '#0d9488';
+        else if (t === CONSTANTS.TILES.OCEAN_DEEP) col = '#0f172a';
+        else if (t === CONSTANTS.TILES.TREE_ALIEN_PINE || t === CONSTANTS.TILES.TREE_POST_APOC) col = '#14532d';
 
-    // Plains zone
-    mctx.fillStyle = '#166534';
-    mctx.fillRect(0, CONSTANTS.BIOME_MOUNTAIN_END * scaleY, mw, (CONSTANTS.BIOME_PLAINS_END - CONSTANTS.BIOME_MOUNTAIN_END) * scaleY);
+        mctx.fillStyle = col;
+        mctx.fillRect(c * scaleX, r * scaleY, Math.ceil(scaleX * 2), Math.ceil(scaleY * 2));
+      }
+    }
 
-    // Ocean zone
-    mctx.fillStyle = '#0284c7';
-    mctx.fillRect(0, CONSTANTS.BIOME_PLAINS_END * scaleY, mw, (this.world.rows - CONSTANTS.BIOME_PLAINS_END) * scaleY);
+    // 2. Draw Unhatched Alien Eggs on Minimap (Magenta dots)
+    mctx.fillStyle = '#e879f9';
+    for (let h of this.world.harvestables) {
+      if (h.isDestroyed || h.type !== 'alien_egg') continue;
+      const ex = (h.x / this.world.width) * mw;
+      const ey = (h.y / this.world.height) * mh;
+      mctx.fillRect(ex - 1, ey - 1, 2, 2);
+    }
 
-    // Draw Monsters on minimap
-    mctx.fillStyle = '#ef4444';
+    // 3. Draw Base Structures (Bio-Lab Safe Zone in Emerald)
+    for (let s of this.world.structures) {
+      const sx = ((s.x + s.width / 2) / this.world.width) * mw;
+      const sy = ((s.y + s.height / 2) / this.world.height) * mh;
+      if (s.type === 'biolab') {
+        mctx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
+        mctx.lineWidth = 1;
+        mctx.beginPath();
+        mctx.arc(sx, sy, 6, 0, Math.PI * 2);
+        mctx.stroke();
+        mctx.fillStyle = '#10b981';
+        mctx.fillRect(sx - 2, sy - 2, 4, 4);
+      } else {
+        mctx.fillStyle = '#38bdf8';
+        mctx.fillRect(sx - 1.5, sy - 1.5, 3, 3);
+      }
+    }
+
+    // 4. Draw Placed Defenses (Cyan dots)
+    if (this.buildingManager) {
+      mctx.fillStyle = '#38bdf8';
+      for (let d of this.buildingManager.defenses) {
+        const dx = (d.x / this.world.width) * mw;
+        const dy = (d.y / this.world.height) * mh;
+        mctx.fillRect(dx - 1, dy - 1, 2, 2);
+      }
+    }
+
+    // 5. Draw Monsters on Minimap
     for (let m of this.monsters) {
       if (m.isDead) continue;
       const mx = (m.x / this.world.width) * mw;
       const my = (m.y / this.world.height) * mh;
-      mctx.fillRect(mx - 1, my - 1, 2, 2);
+      if (m.species === 'dummy') {
+        mctx.fillStyle = '#facc15';
+        mctx.fillRect(mx - 1, my - 1, 2, 2);
+      } else if (m.isBoss) {
+        mctx.fillStyle = '#c084fc';
+        mctx.fillRect(mx - 2, my - 2, 4, 4);
+      } else {
+        mctx.fillStyle = '#ef4444';
+        mctx.fillRect(mx - 1.2, my - 1.2, 2.4, 2.4);
+      }
     }
 
-    // Draw Player on minimap (blinking green dot)
-    mctx.fillStyle = '#22c55e';
+    // 6. Draw Camera Viewport Rectangle
+    const camX = (this.camera.x / this.world.width) * mw;
+    const camY = (this.camera.y / this.world.height) * mh;
+    const camW = (this.camera.width / this.world.width) * mw;
+    const camH = (this.camera.height / this.world.height) * mh;
+    mctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    mctx.lineWidth = 0.8;
+    mctx.strokeRect(camX, camY, camW, camH);
+
+    // 7. Draw Player on Minimap (Bright green pulsing beacon)
     const px = (this.player.x / this.world.width) * mw;
     const py = (this.player.y / this.world.height) * mh;
+    mctx.fillStyle = '#4ade80';
+    mctx.strokeStyle = '#ffffff';
+    mctx.lineWidth = 1;
     mctx.beginPath();
-    mctx.arc(px, py, 3, 0, Math.PI * 2);
+    mctx.arc(px, py, 3.2, 0, Math.PI * 2);
     mctx.fill();
+    mctx.stroke();
 
-    // Minimap border
+    // Minimap outer frame
     mctx.strokeStyle = '#38bdf8';
     mctx.lineWidth = 1;
     mctx.strokeRect(0, 0, mw, mh);
