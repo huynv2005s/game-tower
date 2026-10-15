@@ -1,5 +1,6 @@
-// Inventory & Equipment Management System (Optimized with Cached DataURLs & Lazy DOM Rendering)
+// Inventory & Equipment Management System
 // 99 Inventory Slots (Max Stack = 99) + 5 Armor Slots + 1 Companion Pet Slot
+// Features: Item Deletion (1, Stack, All of Type, Junk Cleanup, Quick Trash Mode), Auto-Sort & Stack, Category Filters
 
 class InventorySystem {
   constructor(game) {
@@ -22,7 +23,9 @@ class InventorySystem {
     this.isOpen = false;
     this.uiDirty = true;
     this.selectedSlotIndex = null;
-    this.lastFeedbackText = '💡 Click trực tiếp vào vật phẩm trong Balo để Sử dụng, Trang bị, Đặt công trình hoặc Nâng cấp!';
+    this.trashMode = false;
+    this.activeFilter = 'all'; // 'all', 'usable', 'combat', 'defense', 'resource'
+    this.lastFeedbackText = '💡 Mẹo: Chạm vào vật phẩm để chọn (Dùng / Xóa), hoặc bấm nút [✕] đỏ góc phải ô để xóa ngay!';
     this.lastFeedbackColor = '#38bdf8';
     this.initDefaultItems();
   }
@@ -133,7 +136,7 @@ class InventorySystem {
         if (this.game && this.game.floatingTexts && this.game.player) {
           this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, 'KHO ĐỒ ĐÃ ĐẦY!', '#ef4444', 12, 1.0));
         }
-        this.showFeedback('⚠️ Kho đồ đã đầy (99 ô)! Hãy sử dụng bớt vật phẩm trong Balo.', '#ef4444');
+        this.showFeedback('⚠️ Kho đồ đã đầy (99 ô)! Hãy xóa hoặc sử dụng bớt vật phẩm trong Balo.', '#ef4444');
         return false;
       }
 
@@ -157,10 +160,218 @@ class InventorySystem {
     this.slots[slotIndex].count -= count;
     if (this.slots[slotIndex].count <= 0) {
       this.slots[slotIndex] = null;
+      if (this.selectedSlotIndex === slotIndex) {
+        this.selectedSlotIndex = null;
+      }
     }
     this.uiDirty = true;
     if (this.isOpen) {
       this.renderUI();
+    }
+    if (this.game && this.game.updateHUD) {
+      this.game.updateHUD(true);
+    }
+    return true;
+  }
+
+  // Delete item(s) from a specific slot with user feedback
+  deleteSlotItem(slotIndex, count = null) {
+    this.normalizeSlots();
+    const item = this.slots[slotIndex];
+    if (!item) return false;
+
+    const def = CONSTANTS.ITEM_TYPES[item.id];
+    const itemName = def ? def.name : item.id;
+    const removeAmount = (count === null || count >= item.count) ? item.count : Math.max(1, count);
+
+    this.removeItem(slotIndex, removeAmount);
+
+    if (window.audioManager) window.audioManager.playEquip();
+    const msg = `🗑 ĐÃ XÓA: ${removeAmount}x ${itemName.toUpperCase()} KHỎI BALO!`;
+    this.showFeedback(msg, '#f87171');
+    if (this.game && this.game.floatingTexts && this.game.player) {
+      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 24, `🗑 -${removeAmount} ${itemName}`, '#f87171', 12, 1.1));
+    }
+    return true;
+  }
+
+  deleteSelectedOne() {
+    if (this.selectedSlotIndex === null || !this.slots[this.selectedSlotIndex]) {
+      this.showFeedback('⚠️ Hãy chọn một vật phẩm trong Balo trước khi xóa!', '#facc15');
+      return false;
+    }
+    return this.deleteSlotItem(this.selectedSlotIndex, 1);
+  }
+
+  deleteSelectedStack() {
+    if (this.selectedSlotIndex === null || !this.slots[this.selectedSlotIndex]) {
+      this.showFeedback('⚠️ Hãy chọn một vật phẩm trong Balo trước khi xóa!', '#facc15');
+      return false;
+    }
+    const count = this.slots[this.selectedSlotIndex].count;
+    return this.deleteSlotItem(this.selectedSlotIndex, count);
+  }
+
+  deleteSelectedAllOfType() {
+    if (this.selectedSlotIndex === null || !this.slots[this.selectedSlotIndex]) {
+      this.showFeedback('⚠️ Hãy chọn một vật phẩm trong Balo trước khi xóa!', '#facc15');
+      return false;
+    }
+    const targetId = this.slots[this.selectedSlotIndex].id;
+    const def = CONSTANTS.ITEM_TYPES[targetId];
+    const itemName = def ? def.name : targetId;
+    let totalRemoved = 0;
+
+    for (let i = 0; i < this.slotCount; i++) {
+      if (this.slots[i] && this.slots[i].id === targetId) {
+        totalRemoved += this.slots[i].count;
+        this.slots[i] = null;
+      }
+    }
+
+    this.selectedSlotIndex = null;
+    if (window.audioManager) window.audioManager.playEquip();
+    const msg = `🔥 ĐÃ XÓA TOÀN BỘ ${totalRemoved}x ${itemName.toUpperCase()} TRONG BALO!`;
+    this.showFeedback(msg, '#ef4444');
+    if (this.game && this.game.floatingTexts && this.game.player) {
+      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 26, msg, '#ef4444', 12, 1.3));
+    }
+    this.renderUI();
+    if (this.game && this.game.updateHUD) this.game.updateHUD(true);
+    return true;
+  }
+
+  // One-click cleanup of corrupted/toxic items (blighted_herb, blighted_berry, dirty_water)
+  deleteJunkItems() {
+    this.normalizeSlots();
+    const junkIds = new Set(['blighted_herb', 'blighted_berry', 'dirty_water']);
+    let removedCount = 0;
+
+    for (let i = 0; i < this.slotCount; i++) {
+      const s = this.slots[i];
+      if (s && junkIds.has(s.id)) {
+        removedCount += s.count;
+        this.slots[i] = null;
+        if (this.selectedSlotIndex === i) this.selectedSlotIndex = null;
+      }
+    }
+
+    if (removedCount === 0) {
+      this.showFeedback('✨ Balo không có đồ độc/rác (Thảo dược thối, Quả đột biến, Nước bẩn)!', '#38bdf8');
+      return false;
+    }
+
+    if (window.audioManager) window.audioManager.playEquip();
+    const msg = `🧹 ĐÃ DỌN SẠCH ${removedCount} VẬT PHẨM NHIỄM ĐỘC / RÁC KHỎI BALO!`;
+    this.showFeedback(msg, '#22c55e');
+    this.renderUI();
+    return true;
+  }
+
+  // Merge partial stacks and sort items neatly by category
+  sortAndStack() {
+    this.normalizeSlots();
+    const countsById = new Map();
+    const nonStackableItems = [];
+
+    for (let i = 0; i < this.slotCount; i++) {
+      const s = this.slots[i];
+      if (!s) continue;
+      const def = CONSTANTS.ITEM_TYPES[s.id];
+      if (!def) continue;
+      const maxS = Math.min(def.maxStack || 99, this.maxStack);
+      if (maxS <= 1) {
+        nonStackableItems.push({ id: s.id, count: 1 });
+      } else {
+        countsById.set(s.id, (countsById.get(s.id) || 0) + s.count);
+      }
+    }
+
+    const combined = [...nonStackableItems];
+    for (const [id, total] of countsById.entries()) {
+      const def = CONSTANTS.ITEM_TYPES[id];
+      const maxS = Math.min((def && def.maxStack) ? def.maxStack : 99, this.maxStack);
+      let rem = total;
+      while (rem > 0) {
+        const take = Math.min(maxS, rem);
+        combined.push({ id, count: take });
+        rem -= take;
+      }
+    }
+
+    const categoryPriority = {
+      consumable: 1,
+      seed: 2,
+      egg: 3,
+      weapon: 4,
+      armor: 5,
+      defense: 6,
+      upgrade: 7,
+      resource: 8
+    };
+
+    combined.sort((a, b) => {
+      const defA = CONSTANTS.ITEM_TYPES[a.id] || {};
+      const defB = CONSTANTS.ITEM_TYPES[b.id] || {};
+      const pA = categoryPriority[defA.category] || 99;
+      const pB = categoryPriority[defB.category] || 99;
+      if (pA !== pB) return pA - pB;
+      return (defA.name || a.id).localeCompare(defB.name || b.id, 'vi');
+    });
+
+    this.slots = new Array(this.slotCount).fill(null);
+    for (let i = 0; i < Math.min(this.slotCount, combined.length); i++) {
+      this.slots[i] = combined[i];
+    }
+    this.selectedSlotIndex = null;
+
+    if (window.audioManager) window.audioManager.playEquip();
+    this.showFeedback('📦 ĐÃ GỘP Ô & SẮP XẾP GỌN GÀNG TOÀN BỘ BALO!', '#22c55e');
+    this.renderUI();
+    return true;
+  }
+
+  toggleTrashMode(forceState = null) {
+    this.trashMode = (forceState !== null) ? !!forceState : !this.trashMode;
+    const btn = document.getElementById('btn-inv-trash-mode');
+    const grid = document.getElementById('inventory-grid');
+    if (btn) {
+      btn.classList.toggle('active', this.trashMode);
+      btn.textContent = this.trashMode ? '🗑 Xóa Nhanh: BẬT' : '🗑 Xóa Nhanh: TẮT';
+    }
+    if (grid) {
+      grid.classList.toggle('trash-mode-active', this.trashMode);
+    }
+    if (this.trashMode) {
+      this.showFeedback('⚠️ CHẾ ĐỘ XÓA NHANH ĐANG BẬT: Chạm vào bất kỳ ô nào trong Balo để xóa ngay lập tức!', '#ef4444');
+    } else {
+      this.showFeedback('💡 Đã tắt Chế Độ Xóa Nhanh. Chạm vào vật phẩm để xem chi tiết, Sử dụng hoặc Xóa.', '#38bdf8');
+    }
+  }
+
+  setFilter(filterKey) {
+    this.activeFilter = filterKey || 'all';
+    const btns = document.querySelectorAll('.inv-filter-btn');
+    btns.forEach(b => {
+      b.classList.toggle('active', b.dataset.filter === this.activeFilter);
+    });
+    this.renderUI();
+  }
+
+  matchesFilter(itemId, def) {
+    if (!def || this.activeFilter === 'all') return true;
+    if (this.activeFilter === 'usable') {
+      return def.category === 'consumable' || def.category === 'seed' ||
+             itemId === 'snow_lotus' || itemId === 'silver_moss' || itemId === 'egg_fluid';
+    }
+    if (this.activeFilter === 'combat') {
+      return def.category === 'armor' || def.category === 'weapon' || def.category === 'egg' || def.category === 'upgrade';
+    }
+    if (this.activeFilter === 'defense') {
+      return def.category === 'defense';
+    }
+    if (this.activeFilter === 'resource') {
+      return def.category === 'resource';
     }
     return true;
   }
@@ -220,7 +431,7 @@ class InventorySystem {
     }
 
     if (emptyIdx === -1) {
-      this.showFeedback('⚠️ Không đủ ô trống trong Balo để tháo giáp!', '#ef4444');
+      this.showFeedback('⚠️ Không đủ ô trống trong Balo để tháo giáp! Hãy xóa bớt đồ không cần thiết.', '#ef4444');
       return;
     }
 
@@ -284,6 +495,7 @@ class InventorySystem {
     if (modal) {
       modal.style.display = this.isOpen ? 'flex' : 'none';
       if (this.isOpen) {
+        if (this.trashMode) this.toggleTrashMode(false);
         this.renderUI();
         if (window.audioManager) window.audioManager.playEquip();
       }
@@ -303,6 +515,57 @@ class InventorySystem {
     if (itemId === 'snow_lotus' || itemId === 'silver_moss' || itemId === 'egg_fluid') return 'DÙNG';
     if (itemId === 'blighted_herb') return 'HỦY';
     return 'CHẾ';
+  }
+
+  selectSlot(slotIndex) {
+    this.normalizeSlots();
+    if (slotIndex < 0 || slotIndex >= this.slotCount || !this.slots[slotIndex]) {
+      this.selectedSlotIndex = null;
+    } else {
+      this.selectedSlotIndex = slotIndex;
+    }
+    this.renderSelectedPanel();
+    const grid = document.getElementById('inventory-grid');
+    if (grid) {
+      const slotEls = grid.querySelectorAll('.inv-slot');
+      slotEls.forEach(el => {
+        el.classList.toggle('selected-slot', Number(el.dataset.slotIndex) === this.selectedSlotIndex);
+      });
+    }
+  }
+
+  triggerSelectedAction() {
+    if (this.selectedSlotIndex === null || !this.slots[this.selectedSlotIndex]) return;
+    this.useSlotItem(this.selectedSlotIndex);
+  }
+
+  onSlotClick(slotIndex) {
+    this.normalizeSlots();
+    const item = this.slots[slotIndex];
+    if (!item) {
+      this.selectSlot(null);
+      return;
+    }
+
+    // 1. If Quick Trash Mode is ON -> Delete entire stack immediately!
+    if (this.trashMode) {
+      this.deleteSlotItem(slotIndex, item.count);
+      return;
+    }
+
+    const def = CONSTANTS.ITEM_TYPES[item.id];
+    const isAlreadySelected = (this.selectedSlotIndex === slotIndex);
+    this.selectSlot(slotIndex);
+
+    // 2. If user taps the already-selected slot again, or if it's a direct-use item on second tap, execute action!
+    // For consumables/armor/weapons/defense/seeds/eggs: if already selected, trigger immediately;
+    // on first tap, select it and show the big Use & Delete buttons so the player can safely delete or use!
+    if (isAlreadySelected) {
+      this.useSlotItem(slotIndex);
+    } else if (def) {
+      const actionVerb = this.getSlotActionLabel(item.id, def);
+      this.showFeedback(`📌 Đã chọn: ${def.name} (x${item.count}) — Bấm [⚡ ${actionVerb}] hoặc chạm lần nữa để dùng, hoặc bấm [🗑 Xóa]!`, '#38bdf8');
+    }
   }
 
   useSlotItem(slotIndex) {
@@ -433,9 +696,7 @@ class InventorySystem {
     }
 
     if (itemId === 'blighted_herb') {
-      if (window.audioManager) window.audioManager.playEquip();
-      this.showFeedback('🗑 ĐÃ TIÊU HỦY 1 THẢO DƯỢC THỐI RỮA!', '#94a3b8');
-      this.removeItem(slotIndex, 1);
+      this.deleteSlotItem(slotIndex, 1);
       return;
     }
 
@@ -509,16 +770,77 @@ class InventorySystem {
     }
   }
 
+  renderSelectedPanel() {
+    const infoEl = document.getElementById('inv-selected-info');
+    const actionsEl = document.getElementById('inv-selected-actions');
+    const useBtn = document.getElementById('btn-inv-use');
+    const delOneBtn = document.getElementById('btn-inv-del-one');
+    const delStackBtn = document.getElementById('btn-inv-del-stack');
+    const delAllBtn = document.getElementById('btn-inv-del-all-type');
+
+    if (!infoEl || !actionsEl) return;
+
+    const item = (this.selectedSlotIndex !== null && this.slots[this.selectedSlotIndex])
+      ? this.slots[this.selectedSlotIndex]
+      : null;
+
+    if (!item) {
+      infoEl.innerHTML = `<span class="inv-selected-placeholder">👆 Chạm vào vật phẩm để xem chi tiết, Sử dụng hoặc Xóa bỏ (hoặc bấm nút <strong>✕</strong> trên góc ô để xóa nhanh).</span>`;
+      actionsEl.style.display = 'none';
+      return;
+    }
+
+    const def = CONSTANTS.ITEM_TYPES[item.id];
+    if (!def) {
+      actionsEl.style.display = 'none';
+      return;
+    }
+
+    const iconUrl = window.pixelArt.getDataURL(`icon_${def.icon}`);
+    const totalSameType = this.getItemCount(item.id);
+    const actionLabel = this.getSlotActionLabel(item.id, def);
+
+    infoEl.innerHTML = `
+      <div class="inv-sel-header">
+        ${iconUrl ? `<img src="${iconUrl}" class="inv-sel-icon" alt="">` : ''}
+        <div class="inv-sel-text">
+          <div class="inv-sel-title">${def.name} <span class="inv-sel-qty">x${item.count}</span> <span class="inv-sel-total">(Tổng trong Balo: ${totalSameType})</span></div>
+          <div class="inv-sel-desc">${def.desc}</div>
+        </div>
+      </div>
+    `;
+
+    actionsEl.style.display = 'flex';
+    if (useBtn) {
+      useBtn.textContent = `⚡ ${actionLabel}`;
+    }
+    if (delOneBtn) {
+      delOneBtn.style.display = item.count > 1 ? 'inline-flex' : 'none';
+    }
+    if (delStackBtn) {
+      delStackBtn.textContent = item.count > 1 ? `🗑 Xóa Ô (${item.count})` : '🗑 Xóa Bỏ';
+    }
+    if (delAllBtn) {
+      delAllBtn.style.display = totalSameType > item.count ? 'inline-flex' : 'none';
+      delAllBtn.textContent = `🔥 Xóa Hết (${totalSameType})`;
+    }
+  }
+
   renderUI() {
     this.normalizeSlots();
     const grid = document.getElementById('inventory-grid');
     if (!grid) return;
     grid.innerHTML = '';
+    grid.classList.toggle('trash-mode-active', this.trashMode);
+
+    if (this.selectedSlotIndex !== null && !this.slots[this.selectedSlotIndex]) {
+      this.selectedSlotIndex = null;
+    }
 
     const titleEl = document.getElementById('inventory-slot-title');
     if (titleEl) {
       const usedSlots = this.slots.filter(s => s !== null).length;
-      titleEl.textContent = `KHO ĐỒ ${this.slotCount} Ô (ĐANG DÙNG: ${usedSlots}/${this.slotCount} | MAX STACK: ${this.maxStack})`;
+      titleEl.textContent = `BALO: ${usedSlots}/${this.slotCount} Ô (STACK TỐI ĐA: ${this.maxStack})`;
     }
 
     const feedbackEl = document.getElementById('inv-action-feedback');
@@ -530,51 +852,96 @@ class InventorySystem {
     const frag = document.createDocumentFragment();
 
     for (let i = 0; i < this.slotCount; i++) {
+      const item = this.slots[i];
+      const def = item ? CONSTANTS.ITEM_TYPES[item.id] : null;
+
+      // If category filter is active, hide non-matching slots (keep empty slots hidden during filtering so matching items are grouped cleanly!)
+      if (this.activeFilter !== 'all') {
+        if (!item || !this.matchesFilter(item.id, def)) {
+          continue;
+        }
+      }
+
       const slotEl = document.createElement('div');
       slotEl.className = 'inv-slot';
       slotEl.dataset.slotIndex = i;
+      if (this.selectedSlotIndex === i) {
+        slotEl.classList.add('selected-slot');
+      }
 
-      const item = this.slots[i];
-      if (item) {
-        const def = CONSTANTS.ITEM_TYPES[item.id];
-        if (def) {
-          slotEl.classList.add('occupied');
-          const iconUrl = window.pixelArt.getDataURL(`icon_${def.icon}`);
+      if (item && def) {
+        slotEl.classList.add('occupied');
+        const iconUrl = window.pixelArt.getDataURL(`icon_${def.icon}`);
 
-          if (iconUrl) {
-            const img = document.createElement('img');
-            img.src = iconUrl;
-            img.className = 'slot-icon';
-            img.draggable = false;
-            slotEl.appendChild(img);
-          }
-
-          const actionTag = document.createElement('span');
-          actionTag.className = `slot-action-tag tag-${def.category}`;
-          actionTag.textContent = this.getSlotActionLabel(item.id, def);
-          slotEl.appendChild(actionTag);
-
-          if (item.count > 1) {
-            const badge = document.createElement('span');
-            badge.className = 'slot-badge';
-            badge.textContent = item.count;
-            slotEl.appendChild(badge);
-          }
-
-          slotEl.title = `${def.name} (x${item.count})\n${def.desc}\n👉 Click để ${this.getSlotActionLabel(item.id, def)} ngay!`;
-
-          slotEl.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.useSlotItem(i);
-          });
+        if (iconUrl) {
+          const img = document.createElement('img');
+          img.src = iconUrl;
+          img.className = 'slot-icon';
+          img.draggable = false;
+          slotEl.appendChild(img);
         }
+
+        // Top-Left Quick Use Badge (1-tap action)
+        const actionTag = document.createElement('span');
+        actionTag.className = `slot-action-tag tag-${def.category}`;
+        actionTag.textContent = this.getSlotActionLabel(item.id, def);
+        actionTag.title = `Bấm để ${this.getSlotActionLabel(item.id, def)} ngay`;
+        actionTag.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (this.trashMode) {
+            this.deleteSlotItem(i, item.count);
+          } else {
+            this.useSlotItem(i);
+          }
+        });
+        slotEl.appendChild(actionTag);
+
+        // Top-Right Quick Delete Button [✕] (1-tap delete slot)
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'slot-delete-btn';
+        delBtn.textContent = '✕';
+        delBtn.title = `Xóa ${def.name} (x${item.count}) khỏi Balo`;
+        delBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.deleteSlotItem(i, item.count);
+        });
+        slotEl.appendChild(delBtn);
+
+        if (item.count > 1) {
+          const badge = document.createElement('span');
+          badge.className = 'slot-badge';
+          badge.textContent = item.count;
+          slotEl.appendChild(badge);
+        }
+
+        slotEl.title = `${def.name} (x${item.count})\n${def.desc}\n• Chạm để chọn / chạm 2 lần để ${this.getSlotActionLabel(item.id, def)}\n• Bấm nút [✕] góc phải để Xóa bỏ`;
+
+        slotEl.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.onSlotClick(i);
+        });
+
+        // Right-click on desktop deletes 1 item (or stack if Shift held)
+        slotEl.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.deleteSlotItem(i, e.shiftKey ? item.count : 1);
+        });
+      } else {
+        slotEl.addEventListener('click', () => {
+          this.selectSlot(null);
+        });
       }
 
       frag.appendChild(slotEl);
     }
 
     grid.appendChild(frag);
+    this.renderSelectedPanel();
 
     // Render 5 Armor Slots
     const armorNames = {
@@ -621,6 +988,7 @@ class InventorySystem {
       petSlotEl.innerHTML = '';
       const activeSpec = this.game.petSystem.getActiveSpecies();
       if (activeSpec) {
+        const curLv = activeSpec.level || 1;
         const iconUrl = window.pixelArt.getDataURL(`icon_${activeSpec.icon}`);
         if (iconUrl) {
           const img = document.createElement('img');
@@ -629,11 +997,17 @@ class InventorySystem {
           img.draggable = false;
           petSlotEl.appendChild(img);
         }
+        const lvBadge = document.createElement('span');
+        lvBadge.className = 'slot-count';
+        lvBadge.style.color = '#facc15';
+        lvBadge.textContent = `Lv.${curLv}`;
+        petSlotEl.appendChild(lvBadge);
+
         petSlotEl.style.borderColor = activeSpec.color;
         if (petTitleEl) {
-          petTitleEl.innerHTML = `<span style="color:${activeSpec.color};font-weight:800;">${activeSpec.badgeIcon} ${activeSpec.name}</span><br><span style="font-size:9px;color:#94a3b8;">${activeSpec.role} (1/1 Pet)</span>`;
+          petTitleEl.innerHTML = `<span style="color:${activeSpec.color};font-weight:800;">${activeSpec.badgeIcon} ${activeSpec.name} (Lv.${curLv})</span><br><span style="font-size:9px;color:#94a3b8;">${activeSpec.role} (1/1 Pet)</span>`;
         }
-        petSlotEl.title = `[PET ĐANG MANG (1/1)] ${activeSpec.name}\n${activeSpec.desc}\n👉 Click để mở Quản Lý Pet trong Phòng Lab!`;
+        petSlotEl.title = `[PET ĐANG MANG (1/1) — Lv.${curLv}/3] ${activeSpec.name}\n${activeSpec.desc}\n👉 Click để mở Quản Lý & Nâng Cấp Pet trong Phòng Lab!`;
         petSlotEl.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();

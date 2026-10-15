@@ -298,6 +298,50 @@ class GameEngine {
       if (e.code === 'Digit4') this.weapons.switchWeapon('BOW');
       if (e.code === 'KeyG') this.weapons.switchWeapon('GUN');
 
+      // If Inventory is open, Delete / Backspace removes selected item
+      if (this.inventory && this.inventory.isOpen) {
+        if (e.code === 'Delete' || e.code === 'Backspace') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            this.inventory.deleteSelectedStack();
+          } else {
+            this.inventory.deleteSelectedOne();
+          }
+          return;
+        }
+        if (e.code === 'Enter') {
+          e.preventDefault();
+          this.inventory.triggerSelectedAction();
+          return;
+        }
+      }
+
+      // Escape to close open modals or cancel build mode
+      if (e.code === 'Escape') {
+        if (this.inventory && this.inventory.isOpen) {
+          this.inventory.toggleUI();
+          return;
+        }
+        if (this.lab && this.lab.isOpen) {
+          this.lab.close();
+          return;
+        }
+        const tacMap = document.getElementById('tactical-map-modal');
+        if (tacMap && tacMap.style.display === 'flex') {
+          tacMap.style.display = 'none';
+          return;
+        }
+        const helpModal = document.getElementById('help-modal');
+        if (helpModal && helpModal.style.display === 'flex') {
+          helpModal.style.display = 'none';
+          return;
+        }
+        if (this.buildingManager && this.buildingManager.buildMode) {
+          this.buildingManager.exitBuildMode();
+          return;
+        }
+      }
+
       // Quick Defense Build & Upgrade Shortcuts [5, 6, 7, 8, 9, R]
       if (e.code === 'Digit5') this.buildingManager.enterBuildMode('wall');
       if (e.code === 'Digit6') this.buildingManager.enterBuildMode('trap');
@@ -307,14 +351,6 @@ class GameEngine {
       if (e.code === 'KeyR') {
         if (this.buildingManager) {
           this.buildingManager.upgradeNearestOrHovered();
-        }
-      }
-
-      // Escape to cancel build mode
-      if (e.code === 'Escape') {
-        if (this.buildingManager.buildMode) {
-          this.buildingManager.exitBuildMode();
-          return;
         }
       }
 
@@ -801,15 +837,15 @@ class GameEngine {
     if (vals.biomeId !== biome.id && els.biomeBadge && els.biomeText) {
       vals.biomeId = biome.id;
       if (biome.id === 'mountain') {
-        els.biomeText.innerText = 'NÚI TỬ THẦN - VÙNG ĐỈNH NÚI';
+        els.biomeText.innerText = 'NÚI TỬ THẦN';
         els.biomeBadge.style.borderColor = '#64748b';
         els.biomeBadge.style.color = '#94a3b8';
       } else if (biome.id === 'ocean') {
-        els.biomeText.innerText = 'BỜ BIỂN NHIỄM XẠ - VÙNG NƯỚC ĐỘC';
+        els.biomeText.innerText = 'BỜ BIỂN ĐỘC';
         els.biomeBadge.style.borderColor = '#0ea5e9';
         els.biomeBadge.style.color = '#38bdf8';
       } else {
-        els.biomeText.innerText = 'ĐỒNG BẰNG HOANG TÀN - CĂN CỨ';
+        els.biomeText.innerText = 'ĐỒNG BẰNG';
         els.biomeBadge.style.borderColor = '#22c55e';
         els.biomeBadge.style.color = '#86efac';
       }
@@ -819,19 +855,20 @@ class GameEngine {
       const petSpec = this.petSystem.getActiveSpecies();
       const eggCnt = this.inventory ? this.inventory.getItemCount('monster_egg') : 0;
       const incReady = this.petSystem.incubator && this.petSystem.incubator.ready;
-      const petKey = `${petSpec ? petSpec.id : 'none'}_${eggCnt}_${incReady}`;
+      const petLv = petSpec ? (petSpec.level || 1) : 0;
+      const petKey = `${petSpec ? petSpec.id : 'none'}_lv${petLv}_${eggCnt}_${incReady}`;
       if (vals.petKey !== petKey) {
         vals.petKey = petKey;
         if (petSpec) {
-          els.hudPetBadge.innerHTML = `${petSpec.badgeIcon} <strong>Pet (1/1):</strong> ${petSpec.name}`;
+          els.hudPetBadge.innerHTML = `${petSpec.badgeIcon} <strong>${petSpec.name}</strong> <span style="color:#facc15;">Lv.${petLv}</span>`;
           els.hudPetBadge.style.borderColor = petSpec.color;
           els.hudPetBadge.style.color = petSpec.color;
         } else if (incReady) {
-          els.hudPetBadge.innerHTML = `🐣 <strong>Trứng Chín 100%!</strong> (Mở tại Lab)`;
+          els.hudPetBadge.innerHTML = `🐣 <strong>Trứng Chín 100%!</strong> (Mở Lab)`;
           els.hudPetBadge.style.borderColor = '#facc15';
           els.hudPetBadge.style.color = '#facc15';
         } else {
-          els.hudPetBadge.innerHTML = `🥚 <strong>Pet (0/1)</strong> | Trứng: ${eggCnt} (Ấp tại Lab [P])`;
+          els.hudPetBadge.innerHTML = `🥚 <strong>Pet (0/1)</strong> • Trứng: ${eggCnt} [P]`;
           els.hudPetBadge.style.borderColor = '#c084fc';
           els.hudPetBadge.style.color = '#e9d5ff';
         }
@@ -854,26 +891,26 @@ class GameEngine {
       vals.clockStateKey = clockStateKey;
       if (els.clockDay) {
         els.clockDay.innerText = isBMDay
-          ? `🩸 TRĂNG MÁU - NGÀY ${this.dayNight.dayCount} 🩸`
-          : `NGÀY SINH TỒN ${this.dayNight.dayCount}`;
+          ? `🩸 TRĂNG MÁU - NGÀY ${this.dayNight.dayCount}`
+          : `NGÀY ${this.dayNight.dayCount}`;
         els.clockDay.style.color = isBMDay ? '#ff4d6d' : '';
       }
       if (els.clockPhase) {
         if (isBMNight) {
           if (els.phaseIcon) els.phaseIcon.innerText = '🩸';
-          if (els.phaseDesc) els.phaseDesc.innerText = 'TRĂNG MÁU ĐẠI HỌA (X10 QUÁI)!';
+          if (els.phaseDesc) els.phaseDesc.innerText = 'ĐÊM TRĂNG MÁU (X10 QUÁI)';
           els.clockPhase.style.color = '#ff1744';
         } else if (this.dayNight.isNight) {
           if (els.phaseIcon) els.phaseIcon.innerText = '💀';
-          if (els.phaseDesc) els.phaseDesc.innerText = `ĐÊM TẬN DIỆT (TRĂNG MÁU: NGÀY ${nextBM})`;
+          if (els.phaseDesc) els.phaseDesc.innerText = `ĐÊM (TRĂNG MÁU: N.${nextBM})`;
           els.clockPhase.style.color = '#ef4444';
         } else if (isBMDay) {
           if (els.phaseIcon) els.phaseIcon.innerText = '🩸';
-          if (els.phaseDesc) els.phaseDesc.innerText = 'ĐÊM NAY: TRĂNG MÁU (X10 QUÁI)!';
+          if (els.phaseDesc) els.phaseDesc.innerText = 'ĐÊM NAY: TRĂNG MÁU!';
           els.clockPhase.style.color = '#f43f5e';
         } else {
           if (els.phaseIcon) els.phaseIcon.innerText = '☀';
-          if (els.phaseDesc) els.phaseDesc.innerText = `BÌNH MINH (TRĂNG MÁU: NGÀY ${nextBM})`;
+          if (els.phaseDesc) els.phaseDesc.innerText = `NGÀY (TRĂNG MÁU: N.${nextBM})`;
           els.clockPhase.style.color = '#38bdf8';
         }
       }

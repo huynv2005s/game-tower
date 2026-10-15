@@ -367,6 +367,20 @@ const CONSTANTS = {
         output: { id: 'plasma_core', count: 1 }
       },
       {
+        id: 'extract_monster_egg_lab',
+        name: '🧪 Chiết Xuất Trứng Quái Vật Dư (Nghiền Trực Tiếp)',
+        desc: 'Tách chiết trực tiếp 1 Trứng Quái Vật dư (không cần chờ ấp) nhận ngay: +2 Dịch Tuyến Trứng + 2 Giáp Xác Ngoại Lai + 1 Lõi Năng Lượng Plasma!',
+        inputs: [
+          { id: 'monster_egg', count: 1, name: 'Trứng Quái Vật Nguyên Vẹn' }
+        ],
+        output: { id: 'egg_fluid', count: 2 },
+        outputs: [
+          { id: 'egg_fluid', count: 2 },
+          { id: 'alien_chitin', count: 2 },
+          { id: 'plasma_core', count: 1 }
+        ]
+      },
+      {
         id: 'seed_snow_lotus',
         name: 'Nhân Mầm Cấy Tuyết Liên (x2 Mầm)',
         desc: 'Nhân giống 1 bông Tuyết Liên thành 2 Mầm Cấy để nuôi trong lồng kính Phòng Lab.',

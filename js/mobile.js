@@ -61,13 +61,9 @@ class MobileController {
     // Update toggle button state in HUD
     const toggleBtn = document.getElementById('btn-toggle-touch');
     if (toggleBtn) {
-      if (shouldShow) {
-        toggleBtn.classList.add('active');
-        toggleBtn.innerHTML = '📱 <span class="hud-btn-label">CẢM ỨNG: BẬT</span>';
-      } else {
-        toggleBtn.classList.remove('active');
-        toggleBtn.innerHTML = '📱 <span class="hud-btn-label">CẢM ỨNG: TẮT</span>';
-      }
+      toggleBtn.classList.toggle('active', shouldShow);
+      toggleBtn.textContent = '📱';
+      toggleBtn.title = shouldShow ? 'Phím Ảo Cảm Ứng: ĐANG BẬT (Bấm để ẩn)' : 'Phím Ảo Cảm Ứng: ĐANG TẮT (Bấm để bật)';
     }
   }
 

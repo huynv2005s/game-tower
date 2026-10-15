@@ -77,14 +77,18 @@ class SaveManager {
           JSON.parse(JSON.stringify(this.game.lab.hydroPods)) : [],
         pets: this.game.petSystem ? {
           activePet: this.game.petSystem.activePet ? {
-            id: this.game.petSystem.activePet.id,
+            id: this.game.petSystem.activePet.id || this.game.petSystem.activePet.uid,
+            uid: this.game.petSystem.activePet.uid,
             speciesId: this.game.petSystem.activePet.speciesId,
+            level: this.game.petSystem.activePet.level || 1,
             hatchedDay: this.game.petSystem.activePet.hatchedDay || 1
           } : null,
           storedPets: Array.isArray(this.game.petSystem.storedPets)
             ? this.game.petSystem.storedPets.map(p => ({
-                id: p.id,
+                id: p.id || p.uid,
+                uid: p.uid,
                 speciesId: p.speciesId,
+                level: p.level || 1,
                 hatchedDay: p.hatchedDay || 1
               }))
             : [],
@@ -248,9 +252,13 @@ class SaveManager {
       // 8. Restore Companion Pet & Bio-Lab Incubator (Strictly 1 Active Pet)
       if (data.pets && this.game.petSystem) {
         if (data.pets.activePet && data.pets.activePet.speciesId) {
-          const restoredActive = this.game.petSystem.createPetInstance(data.pets.activePet.speciesId);
+          const restoredActive = this.game.petSystem.createPetInstance(
+            data.pets.activePet.speciesId,
+            data.pets.activePet.level || 1
+          );
           if (restoredActive) {
             restoredActive.id = data.pets.activePet.id || restoredActive.id;
+            restoredActive.uid = data.pets.activePet.uid || restoredActive.id;
             restoredActive.hatchedDay = data.pets.activePet.hatchedDay || 1;
             restoredActive.x = this.game.player.x - 24;
             restoredActive.y = this.game.player.y + 16;
@@ -264,9 +272,10 @@ class SaveManager {
           this.game.petSystem.storedPets = data.pets.storedPets
             .map(sp => {
               if (!sp || !sp.speciesId) return null;
-              const inst = this.game.petSystem.createPetInstance(sp.speciesId);
+              const inst = this.game.petSystem.createPetInstance(sp.speciesId, sp.level || 1);
               if (inst) {
                 inst.id = sp.id || inst.id;
+                inst.uid = sp.uid || inst.id;
                 inst.hatchedDay = sp.hatchedDay || 1;
               }
               return inst;

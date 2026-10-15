@@ -21,6 +21,12 @@ class AudioManager {
 
   toggleMute() {
     this.isMuted = !this.isMuted;
+    const btn = document.getElementById('btn-sound');
+    if (btn) {
+      btn.textContent = this.isMuted ? '🔇' : '🔊';
+      btn.title = this.isMuted ? 'Âm Thanh: ĐANG TẮT (Bấm để bật [M])' : 'Âm Thanh: ĐANG BẬT (Bấm để tắt [M])';
+      btn.classList.toggle('muted', this.isMuted);
+    }
     return this.isMuted;
   }
 

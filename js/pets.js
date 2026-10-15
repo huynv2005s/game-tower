@@ -1,17 +1,17 @@
-// Companion Pet & Bio-Lab Egg Incubation System (Phase 6)
+// Companion Pet & Bio-Lab Egg Incubation System (Phase 6 & Evolution Expansion)
 // Rules:
 // 1. Players can pick up intact Monster Eggs (monster_egg) from Alien Egg nests or monster drops.
-// 2. Eggs can ONLY be incubated and hatched when the player is inside the Bio-Lab Quarantine Zone.
+// 2. Eggs can be incubated and hatched inside the Bio-Lab Quarantine Zone, OR directly extracted into rare materials, OR used to Upgrade/Evolve the active Pet (Lv.1 -> Lv.3 MAX)!
 // 3. Hatching opens a random Pet with specialized abilities (Ranged Bow-like Attack, HP Regen, Toxin Resist/Cleanse, Frost Control, Plasma).
-// 4. Strictly ONLY 1 Pet can accompany the player at a time (extra hatched Pets are stored in the Bio-Lab).
+// 4. Strictly ONLY 1 Pet can accompany the player at a time (extra hatched Pets are stored in the Bio-Lab and can be swapped, fused to upgrade the active Pet, or released).
 
 class PetSystem {
   constructor(game) {
     this.game = game;
 
     // Strictly 1 active pet allowed on player at any time
-    this.activePet = null; // { uid, speciesId, hatchedDay }
-    this.storedPets = [];  // Array of { uid, speciesId, hatchedDay } kept in Bio-Lab
+    this.activePet = null; // { uid, id, speciesId, level, hatchedDay }
+    this.storedPets = [];  // Array of { uid, id, speciesId, level, hatchedDay } kept in Bio-Lab
 
     // Bio-Lab Egg Incubator State
     this.incubator = {
@@ -35,9 +35,252 @@ class PetSystem {
     this._lastInLabState = null;
   }
 
+  createPetInstance(speciesId, level = 1) {
+    if (!CONSTANTS.PET_SPECIES || !CONSTANTS.PET_SPECIES[speciesId]) return null;
+    const uid = 'pet_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    return {
+      uid,
+      id: uid,
+      speciesId,
+      level: Math.max(1, Math.min(3, level || 1)),
+      hatchedDay: (this.game && this.game.dayNight && this.game.dayNight.dayCount) ? this.game.dayNight.dayCount : 1
+    };
+  }
+
+  // Compute effective stats for a Pet object at its current evolution level (Lv.1 -> Lv.3)
+  getPetEffectiveStats(petObj) {
+    if (!petObj || !CONSTANTS.PET_SPECIES) return null;
+    const base = CONSTANTS.PET_SPECIES[petObj.speciesId];
+    if (!base) return null;
+
+    const lv = Math.max(1, Math.min(3, petObj.level || 1));
+    const dmgMult = lv === 1 ? 1.0 : (lv === 2 ? 1.45 : 2.0);
+    const supportMult = lv === 1 ? 1.0 : (lv === 2 ? 1.5 : 2.2);
+    const statMult = lv === 1 ? 1.0 : (lv === 2 ? 1.5 : 2.2);
+    const cdMult = lv === 1 ? 1.0 : (lv === 2 ? 0.85 : 0.72);
+    const rangeBonus = lv === 1 ? 0 : (lv === 2 ? 35 : 70);
+    const stars = '⭐'.repeat(lv);
+    const tierTitle = lv === 1 ? 'Lv.1 Cơ Bản' : (lv === 2 ? 'Lv.2 Tinh Anh' : 'Lv.3 Thần Thú MAX');
+
+    return {
+      ...base,
+      level: lv,
+      stars,
+      tierTitle,
+      displayName: `${base.name} (Lv.${lv})`,
+      attackRange: (base.attackRange || 260) + rangeBonus,
+      attackCooldown: Math.max(0.28, Number(((base.attackCooldown || 0.85) * cdMult).toFixed(2))),
+      damage: Math.round((base.damage || 15) * dmgMult),
+      hpRegenPerSec: Number(((base.hpRegenPerSec || 0) * supportMult).toFixed(1)),
+      toxinCleansePerSec: Number(((base.toxinCleansePerSec || 0) * supportMult).toFixed(1)),
+      burstHealAmount: base.burstHealAmount ? Math.round(base.burstHealAmount * supportMult) : 0,
+      projectileCount: lv >= 3 ? 2 : 1,
+      statsBonus: {
+        hp: Math.round(((base.statsBonus && base.statsBonus.hp) || 0) * statMult),
+        armor: Math.round(((base.statsBonus && base.statsBonus.armor) || 0) * statMult),
+        toxinResist: Math.round(((base.statsBonus && base.statsBonus.toxinResist) || 0) * statMult),
+        speedBonus: Math.round(((base.statsBonus && base.statsBonus.speedBonus) || 0) * statMult)
+      }
+    };
+  }
+
   getActiveSpecies() {
-    if (!this.activePet || !CONSTANTS.PET_SPECIES) return null;
-    return CONSTANTS.PET_SPECIES[this.activePet.speciesId] || null;
+    if (!this.activePet) return null;
+    return this.getPetEffectiveStats(this.activePet);
+  }
+
+  getEggUpgradeCost(currentLevel) {
+    if (currentLevel === 1) return 1; // Lv.1 -> Lv.2 costs 1 monster_egg
+    if (currentLevel === 2) return 2; // Lv.2 -> Lv.3 MAX costs 2 monster_egg
+    return 0;
+  }
+
+  // Upgrade Active Pet using surplus Monster Eggs in Inventory (Lv.1 -> Lv.2 -> Lv.3 MAX)
+  upgradeActivePetWithEgg() {
+    if (!this.game || !this.game.player || !this.game.inventory) return false;
+    const p = this.game.player;
+
+    if (!this.activePet) {
+      const msg = '⚠️ Bạn chưa mang Pet bên người! Hãy ấp hoặc trang bị 1 Pet trước khi nâng cấp.';
+      if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    const curLv = this.activePet.level || 1;
+    if (curLv >= 3) {
+      const msg = '★ Pet đang mang đã đạt cấp tiến hóa tối đa (⭐⭐⭐ Lv.3 MAX)!';
+      if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    const costEggs = this.getEggUpgradeCost(curLv);
+    const haveEggs = this.game.inventory.getItemCount('monster_egg');
+    if (haveEggs < costEggs) {
+      const msg = `⚠️ Cần ${costEggs} Trứng Quái Vật dư để tiến hóa Pet lên Lv.${curLv + 1} (Hiện có: ${haveEggs} quả)!`;
+      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 30, msg, '#ef4444', 12, 1.6));
+      if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    // Consume required monster_egg from inventory
+    let rem = costEggs;
+    for (let i = 0; i < this.game.inventory.slotCount; i++) {
+      const s = this.game.inventory.slots[i];
+      if (s && s.id === 'monster_egg') {
+        const take = Math.min(s.count, rem);
+        this.game.inventory.removeItem(i, take);
+        rem -= take;
+        if (rem <= 0) break;
+      }
+    }
+
+    this.activePet.level = curLv + 1;
+    const newSpec = this.getActiveSpecies();
+
+    if (window.audioManager) window.audioManager.playDayGong();
+    if (this.game.particles) {
+      this.game.particles.push(new Particle(p.x, p.y, 0, 0, '#facc15', 56, 0.65, 'ring'));
+      for (let i = 0; i < 20; i++) {
+        const a = (i / 20) * Math.PI * 2;
+        this.game.particles.push(new Particle(p.x, p.y, Math.cos(a) * 110, Math.sin(a) * 110, newSpec ? newSpec.color : '#facc15', 4.5, 0.5));
+      }
+    }
+
+    const msg = `⭐ TIẾN HÓA THÀNH CÔNG: ${newSpec ? newSpec.badgeIcon + ' ' + newSpec.name : 'Pet'} LÊN CẤP ${this.activePet.level} (${newSpec ? newSpec.stars : ''})!`;
+    this.game.floatingTexts.push(new FloatingText(p.x, p.y - 42, msg, '#facc15', 14, 2.4));
+    if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+
+    this.game.inventory.updatePlayerStats();
+    if (this.game.inventory.isOpen) this.game.inventory.renderUI();
+    if (this.game.updateHUD) this.game.updateHUD(true);
+    if (this.game.lab && this.game.lab.isOpen && this.game.lab.currentTab === 'incubator') {
+      this.game.lab.renderIncubatorTab();
+    }
+    return true;
+  }
+
+  // Upgrade Active Pet by fusing a Stored/Duplicate Pet in Bio-Lab
+  upgradeActivePetWithStored(storedUid = null) {
+    if (!this.game || !this.game.player) return false;
+    const p = this.game.player;
+
+    if (!this.activePet) {
+      const msg = '⚠️ Hãy trang bị 1 Pet bên người trước khi dung hợp nâng cấp!';
+      if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    const curLv = this.activePet.level || 1;
+    if (curLv >= 3) {
+      const msg = '★ Pet đang mang đã đạt cấp tiến hóa tối đa (⭐⭐⭐ Lv.3 MAX)!';
+      if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    if (!this.storedPets || this.storedPets.length === 0) {
+      const msg = '⚠️ Không có Pet dự phòng nào trong Chuồng Lab để dung hợp!';
+      if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    let idx = -1;
+    if (storedUid) {
+      idx = this.storedPets.findIndex(pt => pt.uid === storedUid || pt.id === storedUid);
+    } else {
+      // Prefer duplicate species first, otherwise first stored pet
+      idx = this.storedPets.findIndex(pt => pt.speciesId === this.activePet.speciesId);
+      if (idx === -1) idx = 0;
+    }
+    if (idx === -1) return false;
+
+    const sacrificed = this.storedPets.splice(idx, 1)[0];
+    const sacBase = CONSTANTS.PET_SPECIES[sacrificed.speciesId];
+    this.activePet.level = Math.min(3, curLv + 1);
+    const newSpec = this.getActiveSpecies();
+
+    // Grant +1 egg_fluid byproduct from bio-fusion
+    if (this.game.inventory) {
+      this.game.inventory.addItem('egg_fluid', 1);
+    }
+
+    if (window.audioManager) window.audioManager.playDayGong();
+    if (this.game.particles) {
+      this.game.particles.push(new Particle(p.x, p.y, 0, 0, '#c084fc', 56, 0.65, 'ring'));
+      for (let i = 0; i < 18; i++) {
+        const a = (i / 18) * Math.PI * 2;
+        this.game.particles.push(new Particle(p.x, p.y, Math.cos(a) * 105, Math.sin(a) * 105, newSpec ? newSpec.color : '#c084fc', 4, 0.5));
+      }
+    }
+
+    const msg = `🧬 DUNG HỢP [${sacBase ? sacBase.name : 'Pet'}] ➔ ${newSpec ? newSpec.name : 'Pet'} LÊN LV.${this.activePet.level} (${newSpec ? newSpec.stars : ''}) & +1 Dịch Trứng!`;
+    this.game.floatingTexts.push(new FloatingText(p.x, p.y - 42, msg, '#facc15', 13, 2.4));
+    if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+
+    if (this.game.inventory) {
+      this.game.inventory.updatePlayerStats();
+      if (this.game.inventory.isOpen) this.game.inventory.renderUI();
+    }
+    if (this.game.updateHUD) this.game.updateHUD(true);
+    if (this.game.lab && this.game.lab.isOpen && this.game.lab.currentTab === 'incubator') {
+      this.game.lab.renderIncubatorTab();
+    }
+    return true;
+  }
+
+  // Directly extract 1 or all surplus Monster Eggs in Bio-Lab into Egg Fluid + Alien Chitin + Plasma Core
+  extractEggInLab(count = 1) {
+    if (!this.game || !this.game.player || !this.game.inventory) return false;
+    const p = this.game.player;
+    const haveEggs = this.game.inventory.getItemCount('monster_egg');
+
+    if (haveEggs < 1) {
+      const msg = '⚠️ Không có Trứng Quái Vật nào trong Balo để chiết xuất!';
+      if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    const extractCount = Math.max(1, Math.min(haveEggs, count));
+    let rem = extractCount;
+    for (let i = 0; i < this.game.inventory.slotCount; i++) {
+      const s = this.game.inventory.slots[i];
+      if (s && s.id === 'monster_egg') {
+        const take = Math.min(s.count, rem);
+        this.game.inventory.removeItem(i, take);
+        rem -= take;
+        if (rem <= 0) break;
+      }
+    }
+
+    const fluidGain = extractCount * 2;
+    const chitinGain = extractCount * 2;
+    const plasmaGain = extractCount * 1;
+
+    this.game.inventory.addItem('egg_fluid', fluidGain);
+    this.game.inventory.addItem('alien_chitin', chitinGain);
+    this.game.inventory.addItem('plasma_core', plasmaGain);
+
+    if (window.audioManager) window.audioManager.playEquip();
+    if (this.game.particles) {
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        this.game.particles.push(new Particle(p.x, p.y, Math.cos(a) * 65, Math.sin(a) * 65, '#38bdf8', 3.5, 0.4));
+      }
+    }
+
+    const msg = `🧪 ĐÃ CHIẾT XUẤT ${extractCount} TRỨNG: +${fluidGain} Dịch Trứng, +${chitinGain} Giáp Xác, +${plasmaGain} Lõi Plasma!`;
+    this.game.floatingTexts.push(new FloatingText(p.x, p.y - 34, msg, '#38bdf8', 13, 2.0));
+    if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+
+    if (this.game.inventory.isOpen) this.game.inventory.renderUI();
+    if (this.game.updateHUD) this.game.updateHUD(true);
+    if (this.game.lab && this.game.lab.isOpen) {
+      if (this.game.lab.currentTab === 'incubator') {
+        this.game.lab.renderIncubatorTab();
+      } else if (this.game.lab.currentTab === 'lab') {
+        this.game.lab.switchTab('lab');
+      }
+    }
+    return true;
   }
 
   // Check if player is currently inside the Bio-Lab Quarantine Zone
@@ -158,11 +401,7 @@ class PetSystem {
     const chosenKey = pool[Math.floor(Math.random() * pool.length)] || speciesKeys[0];
     const spec = CONSTANTS.PET_SPECIES[chosenKey];
 
-    const newPet = {
-      uid: 'pet_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-      speciesId: chosenKey,
-      hatchedDay: (this.game.dayNight && this.game.dayNight.dayCount) ? this.game.dayNight.dayCount : 1
-    };
+    const newPet = this.createPetInstance(chosenKey, 1);
 
     // Reset incubator
     this.incubator.hasEgg = false;
@@ -186,14 +425,14 @@ class PetSystem {
       this.activePet = newPet;
       this.petX = p.x - 28;
       this.petY = p.y - 20;
-      const msg = `🐣 ẤP NỞ THÀNH CÔNG: ${spec.badgeIcon} ${spec.name} (${spec.role}) — ĐÃ MANG BÊN NGƯỜI (1/1)!`;
+      const msg = `🐣 ẤP NỞ THÀNH CÔNG: ${spec.badgeIcon} ${spec.name} (⭐ Lv.1) — ĐÃ MANG BÊN NGƯỜI (1/1)!`;
       this.game.floatingTexts.push(new FloatingText(p.x, p.y - 42, msg, spec.color, 13, 2.5));
       if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
     } else {
       this.storedPets.unshift(newPet);
       const curSpec = this.getActiveSpecies();
-      const msg = `🐣 NỞ RA: ${spec.badgeIcon} ${spec.name}! (Đang mang ${curSpec ? curSpec.name : '1 Pet'} nên Pet mới được lưu vào Chuồng Lab — Bấm "Đổi Mang Theo" nếu muốn thay thế!)`;
-      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 42, `🐣 NỞ PET MỚI: ${spec.name}! (Đã lưu vào Phòng Lab - Tối đa mang 1 Pet)`, spec.color, 13, 2.4));
+      const msg = `🐣 NỞ RA: ${spec.badgeIcon} ${spec.name}! (Đã lưu vào Chuồng Lab — Có thể Đổi Mang Theo hoặc Dung Hợp Tăng Sao cho ${curSpec ? curSpec.name : 'Pet đang mang'}!)`;
+      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 42, `🐣 NỞ PET MỚI: ${spec.name}! (Đã lưu vào Phòng Lab)`, spec.color, 13, 2.4));
       if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
     }
 
@@ -211,7 +450,7 @@ class PetSystem {
 
   // Equip a Pet from storedPets (swapping out current activePet so player NEVER has more than 1 Pet)
   equipPet(uid) {
-    const idx = this.storedPets.findIndex(pt => pt.uid === uid);
+    const idx = this.storedPets.findIndex(pt => pt.uid === uid || pt.id === uid);
     if (idx === -1) return false;
 
     const targetPet = this.storedPets.splice(idx, 1)[0];
@@ -229,7 +468,7 @@ class PetSystem {
     if (window.audioManager) window.audioManager.playEquip();
 
     if (spec && this.game && this.game.player) {
-      const msg = `🐾 ĐÃ MANG BÊN NGƯỜI (1/1): ${spec.badgeIcon} ${spec.name} (${spec.role})!`;
+      const msg = `🐾 ĐÃ MANG BÊN NGƯỜI (1/1): ${spec.badgeIcon} ${spec.name} (${spec.stars} Lv.${spec.level})!`;
       this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 32, msg, spec.color, 13, 1.6));
       if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
     }
@@ -267,18 +506,22 @@ class PetSystem {
     return true;
   }
 
-  // Release a stored pet back to nature in exchange for +1 egg_fluid
+  // Release a stored pet back to nature in exchange for Egg Fluid + Alien Chitin
   releaseStoredPet(uid) {
-    const idx = this.storedPets.findIndex(pt => pt.uid === uid);
+    const idx = this.storedPets.findIndex(pt => pt.uid === uid || pt.id === uid);
     if (idx === -1) return false;
     const removed = this.storedPets.splice(idx, 1)[0];
     const spec = CONSTANTS.PET_SPECIES[removed.speciesId];
+    const lv = removed.level || 1;
+    const fluidReward = lv * 2;
+    const chitinReward = lv;
 
     if (this.game && this.game.inventory) {
-      this.game.inventory.addItem('egg_fluid', 1);
+      this.game.inventory.addItem('egg_fluid', fluidReward);
+      this.game.inventory.addItem('alien_chitin', chitinReward);
     }
     if (window.audioManager) window.audioManager.playEquip();
-    const msg = `🧬 Đã phóng thích ${spec ? spec.name : 'Pet'} và thu hồi +1 Dịch Tuyến Trứng!`;
+    const msg = `🧬 Đã phóng thích ${spec ? spec.name : 'Pet'} (Lv.${lv}) thu hồi +${fluidReward} Dịch Trứng & +${chitinReward} Giáp Xác!`;
     if (this.game && this.game.saveManager) this.game.saveManager.showSaveToast(msg);
 
     if (this.game.lab && this.game.lab.isOpen && this.game.lab.currentTab === 'incubator') {
@@ -288,7 +531,7 @@ class PetSystem {
   }
 
   update(dt) {
-    // 1. Update Bio-Lab Egg Incubator timer (only progresses while inside Bio-Lab or once placed in Bio-Lab incubator)
+    // 1. Update Bio-Lab Egg Incubator timer
     if (this.incubator.hasEgg && !this.incubator.ready) {
       this.incubator.progress += dt;
       if (this.incubator.progress >= this.incubator.duration) {
@@ -373,13 +616,13 @@ class PetSystem {
             this.game.particles.push(new Particle(p.x, p.y, 0, 0, '#4ade80', 32, 0.4, 'ring'));
           }
           if (this.game.floatingTexts && this.game.floatingTexts.length < 40) {
-            this.game.floatingTexts.push(new FloatingText(p.x, p.y - 28, `💚 +${Math.round(healAmt)} HP (${spec.name})`, '#4ade80', 12, 1.0));
+            this.game.floatingTexts.push(new FloatingText(p.x, p.y - 28, `💚 +${Math.round(healAmt)} HP (${spec.name} Lv.${spec.level})`, '#4ade80', 12, 1.0));
           }
         }
       }
     }
 
-    // 5. Ranged Auto-Attack on Nearby Monsters (Bow-like ranged shooting, frost bolts, plasma, etc.)
+    // 5. Ranged Auto-Attack on Nearby Monsters
     if (this.attackCooldownTimer > 0) {
       this.attackCooldownTimer -= dt;
     }
@@ -411,15 +654,13 @@ class PetSystem {
 
   firePetProjectile(spec, target) {
     if (!this.game || !this.game.projectiles) return;
-    const angle = Math.atan2(target.y - this.petY, target.x - this.petX);
-    const speed = 480;
-    const vx = Math.cos(angle) * speed;
-    const vy = Math.sin(angle) * speed;
+    const baseAngle = Math.atan2(target.y - this.petY, target.x - this.petX);
+    const speed = 490;
     const range = (spec.attackRange || 260) + 40;
 
     let dmg = spec.damage || 15;
     let projType = spec.projectileType || 'pet_arrow';
-    let extra = { color: spec.color, petId: spec.id };
+    let extra = { color: spec.color, petId: spec.id, petLevel: spec.level || 1 };
 
     // Archer Pet every 3rd shot fires a Piercing Critical Arrow!
     if (spec.id === 'pet_archer' && this.shotCounter % 3 === 0) {
@@ -430,10 +671,24 @@ class PetSystem {
       }
     }
 
-    this.game.projectiles.push(new Projectile(this.petX, this.petY, vx, vy, range, dmg, projType, extra));
+    // Lv.3 MAX Pet fires Twin Projectiles!
+    const count = spec.projectileCount || 1;
+    if (count >= 2) {
+      const spread = 0.11;
+      for (let s = -1; s <= 1; s += 2) {
+        const a = baseAngle + s * (spread / 2);
+        this.game.projectiles.push(
+          new Projectile(this.petX, this.petY, Math.cos(a) * speed, Math.sin(a) * speed, range, dmg, projType, { ...extra })
+        );
+      }
+    } else {
+      this.game.projectiles.push(
+        new Projectile(this.petX, this.petY, Math.cos(baseAngle) * speed, Math.sin(baseAngle) * speed, range, dmg, projType, extra)
+      );
+    }
 
     if (this.game.particles && this.game.particles.length < 150) {
-      this.game.particles.push(new Particle(this.petX + Math.cos(angle) * 10, this.petY + Math.sin(angle) * 10, 0, 0, spec.color, 4, 0.12));
+      this.game.particles.push(new Particle(this.petX + Math.cos(baseAngle) * 10, this.petY + Math.sin(baseAngle) * 10, 0, 0, spec.color, 4, 0.12));
     }
   }
 
@@ -454,13 +709,21 @@ class PetSystem {
     ctx.ellipse(sx, this.petY - camera.y + 12, 9, 3.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. Elemental companion aura ring
+    // 2. Elemental companion aura ring (enhanced for Lv.2 and Lv.3)
     ctx.strokeStyle = spec.color;
-    ctx.lineWidth = 1.3;
-    ctx.globalAlpha = 0.65;
+    ctx.lineWidth = spec.level >= 2 ? 1.8 : 1.3;
+    ctx.globalAlpha = 0.7;
     ctx.beginPath();
     ctx.arc(sx, sy, 14 + Math.sin(this.bobTimer * 1.5) * 1.5, 0, Math.PI * 2);
     ctx.stroke();
+
+    if (spec.level >= 3) {
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 18 + Math.cos(this.bobTimer * 2.0) * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.globalAlpha = 1.0;
 
     // 3. Draw Pet Sprite
@@ -469,17 +732,17 @@ class PetSystem {
       ctx.drawImage(sprite, sx - 16, sy - 16, 32, 32);
     }
 
-    // 4. Overhead Pet Name Tag
+    // 4. Overhead Pet Name Tag with Star Level
     ctx.font = 'bold 9px "Segoe UI", Tahoma, sans-serif';
     ctx.textAlign = 'center';
-    const label = `${spec.badgeIcon} ${spec.name}`;
+    const label = `${spec.badgeIcon} ${spec.name} [Lv.${spec.level}]`;
     const tw = ctx.measureText(label).width + 8;
-    ctx.fillStyle = 'rgba(9, 13, 22, 0.82)';
-    ctx.strokeStyle = spec.color;
+    ctx.fillStyle = 'rgba(9, 13, 22, 0.85)';
+    ctx.strokeStyle = spec.level >= 3 ? '#facc15' : spec.color;
     ctx.lineWidth = 1;
     ctx.fillRect(sx - tw / 2, sy - 28, tw, 12);
     ctx.strokeRect(sx - tw / 2, sy - 28, tw, 12);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = spec.level >= 3 ? '#fde047' : '#ffffff';
     ctx.fillText(label, sx, sy - 19);
 
     ctx.restore();

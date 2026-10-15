@@ -533,13 +533,24 @@ class LabSystem {
 
     if (recipe.output.id === 'backpack_upgraded') {
       this.game.inventory.expandCapacity(4);
+    } else if (Array.isArray(recipe.outputs) && recipe.outputs.length > 0) {
+      for (const outItem of recipe.outputs) {
+        this.game.inventory.addItem(outItem.id, outItem.count);
+      }
     } else {
       this.game.inventory.addItem(recipe.output.id, recipe.output.count);
     }
 
     window.audioManager.playEquip();
-    const outDef = CONSTANTS.ITEM_TYPES[recipe.output.id];
-    this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, `ĐÃ HOÀN TẤT: +${recipe.output.count} ${outDef.name}!`, '#38bdf8', 13, 1.2));
+    if (Array.isArray(recipe.outputs) && recipe.outputs.length > 0) {
+      const summary = recipe.outputs
+        .map(o => `+${o.count} ${(CONSTANTS.ITEM_TYPES[o.id] && CONSTANTS.ITEM_TYPES[o.id].name) || o.id}`)
+        .join(', ');
+      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, `🧪 CHIẾT XUẤT: ${summary}!`, '#38bdf8', 12, 1.3));
+    } else {
+      const outDef = CONSTANTS.ITEM_TYPES[recipe.output.id];
+      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, `ĐÃ HOÀN TẤT: +${recipe.output.count} ${outDef.name}!`, '#38bdf8', 13, 1.2));
+    }
 
     if (this.game.inventory.isOpen) {
       this.game.inventory.renderUI();
@@ -1140,12 +1151,50 @@ class LabSystem {
     }
     container.appendChild(incCard);
 
-    // 3. Currently Equipped Active Pet Section (Strictly 1 Pet Max)
+    // 2.5. Direct Egg Extraction Machine (Crush surplus eggs into Egg Fluid + Alien Chitin + Plasma Core)
+    const extractCard = document.createElement('div');
+    extractCard.className = 'hydro-pod';
+    extractCard.style.borderColor = eggCount > 0 ? '#a855f7' : '#334155';
+    extractCard.style.marginTop = '8px';
+    extractCard.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:220px;">
+          <div class="pod-title" style="color:#d8b4fe; font-size:12px;">🧪 MÁY CHIẾT XUẤT TRỨNG DƯ TỨC THÌ (KHÔNG CẦN CHỜ ẤP)</div>
+          <div class="pod-status" style="margin-top:2px; font-size:11px; color:#cbd5e1;">
+            Nghiền <strong>1 Trứng Quái Vật</strong> nhận ngay:
+            <span style="color:#f0abfc; font-weight:700;">+2 Dịch Tuyến Trứng</span> +
+            <span style="color:#a78bfa; font-weight:700;">+2 Giáp Xác Ngoại Lai</span> +
+            <span style="color:#38bdf8; font-weight:700;">+1 Lõi Plasma</span>
+          </div>
+        </div>
+        <div class="pod-actions" style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="craft-btn ${eggCount > 0 ? 'can-craft' : 'disabled'}" ${eggCount > 0 ? '' : 'disabled'} id="btn-extract-1-egg" style="background:${eggCount > 0 ? '#7e22ce' : ''}; color:#fff;">
+            🧪 Chiết Xuất 1 Trứng
+          </button>
+          ${eggCount > 1 ? `
+            <button class="craft-btn can-craft" id="btn-extract-all-eggs" style="background:#581c87; color:#f3e8ff; border:1px solid #c084fc;">
+              🧪 Chiết Xuất Hết (${eggCount})
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    const btnExt1 = extractCard.querySelector('#btn-extract-1-egg');
+    if (btnExt1 && eggCount > 0) {
+      btnExt1.onclick = () => ps.extractEggInLab(1);
+    }
+    const btnExtAll = extractCard.querySelector('#btn-extract-all-eggs');
+    if (btnExtAll && eggCount > 1) {
+      btnExtAll.onclick = () => ps.extractEggInLab(eggCount);
+    }
+    container.appendChild(extractCard);
+
+    // 3. Currently Equipped Active Pet Section (Strictly 1 Pet Max + Lv.1 -> Lv.3 Evolution)
     const activeHeader = document.createElement('div');
-    activeHeader.style.cssText = 'margin: 12px 0 6px 0; padding: 6px 10px; background: rgba(16, 185, 129, 0.16); border-left: 3px solid #10b981; color: #4ade80; font-weight: 800; font-size: 12px; display:flex; justify-content:space-between; align-items:center;';
+    activeHeader.style.cssText = 'margin: 12px 0 6px 0; padding: 6px 10px; background: rgba(16, 185, 129, 0.16); border-left: 3px solid #10b981; color: #4ade80; font-weight: 800; font-size: 12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;';
     activeHeader.innerHTML = `
-      <span>🐾 THÚ CƯNG ĐANG MANG BÊN NGƯỜI (GIỚI HẠN: ${ps.activePet ? '1 / 1' : '0 / 1'} PET)</span>
-      <span style="font-size:10px; color:#fde047;">★ Chỉ được mang theo tối đa 1 Pet bên người</span>
+      <span>🐾 THÚ CƯNG ĐANG MANG BÊN NGƯỜI (${ps.activePet ? '1 / 1' : '0 / 1'} PET) — TIẾN HÓA TỐI ĐA LV.3</span>
+      <span style="font-size:10px; color:#fde047;">★ Dùng Trứng dư hoặc Pet trùng để Cường Hóa (Lv.1 ➔ Lv.3)</span>
     `;
     container.appendChild(activeHeader);
 
@@ -1155,31 +1204,74 @@ class LabSystem {
 
     if (activeSpec) {
       const iconUrl = window.pixelArt ? window.pixelArt.getDataURL(`icon_${activeSpec.icon}`) : '';
+      const curLv = activeSpec.level || 1;
+      const isMaxLv = curLv >= 3;
+      const eggCost = ps.getUpgradeEggCost(curLv);
+      const canUpgradeByEgg = !isMaxLv && eggCount >= eggCost;
+      const hasStoredPets = ps.storedPets && ps.storedPets.length > 0;
+      const stars = '⭐'.repeat(curLv);
+
       activeCard.style.borderColor = activeSpec.color;
+      activeCard.style.flexDirection = 'column';
+      activeCard.style.alignItems = 'stretch';
       activeCard.innerHTML = `
-        <div style="display:flex; align-items:center; gap:12px; flex:1;">
-          ${iconUrl ? `<img src="${iconUrl}" style="width:46px;height:46px;image-rendering:pixelated;border:2px solid ${activeSpec.color};border-radius:8px;background:#0f172a;padding:3px;">` : ''}
-          <div class="recipe-info">
-            <div class="recipe-name" style="color:${activeSpec.color}; font-size:14px;">
-              ${activeSpec.badgeIcon} ${activeSpec.name} <span style="font-size:11px; color:#86efac;">[ĐANG ĐI THEO BẠN — 1/1]</span>
-            </div>
-            <div style="font-size:11px; font-weight:700; color:#e2e8f0;">Vai trò: ${activeSpec.role}</div>
-            <div class="recipe-desc">${activeSpec.desc}</div>
-            <div class="recipe-ingredients">
-              <span class="recipe-req req-met">❤️ +${activeSpec.statsBonus.hp || 0} Max HP</span>
-              <span class="recipe-req req-met">🛡 +${activeSpec.statsBonus.armor || 0} Giáp</span>
-              <span class="recipe-req req-met">☣ +${activeSpec.statsBonus.toxinResist || 0}% Kháng Độc</span>
-              <span class="recipe-req req-met">👟 +${activeSpec.statsBonus.speedBonus || 0} Tốc Chạy</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:230px;">
+            ${iconUrl ? `<img src="${iconUrl}" style="width:48px;height:48px;image-rendering:pixelated;border:2px solid ${activeSpec.color};border-radius:8px;background:#0f172a;padding:3px;">` : ''}
+            <div class="recipe-info">
+              <div class="recipe-name" style="color:${activeSpec.color}; font-size:14px;">
+                ${activeSpec.badgeIcon} ${activeSpec.name}
+                <span style="color:#facc15; font-weight:900; margin-left:4px;">${stars} Lv.${curLv}${isMaxLv ? ' (MAX)' : ''}</span>
+              </div>
+              <div style="font-size:11px; font-weight:700; color:#e2e8f0;">
+                Vai trò: ${activeSpec.role} • 🔫 Bắn phụ: <strong style="color:#fde047;">${activeSpec.damage} DMG${curLv >= 3 ? ' (x2 Đạn Đôi)' : ''}</strong>
+                ${activeSpec.hpRegenPerSec > 0 ? ` • 💚 Hồi: +${activeSpec.hpRegenPerSec} HP/s` : ''}
+                ${activeSpec.toxinCleansePerSec > 0 ? ` • 🧪 Lọc độc: -${activeSpec.toxinCleansePerSec}%/s` : ''}
+              </div>
+              <div class="recipe-desc">${activeSpec.desc}</div>
+              <div class="recipe-ingredients">
+                <span class="recipe-req req-met">❤️ +${activeSpec.statsBonus.hp || 0} Max HP</span>
+                <span class="recipe-req req-met">🛡 +${activeSpec.statsBonus.armor || 0} Giáp</span>
+                <span class="recipe-req req-met">☣ +${activeSpec.statsBonus.toxinResist || 0}% Kháng Độc</span>
+                <span class="recipe-req req-met">👟 +${activeSpec.statsBonus.speedBonus || 0} Tốc Chạy</span>
+              </div>
             </div>
           </div>
+          <div class="recipe-action" style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+            <button class="craft-btn can-craft" id="btn-unequip-pet" style="background:#334155; color:#f8fafc;">
+              🏠 CẤT VÀO LAB
+            </button>
+          </div>
         </div>
-        <div class="recipe-action">
-          <button class="craft-btn can-craft" id="btn-unequip-pet" style="background:#334155; color:#f8fafc;">
-            🏠 CẤT VÀO LAB
-          </button>
+        <div style="margin-top:8px; padding-top:8px; border-top:1px dashed rgba(148, 163, 184, 0.25); display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+          <div style="font-size:11px; color:#fde047; font-weight:700;">
+            ${isMaxLv
+              ? '👑 ĐÃ ĐẠT CẤP TIẾN HÓA TỐI ĐA (Lv.3 MAX): Bắn 2 tia đạn song song +220% chỉ số hỗ trợ!'
+              : `⬆️ Tiến hóa lên Lv.${curLv + 1} (${curLv + 1 === 2 ? '+45% Sát thương, +50% Hồi máu & Chỉ số' : 'Bắn 2 Đạn Đôi, +100% Sát thương, +120% Chỉ số'}): Cần ${eggCost} Trứng dư hoặc 1 Pet dự phòng`}
+          </div>
+          ${!isMaxLv ? `
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="craft-btn ${canUpgradeByEgg ? 'can-craft' : 'disabled'}" ${canUpgradeByEgg ? '' : 'disabled'} id="btn-upgrade-pet-egg" style="background:${canUpgradeByEgg ? '#d97706' : ''}; color:#fff;">
+                🥚 Cường Hóa Bằng ${eggCost} Trứng (Có ${eggCount})
+              </button>
+              ${hasStoredPets ? `
+                <button class="craft-btn can-craft" id="btn-upgrade-pet-fuse-first" style="background:#0284c7; color:#fff;">
+                  🧬 Dung Hợp 1 Pet Dự Phòng (+1 Dịch Trứng)
+                </button>
+              ` : ''}
+            </div>
+          ` : ''}
         </div>
       `;
       activeCard.querySelector('#btn-unequip-pet').onclick = () => ps.unequipActivePet();
+      const btnUpEgg = activeCard.querySelector('#btn-upgrade-pet-egg');
+      if (btnUpEgg && canUpgradeByEgg) {
+        btnUpEgg.onclick = () => ps.upgradeActivePetWithEgg();
+      }
+      const btnFuseFirst = activeCard.querySelector('#btn-upgrade-pet-fuse-first');
+      if (btnFuseFirst && hasStoredPets) {
+        btnFuseFirst.onclick = () => ps.upgradeActivePetWithStored(ps.storedPets[0].uid);
+      }
     } else {
       activeCard.innerHTML = `
         <div class="recipe-info">
@@ -1190,17 +1282,20 @@ class LabSystem {
     }
     container.appendChild(activeCard);
 
-    // 4. Stored Pets in Bio-Lab Sanctuary (Swap with 1-Pet Limit)
+    // 4. Stored Pets in Bio-Lab Sanctuary (Swap with 1-Pet Limit or Fuse into Active Pet)
     if (ps.storedPets && ps.storedPets.length > 0) {
       const storedHeader = document.createElement('div');
       storedHeader.style.cssText = 'margin: 12px 0 6px 0; padding: 6px 10px; background: rgba(56, 189, 248, 0.14); border-left: 3px solid #38bdf8; color: #38bdf8; font-weight: 800; font-size: 12px;';
-      storedHeader.innerHTML = `🏠 CHUỒNG LƯU TRỮ PET TẠI PHÒNG LAB (${ps.storedPets.length} PET DỰ PHÒNG — BẤM ĐỂ ĐỔI MANG THEO)`;
+      storedHeader.innerHTML = `🏠 CHUỒNG LƯU TRỮ PET TẠI PHÒNG LAB (${ps.storedPets.length} PET DỰ PHÒNG — ĐỔI MANG THEO HOẶC DUNG HỢP TĂNG SAO)`;
       container.appendChild(storedHeader);
 
+      const canFuseToActive = ps.activePet && (ps.activePet.level || 1) < 3;
+
       ps.storedPets.forEach(petObj => {
-        const sp = CONSTANTS.PET_SPECIES[petObj.speciesId];
+        const sp = ps.getPetEffectiveStats(petObj);
         if (!sp) return;
         const iconUrl = window.pixelArt ? window.pixelArt.getDataURL(`icon_${sp.icon}`) : '';
+        const pLv = sp.level || 1;
 
         const card = document.createElement('div');
         card.className = 'recipe-card';
@@ -1209,19 +1304,32 @@ class LabSystem {
           <div style="display:flex; align-items:center; gap:10px; flex:1;">
             ${iconUrl ? `<img src="${iconUrl}" style="width:38px;height:38px;image-rendering:pixelated;border:1px solid ${sp.color};border-radius:6px;background:#0f172a;padding:2px;">` : ''}
             <div class="recipe-info">
-              <div class="recipe-name" style="color:${sp.color};">${sp.badgeIcon} ${sp.name} <span style="font-size:10px;color:#94a3b8;">(${sp.role})</span></div>
+              <div class="recipe-name" style="color:${sp.color};">
+                ${sp.badgeIcon} ${sp.name}
+                <span style="color:#facc15; font-size:11px;">${'⭐'.repeat(pLv)} Lv.${pLv}</span>
+                <span style="font-size:10px;color:#94a3b8;">(${sp.role})</span>
+              </div>
               <div class="recipe-desc">${sp.desc}</div>
             </div>
           </div>
-          <div class="recipe-action" style="display:flex; gap:6px;">
+          <div class="recipe-action" style="display:flex; gap:6px; flex-wrap:wrap;">
+            ${canFuseToActive ? `
+              <button class="craft-btn can-craft btn-fuse-stored" style="background:#0284c7; color:#fff;" title="Hiến tế Pet này để tăng +1 Cấp Sao cho Pet đang mang bên người & nhận +1 Dịch Tuyến Trứng">
+                🧬 DUNG HỢP (+1⭐)
+              </button>
+            ` : ''}
             <button class="craft-btn can-craft btn-equip-stored">
               ${ps.activePet ? '🔄 ĐỔI MANG THEO' : '✅ MANG BÊN NGƯỜI'}
             </button>
-            <button class="craft-btn btn-release-stored" style="background:#450a0a; color:#fca5a5; border:1px solid #ef4444; padding:6px 8px;" title="Phóng thích Pet nhận lại 1 Dịch Tuyến Trứng">
+            <button class="craft-btn btn-release-stored" style="background:#450a0a; color:#fca5a5; border:1px solid #ef4444; padding:6px 8px;" title="Phóng thích Pet nhận lại Dịch Tuyến Trứng">
               ✖
             </button>
           </div>
         `;
+        const fuseBtn = card.querySelector('.btn-fuse-stored');
+        if (fuseBtn) {
+          fuseBtn.onclick = () => ps.upgradeActivePetWithStored(petObj.uid);
+        }
         card.querySelector('.btn-equip-stored').onclick = () => ps.equipPet(petObj.uid);
         card.querySelector('.btn-release-stored').onclick = () => ps.releaseStoredPet(petObj.uid);
         container.appendChild(card);
