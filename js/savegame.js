@@ -22,7 +22,7 @@ class SaveManager {
       if (!this.game || !this.game.player || !this.game.dayNight) return false;
 
       const saveData = {
-        version: 1,
+        version: 2,
         saveTime: Date.now(),
         dayNight: {
           dayCount: this.game.dayNight.dayCount,
@@ -40,7 +40,7 @@ class SaveManager {
           activeWeapon: this.game.player.activeWeapon || 'SPEAR'
         },
         inventory: {
-          slotCount: this.game.inventory ? this.game.inventory.slotCount : 12,
+          slotCount: this.game.inventory ? this.game.inventory.slotCount : 16,
           slots: this.game.inventory ? this.game.inventory.slots.map(s => s ? { id: s.id, count: s.count } : null) : [],
           armorSlots: this.game.inventory ? JSON.parse(JSON.stringify(this.game.inventory.armorSlots)) : {}
         },
@@ -67,8 +67,8 @@ class SaveManager {
             hp: h.hp,
             isDestroyed: h.isDestroyed
           })) : [],
-        hydroponics: (this.game.lab && this.game.lab.hydroponicSlots) ?
-          JSON.parse(JSON.stringify(this.game.lab.hydroponicSlots)) : []
+        hydroponics: (this.game.lab && this.game.lab.hydroPods) ?
+          JSON.parse(JSON.stringify(this.game.lab.hydroPods)) : []
       };
 
       localStorage.setItem(this.storageKey, JSON.stringify(saveData));
@@ -126,12 +126,23 @@ class SaveManager {
 
       // 3. Restore Inventory & Armor
       if (data.inventory && this.game.inventory) {
-        if (data.inventory.slotCount && data.inventory.slotCount > 12) {
-          this.game.inventory.expandCapacity(data.inventory.slotCount - 12);
-        }
+        const minSlots = CONSTANTS.INVENTORY_SLOTS || 16;
+        this.game.inventory.slotCount = Math.max(minSlots, data.inventory.slotCount || minSlots);
         if (Array.isArray(data.inventory.slots)) {
-          this.game.inventory.slots = data.inventory.slots.map(s => s ? { id: s.id, count: s.count } : null);
+          this.game.inventory.slots = data.inventory.slots.map(s => (s && s.id && CONSTANTS.ITEM_TYPES[s.id]) ? { id: s.id, count: s.count } : null);
         }
+        this.game.inventory.normalizeSlots();
+
+        // Migrate v1 saves to include starter consumables if missing
+        if (!data.version || data.version < 2) {
+          if (this.game.inventory.getItemCount('pure_water') === 0) {
+            this.game.inventory.addItem('pure_water', 3);
+          }
+          if (this.game.inventory.getItemCount('antidote_lesser') === 0) {
+            this.game.inventory.addItem('antidote_lesser', 2);
+          }
+        }
+
         if (data.inventory.armorSlots) {
           this.game.inventory.armorSlots = data.inventory.armorSlots;
         }
@@ -159,7 +170,7 @@ class SaveManager {
             worldH.isDestroyed = savedH.isDestroyed;
             if (worldH.isDestroyed) {
               // Clear tile visually
-              this.game.world.tiles[worldH.row][worldH.col] = CONSTANTS.TILES.MOUNTAIN;
+              this.game.world.tiles[worldH.row][worldH.col] = CONSTANTS.TILES.MOUNTAIN_ROCK;
             }
           }
         }
@@ -167,7 +178,7 @@ class SaveManager {
 
       // 6. Restore Hydroponics
       if (Array.isArray(data.hydroponics) && this.game.lab) {
-        this.game.lab.hydroponicSlots = data.hydroponics;
+        this.game.lab.hydroPods = data.hydroponics;
       }
 
       // Update UI

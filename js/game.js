@@ -273,8 +273,14 @@ class GameEngine {
 
       if (e.button === 0) { // Left click
         if (e.target.tagName === 'CANVAS') {
+          this.mouse.screenX = e.clientX;
+          this.mouse.screenY = e.clientY;
+          this.mouse.worldX = e.clientX + this.camera.x;
+          this.mouse.worldY = e.clientY + this.camera.y;
+
           // If in Build Mode, place structure!
           if (this.buildingManager.buildMode) {
+            this.buildingManager.updateHoverTile(this.mouse.worldX, this.mouse.worldY);
             this.buildingManager.placeStructure(
               this.buildingManager.hoverTile.col,
               this.buildingManager.hoverTile.row,

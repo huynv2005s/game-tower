@@ -801,18 +801,58 @@ body, html {
   justify-content: center;
   position: relative;
   cursor: pointer;
+  touch-action: manipulation;
   transition: all 0.15s ease;
+}
+
+.inv-slot.occupied {
+  border-color: #334155;
+  background: linear-gradient(180deg, #151e30 0%, #0d1320 100%);
 }
 
 .inv-slot:hover {
   border-color: var(--accent-cyan);
   background: #172554;
+  transform: translateY(-2px);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.45);
+}
+
+.inv-slot:active {
+  transform: scale(0.94);
 }
 
 .slot-icon {
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.slot-action-tag {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(6, 182, 212, 0.22);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  pointer-events: none;
+  letter-spacing: 0.3px;
+}
+
+.slot-action-tag.tag-consumable {
+  background: rgba(34, 197, 94, 0.25);
+  color: #86efac;
+  border-color: #22c55e;
+}
+
+.slot-action-tag.tag-defense {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fde047;
+  border-color: #f59e0b;
 }
 
 .slot-badge {
@@ -821,8 +861,30 @@ body, html {
   right: 4px;
   font-family: 'Press Start 2P', monospace;
   font-size: 9px;
-  color: var(--accent-yellow);
+  color: var(--hazard-yellow, #facc15);
   text-shadow: 0 0 3px #000;
+  pointer-events: none;
+}
+
+.inv-action-feedback {
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(9, 14, 26, 0.92);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px 10px;
+  line-height: 1.4;
+  transition: all 0.2s ease;
+}
+
+.inv-feedback-pop {
+  animation: invFeedbackPulse 0.35s ease-out;
+}
+
+@keyframes invFeedbackPulse {
+  0% { transform: scale(0.98); background: rgba(34, 197, 94, 0.22); }
+  100% { transform: scale(1); background: rgba(9, 14, 26, 0.92); }
 }
 
 /* =========================================

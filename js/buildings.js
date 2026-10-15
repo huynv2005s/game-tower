@@ -108,12 +108,20 @@ class BuildingManager {
 
   enterBuildMode(structType) {
     this.buildMode = structType;
+    if (this.game && this.game.player) {
+      const p = this.game.player;
+      const frontX = p.x + Math.cos(p.aimAngle || 0) * 40;
+      const frontY = p.y + Math.sin(p.aimAngle || 0) * 40;
+      this.updateHoverTile(frontX, frontY);
+    }
     const def = CONSTANTS.ITEM_TYPES['defense_' + structType];
-    this.game.floatingTexts.push(new FloatingText(
-      this.game.player.x, this.game.player.y - 30,
-      `CHẾ ĐỘ XÂY: ${def ? def.name : structType} (Click để đặt, ESC để hủy)`,
-      '#facc15', 12, 1.2
-    ));
+    if (this.game && this.game.floatingTexts && this.game.player) {
+      this.game.floatingTexts.push(new FloatingText(
+        this.game.player.x, this.game.player.y - 30,
+        `CHẾ ĐỘ XÂY: ${def ? def.name : structType} (Click để đặt, ESC để hủy)`,
+        '#facc15', 12, 1.2
+      ));
+    }
   }
 
   exitBuildMode() {

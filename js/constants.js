@@ -54,7 +54,7 @@ const CONSTANTS = {
 
   // Max stack size for inventory
   MAX_STACK_SIZE: 20,
-  INVENTORY_SLOTS: 12,
+  INVENTORY_SLOTS: 16,
 
   // Day & Night Configuration
   DAY_DURATION_SEC: 120, // 2 minutes per full day/night cycle
@@ -208,16 +208,16 @@ const CONSTANTS = {
     },
 
     // Resources & Materials
-    snow_lotus: { name: 'Tuyết Liên Núi Cao', category: 'resource', icon: 'lotus', maxStack: 20, desc: 'Thảo dược quý hiếm mọc trên đỉnh núi tuyết, dùng pha chế Huyết Thanh.' },
-    sulfur_dust: { name: 'Bột Lưu Huỳnh', category: 'resource', icon: 'sulfur', maxStack: 20, desc: 'Thu được từ quặng lưu huỳnh núi đá, chất khử trùng mạnh.' },
-    quartz_crystal: { name: 'Tinh Thể Thạch Anh', category: 'resource', icon: 'quartz', maxStack: 20, desc: 'Khoáng sản tinh khiết vùng núi, dùng chế Thuốc Kháng Thể Tinh Khiết.' },
-    silver_moss: { name: 'Rêu Bạc Đỉnh Núi', category: 'resource', icon: 'moss', maxStack: 20, desc: 'Rêu bạc chỉ sinh trưởng ở vách đá lạnh giá.' },
-    egg_fluid: { name: 'Dịch Tuyến Trứng Ngoại Lai', category: 'resource', icon: 'egg_fluid', maxStack: 20, desc: 'Dịch lấy từ trứng quái vật bị đập vỡ, chứa kháng nguyên kỳ lạ.' },
-    pure_water: { name: 'Nước Tinh Khiết', category: 'consumable', icon: 'pure_water', maxStack: 20, desc: 'Nước ngọt đã qua đun sôi lọc sạch: +15 HP, -15% Độc Tố.' },
-    dirty_water: { name: 'Nước Ao Sông Ô Nhiễm', category: 'consumable', icon: 'dirty_water', maxStack: 20, desc: 'Nước chưa qua lọc, uống vào sẽ làm tăng +20% Độc Tố!' },
-    wood: { name: 'Gỗ Cây Biến Dị', category: 'resource', icon: 'wood', maxStack: 20, desc: 'Vật liệu cơ bản để đốt lò nung và xây dựng phòng lab.' },
-    stone: { name: 'Đá Núi Cứng', category: 'resource', icon: 'stone', maxStack: 20, desc: 'Vật liệu xây dựng phòng lab và lò nung.' },
-    tech_scrap: { name: 'Mảnh Vỡ Công Nghệ', category: 'resource', icon: 'tech_scrap', maxStack: 20, desc: 'Mảnh kim loại và vi mạch trôi dạt vào bãi biển.' },
+    snow_lotus: { id: 'snow_lotus', name: 'Tuyết Liên Núi Cao', category: 'resource', icon: 'lotus', maxStack: 20, desc: 'Thảo dược núi tuyết: Dùng trực tiếp (+12 HP, -12% Độc Tố) hoặc chế Huyết Thanh.' },
+    sulfur_dust: { id: 'sulfur_dust', name: 'Bột Lưu Huỳnh', category: 'resource', icon: 'sulfur', maxStack: 20, desc: 'Chất khử trùng mạnh: Click để mở Phòng Lab chế Huyết Thanh hoặc Xưởng đúc Súng Cối.' },
+    quartz_crystal: { id: 'quartz_crystal', name: 'Tinh Thể Thạch Anh', category: 'resource', icon: 'quartz', maxStack: 20, desc: 'Khoáng sản tinh khiết: Click để mở Phòng Lab chế Kháng Thể hoặc lắp Tháp Canh.' },
+    silver_moss: { id: 'silver_moss', name: 'Rêu Bạc Đỉnh Núi', category: 'resource', icon: 'moss', maxStack: 20, desc: 'Rêu bạc núi cao: Dùng trực tiếp (+15 HP, -8% Độc Tố) hoặc chế Kháng Thể Tinh Khiết.' },
+    egg_fluid: { id: 'egg_fluid', name: 'Dịch Tuyến Trứng Ngoại Lai', category: 'resource', icon: 'egg_fluid', maxStack: 20, desc: 'Dịch trứng quái: Dùng trực tiếp (+20 HP, +30% Tốc chạy 8s, +15% Độc) hoặc chế thuốc.' },
+    pure_water: { id: 'pure_water', name: 'Nước Tinh Khiết', category: 'consumable', icon: 'pure_water', maxStack: 20, desc: 'Nước ngọt đã qua đun sôi lọc sạch: +15 HP, -15% Độc Tố.' },
+    dirty_water: { id: 'dirty_water', name: 'Nước Ao Sông Ô Nhiễm', category: 'consumable', icon: 'dirty_water', maxStack: 20, desc: 'Nước chưa qua lọc: +5 HP nhưng làm tăng +20% Độc Tố!' },
+    wood: { id: 'wood', name: 'Gỗ Cây Biến Dị', category: 'resource', icon: 'wood', maxStack: 20, desc: 'Vật liệu cơ bản: Click để mở Bàn Chế Tạo / Lò Nung gia công vật phẩm.' },
+    stone: { id: 'stone', name: 'Đá Núi Cứng', category: 'resource', icon: 'stone', maxStack: 20, desc: 'Vật liệu xây dựng: Click để mở Bàn Chế Tạo / Lò Nung đúc tường và nung quặng.' },
+    tech_scrap: { id: 'tech_scrap', name: 'Mảnh Vỡ Công Nghệ', category: 'resource', icon: 'tech_scrap', maxStack: 20, desc: 'Linh kiện vi mạch: Click để mở Xưởng Thủ Thành lắp Tháp Canh, Súng Cối, Balo.' },
 
     // Phase 2: Wild Flora & Mutant Harvests
     wild_berry: { name: 'Quả Mọng Tự Nhiên Sạch', category: 'consumable', icon: 'berry_clean', maxStack: 20, desc: 'Quả rừng thu hoạch trong ngày còn tươi sạch: +18 HP, 0% Độc Tố.' },
@@ -407,6 +407,11 @@ const CONSTANTS = {
     behemoth: { name: 'Quái Khổng Lồ (Behemoth)', maxHp: 280, speed: 45, damage: 32, radius: 26, isBoss: true, desc: 'Quái khổng lồ phá hủy mọi công trình' }
   }
 };
+
+// Ensure every item definition has its .id property populated
+Object.keys(CONSTANTS.ITEM_TYPES).forEach((key) => {
+  CONSTANTS.ITEM_TYPES[key].id = key;
+});
 
 // Export to global scope
 if (typeof window !== 'undefined') {
