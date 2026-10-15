@@ -528,6 +528,14 @@ class WorldMap {
     return obj;
   }
 
+  removeHarvestableFromMap(node) {
+    if (!node) return;
+    node.isDestroyed = true;
+    if (this.harvestableTileMap && node.col !== undefined && node.row !== undefined) {
+      this.harvestableTileMap.delete(this._tileKey(node.col, node.row));
+    }
+  }
+
   getTile(c, r) {
     if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) {
       return CONSTANTS.TILES.MOUNTAIN_ROCK;

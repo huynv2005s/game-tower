@@ -274,16 +274,33 @@ class GameEngine {
     }
   }
 
+  _resolveKeyCode(e) {
+    if (e.code && e.code !== 'Unidentified' && e.code !== '') return e.code;
+    const k = (e.key || '').toLowerCase();
+    if (k === 'w' || k === 'ư') return 'KeyW';
+    if (k === 'a' || k === 'ă' || k === 'â') return 'KeyA';
+    if (k === 's') return 'KeyS';
+    if (k === 'd' || k === 'đ') return 'KeyD';
+    if (k === 'arrowup') return 'ArrowUp';
+    if (k === 'arrowdown') return 'ArrowDown';
+    if (k === 'arrowleft') return 'ArrowLeft';
+    if (k === 'arrowright') return 'ArrowRight';
+    if (k === ' ') return 'Space';
+    return e.code || '';
+  }
+
   bindInputs() {
     // Keyboard
     window.addEventListener('keydown', (e) => {
-      this.keys[e.code] = true;
+      const code = this._resolveKeyCode(e);
+      if (code) this.keys[code] = true;
+      if (e.code) this.keys[e.code] = true;
 
       // Toggle Audio on first user interaction
       window.audioManager.ensureContext();
 
       // Dash (Space)
-      if (e.code === 'Space') {
+      if (code === 'Space') {
         e.preventDefault();
         this.player.triggerDash(this.keys, this.mouse.worldX, this.mouse.worldY, this.particles, this.floatingTexts);
       }
@@ -460,7 +477,21 @@ class GameEngine {
     });
 
     window.addEventListener('keyup', (e) => {
-      this.keys[e.code] = false;
+      const code = this._resolveKeyCode(e);
+      if (code) this.keys[code] = false;
+      if (e.code) this.keys[e.code] = false;
+    });
+
+    window.addEventListener('blur', () => {
+      this.keys = {};
+      this.mouse.isDown = false;
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.keys = {};
+        this.mouse.isDown = false;
+      }
     });
 
     // Mouse Wheel Zoom on Canvas
@@ -728,12 +759,17 @@ class GameEngine {
   }
 
   loop(timestamp) {
-    const dt = (timestamp - this.lastTime) / 1000;
+    const rawDt = this.lastTime ? (timestamp - this.lastTime) / 1000 : 0.016;
+    const dt = (Number.isFinite(rawDt) && rawDt >= 0) ? rawDt : 0.016;
     this.lastTime = timestamp;
 
     if (!this.isPaused) {
-      this.update(dt);
-      this.render();
+      try {
+        this.update(dt);
+        this.render();
+      } catch (err) {
+        console.error('[GameEngine] Loop error recovered:', err);
+      }
     }
 
     requestAnimationFrame((t) => this.loop(t));
@@ -1541,6 +1577,8 @@ class GameEngine {
     ctx.restore();
   }
 }
+
+window.GameEngine = GameEngine;
 
 // Instantiate engine when DOM is ready
 window.addEventListener('DOMContentLoaded', () => {

@@ -63,6 +63,7 @@ class SpatialGrid {
       this.buckets[i] = [];
     }
     this._queryScratch = [];
+    this._neighborScratch = [];
   }
 
   clear() {
@@ -173,7 +174,7 @@ class SpatialGrid {
   }
 
   // Get entities in the exact cell + 8 immediate neighbors (fast local neighborhood for separation/traps)
-  getCellNeighborhood(x, y, outArray = this._queryScratch) {
+  getCellNeighborhood(x, y, outArray = this._neighborScratch) {
     outArray.length = 0;
     const centerC = (x * this.invCellSize) | 0;
     const centerR = (y * this.invCellSize) | 0;

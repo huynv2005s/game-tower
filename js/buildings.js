@@ -174,6 +174,10 @@ class BuildingManager {
     this._indexedCount = this.defenses.length;
   }
 
+  rebuildSpatialMaps() {
+    this.rebuildSpatialIndex();
+  }
+
   findClosestBlockingDefense(x, y, maxDist = 250) {
     this.ensureSpatialSync();
     if (this.defenseGrid) {

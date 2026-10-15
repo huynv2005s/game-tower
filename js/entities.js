@@ -143,7 +143,7 @@ class Projectile {
       ? this.cfg.targetGroup
       : ((this.type === 'acid_spit' || this.type === 'frost_spit') ? 'player_and_defenses' : 'monsters');
 
-    if (targetGroup === 'player_and_defenses') {
+    if (targetGroup === 'player_and_defenses' || targetGroup === 'player') {
       // 1. Check hit player
       const p = world && world.game ? world.game.player : null;
       if (p && !p.isDead && !p.isVaulting && !p.isDashing) {
@@ -217,6 +217,9 @@ class Projectile {
   onImpact(world, monsters, particles, floatingTexts, hitTarget = null) {
     if (this.isDead) return;
     this.isDead = true;
+
+    particles = particles || (window.gameEngine && window.gameEngine.particles) || [];
+    floatingTexts = floatingTexts || (window.gameEngine && window.gameEngine.floatingTexts) || [];
 
     const cfg = this.cfg;
 
@@ -298,7 +301,7 @@ class Projectile {
       }
     } else if (this.type === 'acid_spit') {
       if (hitTarget && hitTarget.takeDamage) {
-        hitTarget.takeDamage(this.damage);
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
         if (hitTarget.applySlow) {
           const sf = (this.extra && this.extra.slowFactor) ? this.extra.slowFactor : 0.72;
           const sd = (this.extra && this.extra.slowDuration) ? this.extra.slowDuration : 1.8;
@@ -316,7 +319,7 @@ class Projectile {
       window.audioManager.playHit();
     } else if (this.type === 'frost_spit') {
       if (hitTarget && hitTarget.takeDamage) {
-        hitTarget.takeDamage(this.damage);
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
         if (hitTarget.applySlow) {
           const sf = (this.extra && this.extra.slowFactor) ? this.extra.slowFactor : 0.50;
           const sd = (this.extra && this.extra.slowDuration) ? this.extra.slowDuration : 3.0;
@@ -413,7 +416,10 @@ class Projectile {
         }
       } else if (hitTarget && hitTarget.takeDamage) {
         hitTarget.takeDamage(this.damage, particles, floatingTexts);
-        if (cfg.slowFactor && hitTarget.applySlow) hitTarget.applySlow(cfg.slowFactor, cfg.slowDuration || 2.0, floatingTexts);
+        if (cfg.slowFactor && hitTarget.applySlow) {
+          const isPlayerTarget = (cfg.targetGroup === 'player' || cfg.targetGroup === 'player_and_defenses' || hitTarget === (world && world.game ? world.game.player : null));
+          hitTarget.applySlow(cfg.slowFactor, cfg.slowDuration || 2.0, isPlayerTarget ? (cfg.slowLabel || 'ĐẠN LÀM CHẬM') : floatingTexts);
+        }
         if (cfg.stunDuration && hitTarget.applyStun) hitTarget.applyStun(cfg.stunDuration, floatingTexts);
         if (cfg.infectionGain && hitTarget.addInfection) hitTarget.addInfection(cfg.infectionGain, cfg.slowLabel || 'ĐẠN QUÁI');
       }
@@ -594,6 +600,7 @@ class Monster {
     if (this.species === 'dummy') return;
     const game = window.gameEngine;
     if (!game || !game.inventory) return;
+    floatingTexts = floatingTexts || game.floatingTexts || [];
 
     const weather = (game.dayNight && game.dayNight.currentWeather) ? game.dayNight.currentWeather : 'CLEAR';
     const isBloodMoon = (game.dayNight && game.dayNight.isBloodMoonDay && game.dayNight.isBloodMoonDay()) || weather === 'BLOOD_MOON';
@@ -644,6 +651,9 @@ class Monster {
 
   takeDamage(amount, particles, floatingTexts) {
     if (this.isDead) return;
+    particles = particles || (window.gameEngine && window.gameEngine.particles) || [];
+    floatingTexts = floatingTexts || (window.gameEngine && window.gameEngine.floatingTexts) || [];
+
     this.hp -= amount;
     this.hitFlashTimer = 0.11;
 
@@ -688,6 +698,9 @@ class Monster {
   detonate(player, world, particles, floatingTexts) {
     if (this.isDead) return;
     this.isDead = true;
+    particles = particles || (window.gameEngine && window.gameEngine.particles) || [];
+    floatingTexts = floatingTexts || (window.gameEngine && window.gameEngine.floatingTexts) || [];
+
     window.audioManager.playBowRecoil();
 
     const blastRadius = (this.cfg && this.cfg.blastRadius) ? this.cfg.blastRadius : 55;
@@ -734,6 +747,7 @@ class Monster {
 
   applyStun(duration, floatingTexts) {
     this.stunDuration = Math.max(this.stunDuration, duration);
+    floatingTexts = floatingTexts || (window.gameEngine && window.gameEngine.floatingTexts) || null;
     if (floatingTexts && floatingTexts.length < 40) {
       floatingTexts.push(new FloatingText(this.x, this.y - 30, '★ CHOÁNG! ★', '#facc15', 11, 1.0));
     }
@@ -741,6 +755,7 @@ class Monster {
 
   applyRoot(duration, floatingTexts) {
     this.rootDuration = Math.max(this.rootDuration, duration);
+    floatingTexts = floatingTexts || (window.gameEngine && window.gameEngine.floatingTexts) || null;
     if (floatingTexts && floatingTexts.length < 40) {
       floatingTexts.push(new FloatingText(this.x, this.y - 30, '🕸 TRÓI CHÂN! 🕸', '#38bdf8', 11, 1.0));
     }
@@ -954,10 +969,16 @@ class Monster {
     let target = null;
     let targetDist = Infinity;
     let isStructureTarget = false;
+    const isNight = !!(world && world.game && world.game.dayNight && world.game.dayNight.isNight);
 
     if (player && !player.isStealthed && !player.isDead) {
-      target = player;
-      targetDist = Math.hypot(player.x - this.x, player.y - this.y);
+      const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
+      const dayAggroRadius = 420;
+      const playerInSafeZone = !isNight && world && world.isInsideIsolation && world.isInsideIsolation(player.x, player.y);
+      if (isNight || this.isBoss || this.hp < this.maxHp || (distToPlayer <= dayAggroRadius && !playerInSafeZone)) {
+        target = player;
+        targetDist = distToPlayer;
+      }
     }
 
     this.targetScanTimer -= dt;
@@ -1267,12 +1288,13 @@ class Player {
     if (this.isDead || this.isVaulting || this.isDashing) return;
     this.slowMultiplier = Math.min(this.slowMultiplier, factor);
     this.slowTimer = Math.max(this.slowTimer, duration);
+    const label = (typeof sourceText === 'string' && sourceText) ? sourceText : 'ĐẠN LÀM CHẬM';
 
     if (this.slowTextCooldown <= 0 && window.gameEngine && window.gameEngine.floatingTexts) {
       this.slowTextCooldown = 1.1;
       const pct = Math.round((1 - this.slowMultiplier) * 100);
       window.gameEngine.floatingTexts.push(
-        new FloatingText(this.x, this.y - 34, `❄️ CHẬM -${pct}% TỐC CHẠY (${sourceText})!`, '#38bdf8', 12, 1.2)
+        new FloatingText(this.x, this.y - 34, `❄️ CHẬM -${pct}% TỐC CHẠY (${label})!`, '#38bdf8', 12, 1.2)
       );
     }
   }
