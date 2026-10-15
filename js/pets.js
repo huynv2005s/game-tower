@@ -33,6 +33,11 @@ class PetSystem {
     this.lastHatchedPet = null;
     this._lastIncubatorPercent = -1;
     this._lastInLabState = null;
+
+    // Autonomous Support Drone System (Auto-Harvest Resources + Auto-Repair Defenses + Combat Laser)
+    this.droneLevel = 0; // 0 = not built, 1 = Lv.1 (1 Drone), 2 = Lv.2 (2 Drones), 3 = Lv.3 MAX (2 AI Super Drones)
+    this.droneMode = 'follow'; // 'follow' (escort player) or 'base' (patrol Bio-Lab & defenses)
+    this.drones = [];
   }
 
   createPetInstance(speciesId, level = 1) {
@@ -93,6 +98,10 @@ class PetSystem {
     if (currentLevel === 1) return 1; // Lv.1 -> Lv.2 costs 1 monster_egg
     if (currentLevel === 2) return 2; // Lv.2 -> Lv.3 MAX costs 2 monster_egg
     return 0;
+  }
+
+  getUpgradeEggCost(currentLevel) {
+    return this.getEggUpgradeCost(currentLevel);
   }
 
   // Upgrade Active Pet using surplus Monster Eggs in Inventory (Lv.1 -> Lv.2 -> Lv.3 MAX)
@@ -554,6 +563,9 @@ class PetSystem {
       }
     }
 
+    // 1.5. Update Autonomous Support Drones (runs independently even if no Pet is equipped)
+    this.updateDrones(dt);
+
     // 2. Update Active Accompanying Pet (Strictly 1 Pet)
     if (!this.activePet || !this.game || !this.game.player || this.game.player.isDead) return;
     const p = this.game.player;
@@ -659,6 +671,9 @@ class PetSystem {
     const range = (spec.attackRange || 260) + 40;
 
     let dmg = spec.damage || 15;
+    if (this.game.dayNight && this.game.dayNight.currentWeather === 'EMP_STORM' && spec.id === 'pet_plasma') {
+      dmg = Math.round(dmg * 1.25);
+    }
     let projType = spec.projectileType || 'pet_arrow';
     let extra = { color: spec.color, petId: spec.id, petLevel: spec.level || 1 };
 
@@ -692,7 +707,397 @@ class PetSystem {
     }
   }
 
+  // =========================================================================
+  // AUTONOMOUS SUPPORT DRONE SYSTEM (Auto-Harvest + Auto-Repair + Laser)
+  // =========================================================================
+
+  getDroneTierConfig(level = this.droneLevel) {
+    if (!level || level <= 0 || !CONSTANTS.DRONE_TIERS) return null;
+    return CONSTANTS.DRONE_TIERS[Math.min(3, level)] || null;
+  }
+
+  toggleDroneMode() {
+    this.droneMode = (this.droneMode === 'follow') ? 'base' : 'follow';
+    if (window.audioManager) window.audioManager.playEquip();
+    const label = this.droneMode === 'follow'
+      ? '🤖 CHẾ ĐỘ DRONE: ĐA NHIỆM (BAY THEO NGƯỜI CHƠI)'
+      : '🤖 CHẾ ĐỘ DRONE: TUẦN TRA CĂN CỨ (BẢO VỆ & SỬA TƯỜNG TẠI LAB)';
+    if (this.game && this.game.player && this.game.floatingTexts) {
+      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 32, label, '#38bdf8', 12, 1.5));
+    }
+    if (this.game && this.game.saveManager) this.game.saveManager.showSaveToast(label);
+    if (this.game && this.game.lab && this.game.lab.isOpen) {
+      this.game.lab.switchTab(this.game.lab.currentTab);
+    }
+  }
+
+  craftOrUpgradeDrone() {
+    if (!this.game || !this.game.inventory || !this.game.player) return false;
+    if (this.droneLevel >= 3) return false;
+
+    const nextLv = this.droneLevel + 1;
+    const nextCfg = CONSTANTS.DRONE_TIERS[nextLv];
+    if (!nextCfg) return false;
+
+    // Verify materials
+    for (const req of nextCfg.cost) {
+      if (this.game.inventory.getItemCount(req.id) < req.count) {
+        const msg = `⚠️ Thiếu nguyên liệu để chế tạo/nâng cấp ${nextCfg.name}!`;
+        if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+        return false;
+      }
+    }
+
+    // Deduct materials
+    for (const req of nextCfg.cost) {
+      let rem = req.count;
+      for (let i = 0; i < this.game.inventory.slotCount; i++) {
+        const s = this.game.inventory.slots[i];
+        if (s && s.id === req.id) {
+          const take = Math.min(s.count, rem);
+          this.game.inventory.removeItem(i, take);
+          rem -= take;
+          if (rem <= 0) break;
+        }
+      }
+    }
+
+    this.droneLevel = nextLv;
+    this.syncDrones();
+
+    if (window.audioManager) window.audioManager.playEquip();
+    const p = this.game.player;
+    if (this.game.particles) {
+      this.game.particles.push(new Particle(p.x, p.y, 0, 0, nextCfg.color, 52, 0.45, 'ring'));
+    }
+
+    const msg = `🤖 ĐÃ KÍCH HOẠT: ${nextCfg.name.toUpperCase()} (${nextCfg.droneCount} Drone Tự Động Nhặt Đồ & Sửa Tường)!`;
+    this.game.floatingTexts.push(new FloatingText(p.x, p.y - 38, msg, nextCfg.color, 13, 2.4));
+    if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+
+    this.game.inventory.updatePlayerStats();
+    if (this.game.inventory.isOpen) this.game.inventory.renderUI();
+    if (this.game.updateHUD) this.game.updateHUD(true);
+    if (this.game.lab && this.game.lab.isOpen) {
+      this.game.lab.switchTab(this.game.lab.currentTab);
+    }
+    return true;
+  }
+
+  syncDrones() {
+    const cfg = this.getDroneTierConfig();
+    if (!cfg) {
+      this.drones = [];
+      return;
+    }
+    const anchorX = (this.game && this.game.player) ? this.game.player.x : 35 * 32;
+    const anchorY = (this.game && this.game.player) ? this.game.player.y : 38 * 32;
+
+    while (this.drones.length < cfg.droneCount) {
+      const idx = this.drones.length;
+      this.drones.push({
+        index: idx,
+        x: anchorX + (idx === 0 ? 34 : -34),
+        y: anchorY - 26,
+        orbitAngle: idx * Math.PI,
+        rotorAngle: 0,
+        harvestTimer: 0.8 + idx * 0.6,
+        attackTimer: 0.2 + idx * 0.3,
+        beamType: null,
+        beamX: 0,
+        beamY: 0,
+        beamTimer: 0
+      });
+    }
+    if (this.drones.length > cfg.droneCount) {
+      this.drones.length = cfg.droneCount;
+    }
+  }
+
+  updateDrones(dt) {
+    const cfg = this.getDroneTierConfig();
+    if (!cfg || !this.game || !this.game.player || this.game.player.isDead) return;
+    if (this.drones.length !== cfg.droneCount) {
+      this.syncDrones();
+    }
+
+    const p = this.game.player;
+    // Anchor is either Player ('follow') or Bio-Lab Center ('base')
+    let anchorX = p.x;
+    let anchorY = p.y;
+    if (this.droneMode === 'base' && this.game.world && this.game.world.structures) {
+      const labStruct = this.game.world.structures.find(s => s.type === 'biolab');
+      if (labStruct) {
+        anchorX = labStruct.x + labStruct.width / 2;
+        anchorY = labStruct.y + labStruct.height / 2;
+      }
+    }
+
+    const isEmpStorm = this.game.dayNight && this.game.dayNight.currentWeather === 'EMP_STORM';
+    const dmgMult = isEmpStorm ? 1.25 : 1.0;
+
+    for (let i = 0; i < this.drones.length; i++) {
+      const d = this.drones[i];
+      d.orbitAngle += dt * (this.droneMode === 'base' ? 0.85 : 1.15);
+      d.rotorAngle += dt * 24;
+      if (d.beamTimer > 0) {
+        d.beamTimer -= dt;
+        if (d.beamTimer <= 0) d.beamType = null;
+      }
+
+      // 1. Find Damaged Defense Structures within scanRadius to Auto-Repair
+      let repairTarget = null;
+      if (this.game.buildingManager && this.game.buildingManager.defenses.length > 0) {
+        let lowestRatio = 1.0;
+        for (let k = 0; k < this.game.buildingManager.defenses.length; k++) {
+          const def = this.game.buildingManager.defenses[k];
+          if (def.hp >= def.maxHp) continue;
+          const dist = Math.hypot(def.x - anchorX, def.y - anchorY);
+          if (dist <= cfg.scanRadius) {
+            const ratio = def.hp / def.maxHp;
+            // Second drone prefers a different damaged structure if available
+            if (ratio < lowestRatio || (i === 1 && repairTarget && def !== repairTarget)) {
+              lowestRatio = ratio;
+              repairTarget = def;
+            }
+          }
+        }
+      }
+
+      // Orbit target position (fly closer to repair target if actively welding)
+      const orbitR = this.droneMode === 'base' ? 68 : 42;
+      let targetX = anchorX + Math.cos(d.orbitAngle) * orbitR;
+      let targetY = anchorY + Math.sin(d.orbitAngle) * (orbitR * 0.72) - 18;
+      if (repairTarget) {
+        targetX = repairTarget.x + Math.cos(d.orbitAngle) * 24;
+        targetY = repairTarget.y - 24;
+      }
+
+      const distToTarget = Math.hypot(targetX - d.x, targetY - d.y);
+      if (distToTarget > 550) {
+        d.x = targetX;
+        d.y = targetY;
+      } else {
+        d.x += (targetX - d.x) * Math.min(1, dt * 5.2);
+        d.y += (targetY - d.y) * Math.min(1, dt * 5.2);
+      }
+
+      // Execute Continuous Nano-Welding Repair on Damaged Defense Structure
+      if (repairTarget) {
+        const healAmt = (cfg.repairPerSec / cfg.droneCount) * dt;
+        repairTarget.hp = Math.min(repairTarget.maxHp, repairTarget.hp + healAmt);
+        d.beamType = 'repair';
+        d.beamX = repairTarget.x;
+        d.beamY = repairTarget.y;
+        d.beamTimer = 0.15;
+
+        if (Math.random() < 0.18 && this.game.particles && this.game.particles.length < 155) {
+          this.game.particles.push(new Particle(
+            repairTarget.x + (Math.random() - 0.5) * 14,
+            repairTarget.y + (Math.random() - 0.5) * 14,
+            (Math.random() - 0.5) * 35,
+            -20 - Math.random() * 25,
+            '#38bdf8', 2.5, 0.25
+          ));
+        }
+      }
+
+      // 2. Auto-Harvest Nearby World Resources & Wild Berries
+      d.harvestTimer -= dt;
+      if (d.harvestTimer <= 0 && this.game.world && this.game.inventory) {
+        d.harvestTimer = cfg.harvestInterval;
+
+        // First check ripe wild berry bushes nearby
+        let harvestedSomething = false;
+        if (this.game.world.wildFlora) {
+          for (let f of this.game.world.wildFlora) {
+            if (!f.hasBerries || f.isBlighted) continue;
+            if (Math.hypot(f.x - d.x, f.y - d.y) <= cfg.scanRadius * 0.85) {
+              const dropId = this.game.world.harvestWildFlora(f);
+              if (dropId) {
+                this.game.inventory.addItem(dropId, 2);
+                d.beamType = 'harvest';
+                d.beamX = f.x;
+                d.beamY = f.y;
+                d.beamTimer = 0.35;
+                if (this.game.floatingTexts && this.game.floatingTexts.length < 38) {
+                  this.game.floatingTexts.push(new FloatingText(f.x, f.y - 16, '🤖 +2 Quả Mọng Sạch', '#4ade80', 10, 0.9));
+                }
+                harvestedSomething = true;
+                break;
+              }
+            }
+          }
+        }
+
+        // Next scan mineral/wood/herb/egg harvestables within scanRadius
+        if (!harvestedSomething && this.game.world.harvestables) {
+          let bestH = null;
+          let bestHDist = cfg.scanRadius;
+          for (let h of this.game.world.harvestables) {
+            if (h.isDestroyed) continue;
+            // Only Lv.3 Drone automatically extracts intact Alien Egg nests
+            if (h.type === 'alien_egg' && this.droneLevel < 3) continue;
+            const distH = Math.hypot(h.x - d.x, h.y - d.y);
+            if (distH <= bestHDist) {
+              bestHDist = distH;
+              bestH = h;
+            }
+          }
+
+          if (bestH) {
+            const harvestPower = 20 + this.droneLevel * 10;
+            const destroyed = this.game.world.damageHarvestable(bestH, harvestPower);
+            d.beamType = 'harvest';
+            d.beamX = bestH.x;
+            d.beamY = bestH.y;
+            d.beamTimer = 0.38;
+
+            if (destroyed) {
+              this.game.inventory.addItem(bestH.dropItemId, bestH.dropCount);
+              const def = CONSTANTS.ITEM_TYPES[bestH.dropItemId];
+              let label = `🤖 +${bestH.dropCount} ${def ? def.name : bestH.dropItemId}`;
+              if (bestH.type === 'alien_egg') {
+                this.game.inventory.addItem('monster_egg', 1);
+                this.game.inventory.addItem('alien_chitin', 1);
+                label = '🤖 🥚 +1 Trứng Quái Vật & +1 Dịch Trứng!';
+              }
+              if (this.game.floatingTexts && this.game.floatingTexts.length < 40) {
+                this.game.floatingTexts.push(new FloatingText(bestH.x, bestH.y - 20, label, '#4ade80', 11, 1.1));
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Auto-Attack Nearby Monsters with Support Laser
+      d.attackTimer -= dt;
+      if (d.attackTimer <= 0 && this.game.monsters && this.game.monsters.length > 0 && this.game.projectiles) {
+        let bestM = null;
+        let bestMDist = cfg.scanRadius;
+        for (let m of this.game.monsters) {
+          if (m.isDead) continue;
+          if (m.species === 'dummy' && Math.hypot(p.x - m.x, p.y - m.y) > 140) continue;
+          const distM = Math.hypot(m.x - d.x, m.y - d.y);
+          if (distM <= bestMDist) {
+            bestMDist = distM;
+            bestM = m;
+          }
+        }
+
+        if (bestM) {
+          d.attackTimer = cfg.laserCooldown;
+          const angle = Math.atan2(bestM.y - d.y, bestM.x - d.x);
+          const speed = 560;
+          const dmg = Math.round(cfg.laserDamage * dmgMult);
+          this.game.projectiles.push(new Projectile(
+            d.x, d.y,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            cfg.scanRadius + 40,
+            dmg,
+            'plasma_bullet',
+            { color: cfg.color }
+          ));
+        }
+      }
+    }
+  }
+
+  renderDrones(ctx, camera) {
+    const cfg = this.getDroneTierConfig();
+    if (!cfg || !this.drones || this.drones.length === 0) return;
+
+    for (let i = 0; i < this.drones.length; i++) {
+      const d = this.drones[i];
+      const sx = d.x - camera.x;
+      const sy = d.y - camera.y + Math.sin(this.bobTimer + i * 1.6) * 3;
+      if (sx < -120 || sx > camera.width + 120 || sy < -120 || sy > camera.height + 120) continue;
+
+      ctx.save();
+
+      // 1. Active Harvesting or Nano-Repair Laser Beam
+      if (d.beamType && d.beamTimer > 0) {
+        const tx = d.beamX - camera.x;
+        const ty = d.beamY - camera.y;
+        ctx.strokeStyle = d.beamType === 'repair' ? '#38bdf8' : '#4ade80';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+      }
+
+      // 2. Ground Shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+      ctx.beginPath();
+      ctx.ellipse(sx, d.y - camera.y + 14, 8, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3. Quad-Rotor Arms & Spinning Blades
+      const armOffsets = [
+        { ox: -9, oy: -6 },
+        { ox: 9, oy: -6 },
+        { ox: -9, oy: 6 },
+        { ox: 9, oy: 6 }
+      ];
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1.6;
+      for (const arm of armOffsets) {
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + arm.ox, sy + arm.oy);
+        ctx.stroke();
+
+        // Spinning rotor blur disc
+        ctx.strokeStyle = cfg.color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(sx + arm.ox, sy + arm.oy, 4.2, d.rotorAngle, d.rotorAngle + Math.PI * 1.3);
+        ctx.stroke();
+      }
+
+      // 4. Central Mechanical Drone Chassis & Glowing AI Core
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = cfg.color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 3.0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 5. Compact Overhead Label on First Drone
+      if (i === 0) {
+        ctx.font = 'bold 8.5px "Segoe UI", Tahoma, sans-serif';
+        ctx.textAlign = 'center';
+        const tag = `🤖 Drone Lv.${this.droneLevel}`;
+        const tw = ctx.measureText(tag).width + 6;
+        ctx.fillStyle = 'rgba(9, 13, 22, 0.82)';
+        ctx.fillRect(sx - tw / 2, sy - 21, tw, 10);
+        ctx.fillStyle = cfg.color;
+        ctx.fillText(tag, sx, sy - 13);
+      }
+
+      ctx.restore();
+    }
+  }
+
   render(ctx, camera) {
+    // Render Support Drones first (always rendered if unlocked)
+    this.renderDrones(ctx, camera);
+
     if (!this.activePet || !this.game || !this.game.player || this.game.player.isDead) return;
     const spec = this.getActiveSpecies();
     if (!spec) return;

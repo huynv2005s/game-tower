@@ -467,7 +467,7 @@ class InventorySystem {
       }
     }
 
-    // Include Passive Stat Bonuses from the 1 Active Companion Pet
+    // Include Passive Stat Bonuses from the 1 Active Companion Pet & Support Drones
     if (this.game.petSystem) {
       const petSpec = this.game.petSystem.getActiveSpecies();
       if (petSpec && petSpec.statsBonus) {
@@ -475,6 +475,10 @@ class InventorySystem {
         if (petSpec.statsBonus.armor) totalArmor += petSpec.statsBonus.armor;
         if (petSpec.statsBonus.toxinResist) totalToxinResist += petSpec.statsBonus.toxinResist;
         if (petSpec.statsBonus.speedBonus) totalSpeedBonus += petSpec.statsBonus.speedBonus;
+      }
+      const droneCfg = this.game.petSystem.getDroneTierConfig ? this.game.petSystem.getDroneTierConfig() : null;
+      if (droneCfg && droneCfg.armorBonus) {
+        totalArmor += droneCfg.armorBonus;
       }
     }
 

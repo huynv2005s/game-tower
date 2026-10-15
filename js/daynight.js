@@ -17,13 +17,65 @@ class DayNightSystem {
     this.pendingWaveSpawns = [];
     this.waveSpawnTimer = 0;
 
+    // Dynamic Weather & Apocalyptic Phenomenon System ('CLEAR', 'ACID_RAIN', 'EMP_STORM', 'BLOOD_MOON')
+    this.currentWeather = 'CLEAR';
+    this.weatherAnimTimer = 0;
+    this.empLightningTimer = 3.5;
+    this.lightningFlashAlpha = 0;
+
     // Persistent offscreen canvas for dynamic lighting (Eliminates per-frame DOM canvas creation lag!)
     this.lightCanvas = document.createElement('canvas');
     this.lightCtx = this.lightCanvas.getContext('2d');
   }
 
+  getWeatherConfig(weatherId = this.currentWeather) {
+    const map = (CONSTANTS && CONSTANTS.WEATHER_TYPES) ? CONSTANTS.WEATHER_TYPES : {};
+    return map[weatherId] || map.CLEAR || { id: 'CLEAR', name: 'Quang Đãng', icon: '☀', color: '#38bdf8', desc: '' };
+  }
+
+  rollDailyWeather() {
+    if (this.isBloodMoonDay(this.dayCount)) {
+      this.setWeather('BLOOD_MOON', true);
+      return;
+    }
+    const r = Math.random();
+    if (r < 0.34) {
+      this.setWeather('ACID_RAIN', true);
+    } else if (r < 0.64) {
+      this.setWeather('EMP_STORM', true);
+    } else {
+      this.setWeather('CLEAR', false);
+    }
+  }
+
+  setWeather(weatherId, announce = true) {
+    if (!CONSTANTS.WEATHER_TYPES || !CONSTANTS.WEATHER_TYPES[weatherId]) {
+      weatherId = 'CLEAR';
+    }
+    this.currentWeather = weatherId;
+    const cfg = this.getWeatherConfig(weatherId);
+
+    if (announce && this.game && this.game.player && this.game.floatingTexts) {
+      const msg = `${cfg.icon} THỜI TIẾT: ${cfg.name.toUpperCase()} — ${cfg.desc}`;
+      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 52, `${cfg.icon} ${cfg.name.toUpperCase()}!`, cfg.color, 14, 2.6));
+      if (this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+    }
+    if (this.game && this.game.updateHUD) {
+      this.game.updateHUD(true);
+    }
+  }
+
+  cycleWeatherManually() {
+    const order = ['CLEAR', 'ACID_RAIN', 'EMP_STORM', 'BLOOD_MOON'];
+    const idx = order.indexOf(this.currentWeather);
+    const nextId = order[(idx + 1) % order.length];
+    if (window.audioManager) window.audioManager.playEquip();
+    this.setWeather(nextId, true);
+  }
+
   isBloodMoonDay(day = this.dayCount) {
-    const interval = (CONSTANTS && CONSTANTS.BLOOD_MOON_INTERVAL_DAYS) ? CONSTANTS.BLOOD_MOON_INTERVAL_DAYS : 15;
+    if (day === this.dayCount && this.currentWeather === 'BLOOD_MOON') return true;
+    const interval = (CONSTANTS && CONSTANTS.BLOOD_MOON_INTERVAL_DAYS) ? CONSTANTS.BLOOD_MOON_INTERVAL_DAYS : 5;
     return day > 0 && (day % interval === 0);
   }
 
@@ -32,25 +84,31 @@ class DayNightSystem {
   }
 
   getNextBloodMoonDay() {
-    const interval = (CONSTANTS && CONSTANTS.BLOOD_MOON_INTERVAL_DAYS) ? CONSTANTS.BLOOD_MOON_INTERVAL_DAYS : 15;
+    const interval = (CONSTANTS && CONSTANTS.BLOOD_MOON_INTERVAL_DAYS) ? CONSTANTS.BLOOD_MOON_INTERVAL_DAYS : 5;
     const rem = this.dayCount % interval;
     return rem === 0 ? this.dayCount : (this.dayCount + (interval - rem));
   }
 
   update(dt) {
     this.time += dt;
+    this.weatherAnimTimer += dt;
+    if (this.lightningFlashAlpha > 0) {
+      this.lightningFlashAlpha = Math.max(0, this.lightningFlashAlpha - dt * 1.4);
+    }
+
     if (this.time >= this.dayDuration) {
       this.time = 0;
       this.dayCount++;
       this.pendingWaveSpawns = [];
+      this.rollDailyWeather();
 
       if (this.game && this.game.floatingTexts) {
         if (this.isBloodMoonDay(this.dayCount)) {
-          const bmMsg = `🩸 CẢNH BÁO NGÀY ${this.dayCount}: ĐÊM NAY LÀ TRĂNG MÁU - QUÁI VẬT ĐÔNG GẤP 10 LẦN! 🩸`;
+          const bmMsg = `🩸 CẢNH BÁO NGÀY ${this.dayCount}: ĐÊM NAY LÀ HUYẾT NGUYỆT — QUÁI RỚT X2 CHIẾN LỢI PHẨM HIẾM! 🩸`;
           this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 48, bmMsg, '#ef4444', 15, 4.0));
           if (this.game.saveManager) this.game.saveManager.showSaveToast(bmMsg);
         } else if (this.getNextBloodMoonDay() - this.dayCount === 1) {
-          const warnMsg = `⚠️ CẢNH BÁO: NGÀY MAI (NGÀY ${this.dayCount + 1}) SẼ XUẤT HIỆN TRĂNG MÁU (QUÁI X10)!`;
+          const warnMsg = `⚠️ CẢNH BÁO: NGÀY MAI (NGÀY ${this.dayCount + 1}) SẼ XUẤT HIỆN HUYẾT NGUYỆT (LOOT X2)!`;
           this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 45, warnMsg, '#f97316', 14, 3.2));
           if (this.game.saveManager) this.game.saveManager.showSaveToast(warnMsg);
         } else {
@@ -127,22 +185,109 @@ class DayNightSystem {
       }
     }
 
-    // Environmental Night Infection (intensified during Blood Moon)
-    if (this.isNight && this.game.player && !this.game.player.isDead) {
+    // Environmental Night & Acid Rain Infection
+    if (this.game.player && !this.game.player.isDead) {
       const isSheltered = this.game.world && this.game.world.isInsideIsolation(this.game.player.x, this.game.player.y);
       if (!isSheltered) {
-        const rate = (bloodMoonToday ? 0.55 : 0.35) * dt;
-        this.game.player.addInfection(rate, '', false);
+        let envToxinRate = 0;
+        if (this.isNight) {
+          envToxinRate += bloodMoonToday ? 0.55 : 0.35;
+        }
+        if (this.currentWeather === 'ACID_RAIN') {
+          envToxinRate += 0.30;
+        }
+        if (envToxinRate > 0) {
+          this.game.player.addInfection(envToxinRate * dt, '', false);
+        }
+      }
+    }
+
+    // EMP Storm Periodic Lightning Strikes on Monsters
+    if (this.currentWeather === 'EMP_STORM' && this.game && this.game.monsters && this.game.player) {
+      this.empLightningTimer -= dt;
+      if (this.empLightningTimer <= 0) {
+        this.empLightningTimer = 3.2 + Math.random() * 1.5;
+        const p = this.game.player;
+        let struckMonster = null;
+        let bestDist = 420;
+        for (let m of this.game.monsters) {
+          if (m.isDead || m.species === 'dummy') continue;
+          const d = Math.hypot(m.x - p.x, m.y - p.y);
+          if (d <= bestDist) {
+            bestDist = d;
+            struckMonster = m;
+          }
+        }
+        if (struckMonster) {
+          this.lightningFlashAlpha = 0.22;
+          struckMonster.takeDamage(28, this.game.particles, this.game.floatingTexts);
+          struckMonster.applyStun(1.8);
+          if (this.game.particles) {
+            this.game.particles.push(new Particle(struckMonster.x, struckMonster.y - 180, 0, 0, '#38bdf8', 3, 0.28, 'lightning', { x2: struckMonster.x, y2: struckMonster.y }));
+            this.game.particles.push(new Particle(struckMonster.x, struckMonster.y, 0, 0, '#38bdf8', 38, 0.35, 'ring'));
+          }
+          if (this.game.floatingTexts && this.game.floatingTexts.length < 38) {
+            this.game.floatingTexts.push(new FloatingText(struckMonster.x, struckMonster.y - 28, '⚡ SÉT ĐIỆN TỪ (-28 & CHOÁNG)!', '#38bdf8', 11, 0.9));
+          }
+        }
       }
     }
   }
 
-  // Render dynamic lighting & flashlight beam using persistent half-res offscreen buffer (4x faster GPU performance!)
+  // Render dynamic lighting, weather particles & flashlight beam using persistent half-res offscreen buffer (4x faster GPU performance!)
   renderLighting(ctx, camera, player) {
-    if (this.lightLevel >= 0.95 && !this.isBloodMoonDay(this.dayCount)) return;
-
     const w = Math.ceil(camera.width);
     const h = Math.ceil(camera.height);
+
+    // 1. Render 60FPS Weather Overlay Effects (Acid Rain / EMP Storm / Blood Moon Embers)
+    if (this.currentWeather === 'ACID_RAIN') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(101, 163, 13, 0.08)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(163, 230, 53, 0.55)';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      const t = this.weatherAnimTimer * 420;
+      for (let i = 0; i < 36; i++) {
+        const rx = (i * 97 + t * 0.45) % w;
+        const ry = (i * 73 + t) % h;
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx - 6, ry + 16);
+      }
+      ctx.stroke();
+      ctx.restore();
+    } else if (this.currentWeather === 'EMP_STORM') {
+      ctx.save();
+      if (this.lightningFlashAlpha > 0) {
+        ctx.fillStyle = `rgba(56, 189, 248, ${this.lightningFlashAlpha.toFixed(2)})`;
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.42)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      const t = this.weatherAnimTimer * 480;
+      for (let i = 0; i < 24; i++) {
+        const rx = (i * 127 + t * 0.6) % w;
+        const ry = (i * 89 + t) % h;
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx - 8, ry + 14);
+      }
+      ctx.stroke();
+      ctx.restore();
+    } else if (this.isBloodMoonDay(this.dayCount)) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(248, 113, 113, 0.55)';
+      const t = this.weatherAnimTimer * 45;
+      for (let i = 0; i < 20; i++) {
+        const ex = (i * 131 + Math.sin(this.weatherAnimTimer + i) * 24 + w) % w;
+        const ey = h - ((i * 83 + t) % h);
+        ctx.fillRect(ex, ey, 2.5, 2.5);
+      }
+      ctx.restore();
+    }
+
+    if (this.lightLevel >= 0.95 && !this.isBloodMoonDay(this.dayCount)) return;
+
     const scale = 0.5;
     const lw = Math.max(1, Math.ceil(w * scale));
     const lh = Math.max(1, Math.ceil(h * scale));

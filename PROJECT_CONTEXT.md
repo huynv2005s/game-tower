@@ -1,7 +1,7 @@
 # ALIEN APOCALYPSE: 2D PIXEL ART SURVIVAL & TOWER DEFENSE
 ## 📘 MASTER PROJECT CONTEXT & AGENT HANDOVER DOCUMENTATION
 
-> **Tài liệu bàn giao toàn diện:** Dành cho AI Agent hoặc Developer tiếp quản dự án trong các phiên làm việc mới. Đọc tài liệu này sẽ nắm bắt được 100% bối cảnh, kiến trúc mã nguồn, quy chuẩn nghiêm ngặt, các tính năng đã hoàn thiện từ Phase 1 đến Phase 4, và lộ trình phát triển tiếp theo.
+> **Tài liệu bàn giao toàn diện:** Dành cho AI Agent hoặc Developer tiếp quản dự án trong các phiên làm việc mới. Đọc tài liệu này sẽ nắm bắt được 100% bối cảnh, kiến trúc mã nguồn, quy chuẩn nghiêm ngặt, các tính năng đã hoàn thiện từ Phase 1 đến Phase 7, và lộ trình phát triển tiếp theo.
 
 ---
 
@@ -32,7 +32,7 @@ c:/Go/demo/
 │       ├── icon-192.png       # Icon PWA 192x192
 │       └── icon-512.png       # Icon PWA 512x512
 ├── css/
-│   └── style.css              # Toàn bộ CSS giao diện HUD, Modal, Mobile Controls, Responsive
+│   └── style.css              # Toàn bộ CSS giao diện HUD thu gọn, Modal, Mobile Controls, Responsive
 ├── js/
 │   ├── constants.js           # Hằng số toàn cục: Biomes, Tiles, Vật phẩm, Vũ khí, Công trình, Quái vật, 5 Loài Pet
 │   ├── audio.js               # Web Audio API Synth tạo âm thanh không cần file audio ngoài
@@ -40,12 +40,12 @@ c:/Go/demo/
 │   ├── world.js               # Khởi tạo bản đồ 100x80 tiles (3 Biomes), va chạm vật lý, sông suối, nhặt ổ trứng [F]
 │   ├── entities.js            # Lớp Player, 4 loài Monster, Đạn bay Projectile (kèm đạn Pet), Hạt Particle, Chữ nổi Combat
 │   ├── weapons.js             # Logic 5 loại vũ khí (Giáo, Gậy, Dao, Cung, Súng) và 10 kỹ năng giải vây
-│   ├── pets.js                # Hệ thống Ấp Trứng Quái Vật (chỉ trong Bio-Lab) & Pet Đồng Hành (Tối đa 1 Pet bên người)
-│   ├── inventory.js           # Quản lý 20-28 ô Balo, 5 ô Trang bị Giáp + 1 ô Pet Đồng Hành, nâng cấp dung lượng
-│   ├── lab.js                 # 6 Tab chế tác: Bio-Lab, Ấp Trứng & Pet, Lò Nung, Bàn Chế Tạo, Xưởng Cơ Khí, Lồng Cấy
+│   ├── pets.js                # Ấp Trứng, Chiết Xuất Trứng Dư, Pet Đồng Hành (1/1) & Tiến Hóa Pet (Lv.1 -> Lv.3)
+│   ├── inventory.js           # Quản lý 20-28 ô Balo, Lọc/Sắp xếp/Xóa vật phẩm nhanh, 5 ô Giáp + 1 ô Pet
+│   ├── lab.js                 # 6 Tab chế tác, Nâng cấp Bio-Lab (Lv.1-4), Lồng Ấp & Tiến Hóa Pet, Lồng Cấy Tự Động
 │   ├── buildings.js           # Hệ thống công trình: Tường, Bẫy gai, Tháp canh, Súng cối, Preview xây & nâng cấp Lv.3
 │   ├── daynight.js            # Chu kỳ Ngày/Đêm, đợt quái tấn công tăng dần, cơ chế ấp trứng nở
-│   ├── savegame.js            # Tự động lưu & Khôi phục tiến trình (kèm Pet & Lồng Ấp) từ LocalStorage
+│   ├── savegame.js            # Tự động lưu & Khôi phục tiến trình (kèm Cấp độ Lab, Pet Lv.1-3 & Lồng Ấp) từ LocalStorage
 │   ├── mobile.js              # Virtual Joystick, Smart Auto-Aim, Action Buttons, Landscape Overlay
 │   └── game.js                # Game Engine chính, vòng lặp Loop 60fps, Camera, Phím tắt, Điều phối
 ├── index.html                 # Giao diện chính, HUD, các Modal, khai báo PWA và Script Tags
@@ -231,18 +231,90 @@ c:/Go/demo/
    * Khi ấp nở thêm Pet mới trong lúc đã có 1 Pet đi cùng, Pet mới sẽ tự động được lưu trữ an toàn vào **Chuồng Sinh Học Phòng Lab (`storedPets`)**.
    * Người chơi có thể đổi Pet đang mang bên người lấy bất kỳ Pet nào trong Chuồng Sinh Học thông qua tab **`🐣 ẤP TRỨNG & PET`** (Phím **`[P]`** hoặc click vào ô `🐾 Thú Cưng (1/1)` trong Balo **`[I]`**).
 
+5. **⭐ Nâng Cấp / Tiến Hóa Pet (`Lv.1 ➔ Lv.3 MAX`, [pets.js](file:///c:/Go/demo/js/pets.js), [lab.js](file:///c:/Go/demo/js/lab.js)):**
+   * Giải quyết triệt để bài toán dư thừa Trứng Quái Vật (`monster_egg`) và Pet nở trùng khi chỉ mang được `1/1` Pet bên người:
+   * **2 Phương Thức Cường Hóa Tại Tab `🐣 ẤP TRỨNG & PET` (`[Phím P]`):**
+     1. **🥚 Cường hóa bằng Trứng Quái Vật dư (`upgradeActivePetWithEgg`):** Tốn **1 Trứng** để nâng từ `Lv.1 ➔ Lv.2`, và **2 Trứng** để nâng từ `Lv.2 ➔ Lv.3 MAX`.
+     2. **🧬 Dung hợp Pet dự phòng / Pet nở trùng (`upgradeActivePetWithStored`):** Hiến tế 1 Pet trong Chuồng Lưu Trữ để tăng ngay **+1 Cấp Sao** cho Pet đang mang bên người và nhận thêm **+1 Dịch Tuyến Trứng (`egg_fluid`)**.
+   * **Sức Mạnh Tăng Tiến Theo Cấp Sao (`getPetEffectiveStats`):**
+     * **⭐ Lv.1 (Cơ bản):** 100% sát thương bắn phụ, 100% hồi máu / lọc độc và chỉ số cộng thêm cho chủ nhân.
+     * **⭐⭐ Lv.2 (Cường Hóa):** **+45% Sát thương bắn phụ**, **+50% Hồi máu / Lọc độc & Chỉ số chủ nhân** (Max HP, Giáp, Kháng Độc, Tốc Chạy), giảm **12% hồi chiêu bắn** và **+35px tầm bắn**.
+     * **⭐⭐⭐ Lv.3 (Tiến Hóa Tối Đa - MAX):** **Bắn 2 tia đạn song song (`x2 Đạn Đôi`)**, **+100% Sát thương mỗi tia**, **+120% Hồi máu / Lọc độc & Chỉ số chủ nhân**, giảm **22% hồi chiêu bắn**, **+70px tầm bắn**, kèm vòng hào quang đôi dưới chân Pet và huy hiệu `[Lv.3]` trên đầu.
+
+6. **🧪 Chiết Xuất Trứng Dư Trực Tiếp Tại Phòng Lab (`extractEggInLab`, [pets.js](file:///c:/Go/demo/js/pets.js), [lab.js](file:///c:/Go/demo/js/lab.js), [constants.js](file:///c:/Go/demo/js/constants.js)):**
+   * Cho phép nghiền trực tiếp **1 Trứng Quái Vật dư** (hoặc bấm **`🧪 Chiết Xuất Hết (N)`** để nghiền toàn bộ trứng dư) ngay tại Phòng Lab mà **không cần chờ 10 giây ấp nở**.
+   * **Thành phẩm mỗi 1 Trứng chiết xuất:** Nhận ngay **+2 Dịch Tuyến Trứng (`egg_fluid`) + 2 Giáp Xác Ngoại Lai (`alien_chitin`) + 1 Lõi Năng Lượng Plasma (`plasma_core`)** để chế tạo thuốc kháng thể và nâng cấp Súng / Công trình Lv.3.
+
+---
+
+### 🎒 PHASE 7: NÂNG CẤP PHÒNG LAB (LV.1 ➔ LV.4), THU GỌN GIAO DIỆN HUD & QUẢN LÝ / XÓA VẬT PHẨM BALO
+
+1. **Hệ Thống Nâng Cấp Phòng Lab Sinh Học 4 Cấp (`Lv.1 ➔ Lv.4 MAX`, [lab.js](file:///c:/Go/demo/js/lab.js), [world.js](file:///c:/Go/demo/js/world.js)):**
+   * Nâng cấp trực tiếp tại banner đầu cửa sổ Phòng Lab (`[Phím L]`) hoặc tab Lồng Cấy Sinh Học:
+     * **Lv.1 (Trạm Cách Ly Cơ Bản):** 3 Lồng cấy, tốc độ mọc chuẩn (1.0x), sản lượng +2 cây/mẻ, bán kính Khiên Vô Trùng 128px.
+     * **Lv.2 (Phòng Lab Khử Trùng):** **4 Lồng cấy**, cây lớn nhanh **1.25x**, sản lượng **+3 cây/mẻ**, bán kính Khiên **160px**, hồi **+1.5 HP/s** & lọc độc **-0.8%/s** khi đứng trong Lab.
+     * **Lv.3 (Trung Tâm Nghiên Cứu Gen):** **6 Lồng cấy**, cây lớn nhanh **1.55x**, sản lượng **+3 cây/mẻ**, bán kính Khiên **195px**, hồi **+3.0 HP/s** & lọc độc **-1.6%/s** trong Lab.
+     * **Lv.4 (Pháo Đài Sinh Học Tối Thượng - MAX):** **8 Lồng cấy tự động**, cây lớn nhanh **2.0x**, sản lượng **+4 cây/mẻ**, bán kính Khiên **240px**, hồi **+5.0 HP/s** & lọc độc **-3.0%/s** trong Lab.
+   * Hỗ trợ **Tự Động Gieo Lại Hạt Giống (`Auto-Replant`)**, nút **Thu Hoạch Tất Cả** và **Gieo Nhanh Toàn Bộ Lồng Trống**.
+
+2. **Tối Giản Hóa Giao Diện HUD & Thanh Công Cụ (`Compact HUD & Collapsible Dock`, [index.html](file:///c:/Go/demo/index.html), [style.css](file:///c:/Go/demo/css/style.css)):**
+   * Thu gọn toàn bộ HUD trên cùng và khay kỹ năng dưới đáy màn hình, mở rộng tối đa tầm nhìn bản đồ chiến đấu.
+   * Tích hợp nút **`▼ Ẩn Khay` / `▲ Mở Khay`** để đóng/mở nhanh hàng Vũ Khí & Xây Dựng Thủ Thành, và gom các nút hệ thống phụ vào menu **`⚙ MENU`**.
+
+3. **Hệ Thống Quản Lý, Lọc, Sắp Xếp & Xóa Bỏ Vật Phẩm Trong Balo ([inventory.js](file:///c:/Go/demo/js/inventory.js)):**
+   * **Nút xóa nhanh `✕` trên từng ô đồ:** Bấm trực tiếp vào góc phải trên của bất kỳ ô đồ nào để xóa ngay ô đó (giữ `Shift` hoặc click Chuột phải để xóa lẻ 1 món).
+   * **Chế độ Xóa Nhanh (`🗑 Chế Độ Xóa Nhanh - Trash Mode`):** Khi bật lên, chạm vào bất kỳ ô đồ nào trong Balo sẽ lập tức tiêu hủy vật phẩm đó mà không cần xác nhận rườm rà.
+   * **Bảng Chi Tiết & Thao Tác Vật Phẩm Chọn (`Selected Item Inspector`):** Hiển thị đầy đủ mô tả, số lượng trong ô / tổng trong Balo cùng 4 nút thao tác rõ ràng:
+     * **`⚡ Sử Dụng / Trang Bị`**
+     * **`➖ Xóa 1`** (Xóa bớt 1 đơn vị)
+     * **`🗑 Xóa Ô (N)`** (Xóa toàn bộ stack trong ô đang chọn)
+     * **`🔥 Xóa Hết (Tổng)`** (Xóa sạch mọi ô chứa vật phẩm cùng loại trong Balo)
+   * **Tiện ích dọn kho 1 chạm:**
+     * **`📦 Gộp & Sắp Xếp`:** Tự động dồn các ô vật phẩm cùng loại lại tới mức tối đa (`Max Stack 25`) và sắp xếp theo thứ tự.
+     * **`🧹 Dọn Đồ Dư`:** Tự động lọc và tiêu hủy toàn bộ vật phẩm nhiễm độc có hại (`Nước Ô Nhiễm`, `Quả Đột Biến Nhiễm Độc`) chỉ với 1 cú bấm.
+     * **Bộ lọc danh mục:** Lọc nhanh theo `Tất Cả`, `Tiêu Hao`, `Trang Bị`, `Nguyên Liệu`.
+
+---
+
+### 🌩️🤖 PHASE 8: SỰ KIỆN THỜI TIẾT BIẾN ĐỘNG (LOOT X2) & HỆ THỐNG DRONE TỰ ĐỘNG NHẶT ĐỒ & SỬA TƯỜNG (LV.1 ➔ LV.3)
+
+1. **Hệ Thống Thời Tiết Biến Động & Đêm Huyết Nguyệt (`WEATHER_TYPES`, [daynight.js](file:///c:/Go/demo/js/daynight.js), [entities.js](file:///c:/Go/demo/js/entities.js), [lab.js](file:///c:/Go/demo/js/lab.js)):**
+   * Tự động chuyển biến thời tiết mỗi ngày mới hoặc người chơi có thể **bấm trực tiếp vào Đồng hồ Thời gian trên HUD (`#chronometer-panel`)** để chuyển đổi nhanh giữa 4 hiện tượng thời tiết:
+     * **☀ Quang Đãng (`CLEAR`):** Thời tiết ổn định, tầm nhìn rõ ràng.
+     * **🌧️ Mưa Axit Độc (`ACID_RAIN`):**
+       * *Hiệu ứng:* Mưa axit xanh lục rơi chéo toàn màn hình + tăng nhẹ độc tố (`+0.30% Độc/s`) khi đứng ngoài Khiên Vô Trùng Phòng Lab.
+       * *Phần thưởng:* Cây dược liệu trong Lồng Cấy lớn nhanh **+40%**, và mọi quái vật bị tiêu diệt rớt **X2 Giáp Xác Ngoại Lai (`alien_chitin`) + 65% rớt thêm Dịch Tuyến Trứng (`egg_fluid`)**!
+     * **⚡ Bão Điện Từ (`EMP_STORM`):**
+       * *Hiệu ứng:* Sét từ trường tự động giáng xuống mặt đất mỗi ~3.2s gây **28 sát thương điện + Làm choáng (Stun) 1.8s** lên quái vật ngoài trời.
+       * *Phần thưởng:* Cộng hưởng từ trường tăng **+25% sát thương cho Súng Trường Plasma (`GUN`), Tháp Canh (`Turret`), Rồng Plasma và Drone**, đồng thời quái vật bị hạ gục có **55% rớt Mảnh Vỡ Công Nghệ (`tech_scrap`) & 22% rớt Lõi Plasma (`plasma_core`)**!
+     * **🩸 Đêm Huyết Nguyệt / Trăng Máu (`BLOOD_MOON`):**
+       * *Hiệu ứng:* Bầu trời đỏ rực kèm tàn lửa bay lên, quái vật tấn công dữ dội.
+       * *Phần thưởng:* **TẤT CẢ QUÁI VẬT & BOSS BỊ TIÊU DIỆT ĐỀU RỚT X2 CHIẾN LỢI PHẨM (`x2 Giáp Xác, x2 Quặng/Thạch Anh, x2 Hợp Kim Titan & Lõi Plasma, 50% rớt Trứng Quái Vật`)**!
+
+2. **Hệ Thống Robot Drone Tự Động Nhặt Tài Nguyên & Sửa Chữa Công Trình (`DRONE_TIERS`, [pets.js](file:///c:/Go/demo/js/pets.js), [lab.js](file:///c:/Go/demo/js/lab.js), [constants.js](file:///c:/Go/demo/js/constants.js)):**
+   * Chế tạo và nâng cấp tại **Xưởng Cơ Khí Thủ Thành (`Workshop` - nút `⚙️`)** hoặc tab **Ấp Trứng & Pet (`[Phím P]`)**:
+     * **🤖 Cấp 1 — Drone Thu Thập & Sửa Chữa (`Lv.1`):**
+       * Triển khai **1 Drone** bay tự động (bán kính quét `280px`), tự phóng tia Laser khai thác tài nguyên & hái quả mọng sạch quanh người/căn cứ cộng thẳng vào Balo mỗi `2.6s`, tự động phóng tia Hàn Nano sửa chữa Tường/Tháp bị hư hại (**`+16 HP/giây`**), bắn đạn Laser hỗ trợ (**`15 DMG`**) và cộng **`+4 Giáp`** cho chủ nhân.
+     * **🤖🤖 Cấp 2 — Phi Đội Drone Kép Từ Trường (`Lv.2`):**
+       * Mở khóa **2 Drone bay song song** (bán kính quét `400px`), tự thu hoạch nhanh mỗi `1.8s`, hàn sửa cùng lúc 2 công trình (**`+34 HP/giây`**), bắn Laser **`24 DMG`** và cộng **`+8 Giáp`**.
+     * **🤖🤖⚡ Cấp 3 — Phi Đội Drone AI Siêu Nạp (`Lv.3 MAX`):**
+       * **2 Drone AI Tối Thượng** (bán kính quét toàn khu `540px`), tự thu hoạch siêu tốc mỗi `1.1s` (bao gồm cả tự động thu hồi `Trứng Quái Vật` từ Ổ Trứng ở gần!), hàn sửa công trình **`+60 HP/giây`**, bắn đạn Plasma **`38 DMG`** và cộng **`+14 Giáp`**.
+   * **2 Chế Độ Bay Linh Hoạt (`toggleDroneMode`):**
+     * **`🔄 ĐA NHIỆM (BAY THEO NGƯỜI)`:** Bay hộ tống người chơi, vừa đi đường vừa tự động khai thác tài nguyên dọc đường + bắn quái + sửa công trình ở gần.
+     * **`🏰 TUẦN TRA CĂN CỨ (TRỰC CHIẾN LAB)`:** Bay tuần tra cố định quanh Phòng Lab & Hàng phòng thủ để liên tục hàn sửa Tường/Tháp Canh suốt đêm ngay cả khi người chơi đi xa!
+
 ---
 
 ## 4. BẢNG THÔNG SỐ VŨ KHÍ, CÔNG TRÌNH, THÚ CƯNG, NGUYÊN LIỆU & QUÁI VẬT
 
-### 🐣 Bảng 5 Loài Pet Đồng Hành (Ấp Ngẫu Nhiên Tại Phòng Lab — Tối Đa 1 Pet Bên Người)
-| Loài Pet | Độ Hiếm (Tỉ Lệ) | Đòn Bắn Tầm Xa | Kỹ Năng Nội Tại & Chỉ Số Cộng Thêm |
+### 🐣 Bảng 5 Loài Pet Đồng Hành (Ấp Ngẫu Nhiên Tại Phòng Lab — Tiến Hóa Lv.1 ➔ Lv.3 MAX)
+| Loài Pet | Độ Hiếm (Tỉ Lệ) | Đòn Bắn Tầm Xa (Lv.1 / Lv.2 / Lv.3 Đạn Đôi) | Kỹ Năng Nội Tại & Chỉ Số Cộng Thêm (Lv.1 ➔ Lv.3) |
 | :--- | :---: | :--- | :--- |
-| **🏹 Cung Thủ Gai (`pet_archer`)** | Phổ Biến (26%) | Bắn tên gai như cung (290px, 16 DMG / 0.85s, làm chậm 25%) | Tốc bắn liên thanh + Đẩy lùi quái áp sát |
-| **💚 Tinh Linh Sinh Học (`pet_healer`)**| Hiếm (24%) | Đạn sinh học (230px, 10 DMG + Hút 2 HP/đòn) | **Hồi +2.5 HP/s**, Xung trị thương **+12 HP/5s**, **+25 Max HP** |
-| **🛡️ Bọ Giáp Kháng Độc (`pet_antitoxin`)**| Hiếm (22%) | Đạn khử độc (220px, 12 DMG, làm chậm 20%) | **+35% Kháng Độc**, **Thanh lọc độc -1.8%/s**, **+6 Giáp** |
-| **❄️ Phượng Hoàng Băng (`pet_frost`)** | Sử Thi (16%) | Cầu băng giá (265px, 14 DMG, đóng băng chậm 50% 2.2s) | Khống chế diện rộng, **+15 Tốc độ chạy** |
-| **⚡ Rồng Hạch Tâm Plasma (`pet_plasma`)**| Huyền Thoại (12%)| Sét Plasma (310px, 22 DMG, **Giật sét dây chuyền 3 mục tiêu**)| **Hồi +1.5 HP/s**, **Thanh lọc độc -1.0%/s**, **+20% Kháng Độc**, **+4 Giáp** |
+| **🏹 Cung Thủ Gai (`pet_archer`)** | Phổ Biến (26%) | Tên gai (16 / 23 / 32x2 DMG, làm chậm 25%) | Tốc bắn liên thanh + Đẩy lùi quái, **+10 ➔ +22 Max HP**, **+5 ➔ +11 Tốc chạy** |
+| **💚 Tinh Linh Sinh Học (`pet_healer`)**| Hiếm (24%) | Đạn sinh học (10 / 15 / 20x2 DMG + Hút HP) | **Hồi +2.5 ➔ +5.5 HP/s**, Xung trị thương, **+25 ➔ +55 Max HP**, **+10 ➔ +22% Kháng Độc** |
+| **🛡️ Bọ Giáp Kháng Độc (`pet_antitoxin`)**| Hiếm (22%) | Đạn khử độc (12 / 17 / 24x2 DMG, chậm 20%) | **+35 ➔ +77% Kháng Độc**, **Thanh lọc độc -1.8 ➔ -4.0%/s**, **+6 ➔ +13 Giáp** |
+| **❄️ Phượng Hoàng Băng (`pet_frost`)** | Sử Thi (16%) | Cầu băng giá (14 / 20 / 28x2 DMG, chậm 50% 2.2s) | Khống chế diện rộng, **+15 ➔ +33 Tốc chạy**, **+3 ➔ +7 Giáp** |
+| **⚡ Rồng Hạch Tâm Plasma (`pet_plasma`)**| Huyền Thoại (12%)| Sét Plasma (22 / 32 / 44x2 DMG, **Giật sét 3 mục tiêu**)| **Hồi +1.5 ➔ +3.3 HP/s**, **Lọc độc -1.0 ➔ -2.2%/s**, **+20 ➔ +44% Kháng Độc**, **+4 ➔ +9 Giáp** |
 
 ### 🔫 Bảng 5 Vũ Khí (Hỗ Trợ Nâng Cấp Lv.1 ➔ Lv.2 [+35% DMG] ➔ Lv.3 [+80% DMG])
 | Vũ Khí | Phím | Sát Thương (Lv1 / Lv2 / Lv3) | Tầm / Tốc Độ | Kỹ Năng 1 [Q] | Kỹ Năng 2 [E] |
@@ -261,13 +333,15 @@ c:/Go/demo/
 | **🗼 Tháp Canh Súng**| 160 HP, Tầm 175, 16 DMG (0.45s) | **320 HP**, Tầm 225, **28 DMG x2 tia Laser** (0.30s) | **580 HP**, Tầm 285, **52 DMG Railgun giật sét 3 mục tiêu** (0.22s) |
 | **💣 Súng Cối** | 140 HP, Tầm 280, 55 AoE DMG | **280 HP**, Tầm 340, **90 AoE DMG** (Nổ rộng 90px) | **500 HP**, Tầm 410, **135 AoE DMG + Choáng 1.2s** (Nổ 125px) |
 
-### 🧪 Bảng Nguyên Liệu Nâng Cấp & Chế Tác Bổ Sung (Phase 5)
+### 🧪 Bảng Nguyên Liệu Nâng Cấp & Chế Tác Bổ Sung (Phase 5 - Phase 7)
 | Mã Item | Tên Nguyên Liệu | Nguồn Thu Thập / Chế Tạo | Công Dụng Chính |
 | :--- | :--- | :--- | :--- |
+| `monster_egg` | **Trứng Quái Vật Đột Biến** | Nhặt từ Ổ Trứng `[F]` / Đập Ổ Trứng / Hạ Quái & Boss | Ấp nở Pet tại Phòng Lab, **Cường hóa Pet lên Lv.2–Lv.3**, hoặc **Chiết xuất trực tiếp** thành Dịch Trứng + Giáp Xác + Lõi Plasma |
+| `egg_fluid` | **Dịch Tuyến Trứng** | Phá Ổ Trứng / Chiết xuất Trứng dư / Dung hợp hoặc thả Pet | Bào chế Huyết Thanh Kháng Độc, kích nở Trứng tức thì, tổng hợp Lõi Plasma |
 | `iron_ore` | **Quặng Sắt Titan** | Đập Mỏ Quặng Sắt Titan trên Núi Đá / Hạ quái vật | Nung thành Hợp Kim Titan tại Lò Nung |
-| `titanium_alloy` | **Hợp Kim Titan** | Lò Nung (`2x Quặng Sắt Titan + 2x Đá`) / Hạ Boss Behemoth | Nâng cấp Tường, Tháp Súng, Súng Cối & 5 Vũ Khí lên Lv.2 - Lv.3 |
-| `alien_chitin` | **Giáp Xác Ngoại Lai** | Rớt tự động khi tiêu diệt mọi chủng loài quái vật | Chế tạo Giáp Titan, nâng cấp Tường phản đòn & Vũ khí Lv.2 - Lv.3 |
-| `plasma_core` | **Lõi Năng Lượng Plasma**| Khai thác Mạch Plasma bờ biển / Bào chế tại Bio-Lab / Boss | Nâng cấp Tường Khiên Điện Từ, Tháp Railgun, Cối Hạt Nhân & Vũ khí Lv.3 |
+| `titanium_alloy` | **Hợp Kim Titan** | Lò Nung (`2x Quặng Sắt Titan + 2x Đá`) / Hạ Boss Behemoth | Nâng cấp Tường, Tháp Súng, Súng Cối, Phòng Lab & 5 Vũ Khí lên Lv.2 - Lv.4 |
+| `alien_chitin` | **Giáp Xác Ngoại Lai** | Rớt tự động khi tiêu diệt quái vật / Chiết xuất Trứng dư | Chế tạo Giáp Titan, nâng cấp Tường phản đòn & Vũ khí Lv.2 - Lv.3 |
+| `plasma_core` | **Lõi Năng Lượng Plasma**| Mạch Plasma bờ biển / Bào chế hoặc Chiết xuất Trứng tại Lab | Nâng cấp Phòng Lab, Tường Khiên Điện Từ, Tháp Railgun, Cối Hạt Nhân & Vũ khí Lv.3 |
 | `vest_titanium` | **Giáp Chiến Đấu Titan** | Bàn Chế Tạo (`3x Hợp Kim Titan + 3x Giáp Xác + 1x Lõi Plasma`)| Trang bị Áo Giáp cuối (+18 Giáp bảo vệ, +35% Kháng Độc) |
 
 ---
@@ -278,15 +352,16 @@ c:/Go/demo/
 | :---: | :--- |
 | **W, A, S, D** / Mũi tên | Di chuyển nhân vật (Hỗ trợ Virtual Joystick trên Mobile) |
 | **Chuột Trái / Nút TẤN CÔNG** | Tấn công thường (Giữ chuột xả đạn Súng Plasma) / Thu hoạch / Đặt & Nâng cấp công trình |
-| **Chuột Phải / Phím ESC** | Hủy chế độ đặt hoặc nâng cấp công trình Thủ thành |
+| **Chuột Phải / Phím ESC** | Hủy chế độ đặt/nâng cấp công trình Thủ thành (Trong Balo: Chuột phải vào ô đồ để xóa 1 món) |
 | **Phím SPACE / Nút LƯỚT** | Kích hoạt Lướt nhanh (Dash) né đòn |
 | **Phím Q / Nút KỸ NĂNG 1** | Kích hoạt Kỹ năng 1 của vũ khí đang cầm |
 | **Phím E / Nút KỸ NĂNG 2** | Kích hoạt Kỹ năng 2 của vũ khí đang cầm |
 | **Phím 1, 2, 3, 4, G** | Đổi nhanh 5 loại vũ khí: `[1]` Giáo, `[2]` Gậy, `[3]` Dao, `[4]` Cung, **`[G]` Súng Trường Plasma** |
 | **Phím 5, 6, 7, 8** | Bật nhanh chế độ đặt: `[5]` Tường, `[6]` Bẫy Gai, `[7]` Tháp Canh, `[8]` Súng Cối |
 | **Phím 9 / Phím R** | **`[9]`** Bật chế độ click nâng cấp công trình / **`[R]`** Nâng cấp hoặc sửa chữa nhanh công trình dưới trỏ chuột / gần người chơi |
-| **Phím F** | Tương tác trạm (Bio-Lab, Lò Nung, Bàn Chế Tạo, Xưởng) hoặc Múc nước suối |
-| **Phím I / TAB** | Đóng / Mở Balo Kho đồ (20-28 ô) và Trang bị Giáp |
+| **Phím F** | Tương tác trạm (Bio-Lab, Lò Nung, Bàn Chế Tạo, Xưởng), Nhặt Trứng Quái Vật nguyên vẹn hoặc Múc nước suối |
+| **Phím P / Phím L** | **`[P]`** Mở nhanh Lồng Ấp Trứng, Nâng Cấp Pet (Lv.1-3) & Chiết Xuất Trứng Dư / **`[L]`** Mở Phòng Lab Sinh Học |
+| **Phím I / TAB** | Đóng / Mở Balo Kho đồ (20-28 ô), Sắp xếp, Xóa bỏ vật phẩm dư thừa & Trang bị Giáp / Pet |
 | **Phím K** | Lưu tiến trình game thủ công vào `localStorage` |
 | **Phím U** | Cứu hộ khẩn cấp (Thoát kẹt địa hình / quái vật) |
 | **Phím H** | Đóng / Mở Bảng Trợ giúp và Hướng dẫn chơi |

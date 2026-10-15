@@ -166,10 +166,13 @@ class LabSystem {
       this.syncPodsWithLevel();
     }
 
+    const isAcidRain = this.game && this.game.dayNight && this.game.dayNight.currentWeather === 'ACID_RAIN';
+    const growthDt = isAcidRain ? (dt * 1.4) : dt;
+
     let percentSum = 0;
     for (let pod of this.hydroPods) {
       if (pod.seedId && !pod.ready) {
-        pod.progress += dt;
+        pod.progress += growthDt;
         if (pod.progress >= pod.growthTime) {
           pod.progress = pod.growthTime;
           pod.ready = true;
@@ -241,6 +244,7 @@ class LabSystem {
       this.appendDefenseUpgradeCards('workbench-recipe-list', ['wall', 'trap']);
     } else if (tab === 'workshop') {
       this.renderRecipesTab('WORKSHOP', 'workshop-recipe-list', 'LẮP RÁP');
+      this.appendDroneUpgradeCard('workshop-recipe-list', true);
       this.appendDefenseUpgradeCards('workshop-recipe-list', ['wall', 'turret', 'mortar', 'trap']);
       this.appendWeaponUpgradeCards('workshop-recipe-list');
     } else if (tab === 'hydroponics') {
@@ -248,6 +252,7 @@ class LabSystem {
       this.renderHydroponicsTab();
     } else if (tab === 'incubator') {
       this.renderIncubatorTab();
+      this.appendDroneUpgradeCard('incubator-content', false);
     }
 
     const labPanel = document.getElementById('tab-content-lab');
@@ -441,6 +446,101 @@ class LabSystem {
 
       container.appendChild(card);
     });
+  }
+
+  // Render Autonomous Support Drone Craft & Upgrade Card (Lv.1 -> Lv.3 MAX)
+  appendDroneUpgradeCard(containerId, prepend = false) {
+    const container = document.getElementById(containerId);
+    if (!container || !this.game || !this.game.petSystem || !CONSTANTS.DRONE_TIERS) return;
+
+    const ps = this.game.petSystem;
+    const curLv = ps.droneLevel || 0;
+    const curCfg = ps.getDroneTierConfig(curLv);
+    const isMax = curLv >= 3;
+    const nextLv = isMax ? 3 : (curLv + 1);
+    const nextCfg = CONSTANTS.DRONE_TIERS[nextLv];
+
+    const wrapper = document.createElement('div');
+    wrapper.style.marginBottom = '10px';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'margin: 6px 0; padding: 6px 10px; background: rgba(56, 189, 248, 0.16); border-left: 3px solid #38bdf8; color: #38bdf8; font-weight: 800; font-size: 12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;';
+    header.innerHTML = `
+      <span>🤖 HỆ THỐNG DRONE AI TỰ ĐỘNG NHẶT ĐỒ & SỬA TƯỜNG (${curLv > 0 ? `LV.${curLv}/3 — ${curCfg.droneCount} DRONE` : 'CHƯA CHẾ TẠO'})</span>
+      ${curLv > 0 ? `
+        <button class="craft-btn can-craft btn-toggle-drone-mode" style="padding:3px 10px; font-size:10px; background:#0284c7; color:#fff;">
+          ${ps.droneMode === 'follow' ? '🔄 Chế độ: BAY THEO NGƯỜI (Bấm đổi sang Tuần Tra Căn Cứ)' : '🏰 Chế độ: TUẦN TRA CĂN CỨ (Bấm đổi sang Bay Theo Người)'}
+        </button>
+      ` : `<span style="font-size:10px; color:#fde047;">★ Tự động khai thác tài nguyên & hàn sửa Tường/Tháp ban đêm</span>`}
+    `;
+    const modeBtn = header.querySelector('.btn-toggle-drone-mode');
+    if (modeBtn) {
+      modeBtn.onclick = () => ps.toggleDroneMode();
+    }
+    wrapper.appendChild(header);
+
+    const card = document.createElement('div');
+    card.className = 'recipe-card';
+    card.style.borderColor = isMax ? '#facc15' : (nextCfg ? nextCfg.color : '#38bdf8');
+
+    if (isMax && curCfg) {
+      card.innerHTML = `
+        <div class="recipe-info">
+          <div class="recipe-name" style="color:#facc15;">🤖🤖⚡ ${curCfg.name} [ĐÃ ĐẠT CẤP TỐI ĐA]</div>
+          <div class="recipe-desc">${curCfg.desc}</div>
+          <div class="recipe-ingredients">
+            <span class="recipe-req req-met">🛸 Số lượng: ${curCfg.droneCount} Drone</span>
+            <span class="recipe-req req-met">📡 Bán kính quét: ${curCfg.scanRadius}px</span>
+            <span class="recipe-req req-met">🔧 Sửa công trình: +${curCfg.repairPerSec} HP/s</span>
+            <span class="recipe-req req-met">🔫 Laser: ${curCfg.laserDamage} DMG</span>
+            <span class="recipe-req req-met">🛡 +${curCfg.armorBonus} Giáp</span>
+          </div>
+        </div>
+        <div class="recipe-action">
+          <button class="craft-btn disabled" disabled>★ MAX LV.3</button>
+        </div>
+      `;
+    } else if (nextCfg) {
+      let canAfford = true;
+      const reqHtml = nextCfg.cost.map(req => {
+        const has = this.getItemCountInInventory(req.id);
+        const enough = has >= req.count;
+        if (!enough) canAfford = false;
+        const def = CONSTANTS.ITEM_TYPES[req.id];
+        return `
+          <div class="recipe-req ${enough ? 'req-met' : 'req-missing'}">
+            <span>${def ? def.name : req.name}:</span>
+            <span>${has} / ${req.count}</span>
+          </div>
+        `;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="recipe-info">
+          <div class="recipe-name" style="color:${nextCfg.color};">
+            🤖 ${curLv === 0 ? `Chế Tạo Mới: ${nextCfg.name}` : `Nâng Cấp Drone (Lv.${curLv} ➔ Lv.${nextLv}): ${nextCfg.name}`}
+          </div>
+          <div class="recipe-desc">${nextCfg.desc}</div>
+          <div class="recipe-ingredients">${reqHtml}</div>
+        </div>
+        <div class="recipe-action">
+          <button class="craft-btn ${canAfford ? 'can-craft' : 'disabled'}" ${canAfford ? '' : 'disabled'} id="btn-craft-upgrade-drone">
+            ${curLv === 0 ? '🤖 LẮP RÁP DRONE' : `⬆ NÂNG DRONE LV.${nextLv}`}
+          </button>
+        </div>
+      `;
+      const actBtn = card.querySelector('#btn-craft-upgrade-drone');
+      if (actBtn && canAfford) {
+        actBtn.onclick = () => ps.craftOrUpgradeDrone();
+      }
+    }
+
+    wrapper.appendChild(card);
+    if (prepend && container.firstChild) {
+      container.insertBefore(wrapper, container.firstChild);
+    } else {
+      container.appendChild(wrapper);
+    }
   }
 
   // Render recipes for Lab, Furnace, Workbench, Workshop

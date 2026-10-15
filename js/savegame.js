@@ -75,6 +75,7 @@ class SaveManager {
         autoReplant: this.game.lab ? (this.game.lab.autoReplant !== false) : true,
         hydroponics: (this.game.lab && this.game.lab.hydroPods) ?
           JSON.parse(JSON.stringify(this.game.lab.hydroPods)) : [],
+        currentWeather: (this.game.dayNight && this.game.dayNight.currentWeather) ? this.game.dayNight.currentWeather : 'CLEAR',
         pets: this.game.petSystem ? {
           activePet: this.game.petSystem.activePet ? {
             id: this.game.petSystem.activePet.id || this.game.petSystem.activePet.uid,
@@ -92,7 +93,9 @@ class SaveManager {
                 hatchedDay: p.hatchedDay || 1
               }))
             : [],
-          incubator: this.game.petSystem.incubator ? { ...this.game.petSystem.incubator } : null
+          incubator: this.game.petSystem.incubator ? { ...this.game.petSystem.incubator } : null,
+          droneLevel: this.game.petSystem.droneLevel || 0,
+          droneMode: this.game.petSystem.droneMode || 'follow'
         } : null
       };
 
@@ -290,10 +293,20 @@ class SaveManager {
           };
         }
 
+        this.game.petSystem.droneLevel = Math.max(0, Math.min(3, data.pets.droneLevel || 0));
+        this.game.petSystem.droneMode = data.pets.droneMode === 'base' ? 'base' : 'follow';
+        if (this.game.petSystem.syncDrones) {
+          this.game.petSystem.syncDrones();
+        }
+
         if (this.game.inventory) {
           this.game.inventory.updatePlayerStats();
           this.game.inventory.renderUI();
         }
+      }
+
+      if (data.currentWeather && this.game.dayNight && this.game.dayNight.setWeather) {
+        this.game.dayNight.setWeather(data.currentWeather, false);
       }
 
       // Update UI

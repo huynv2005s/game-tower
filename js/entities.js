@@ -515,29 +515,47 @@ class Monster {
     const game = window.gameEngine;
     if (!game || !game.inventory) return;
 
+    const weather = (game.dayNight && game.dayNight.currentWeather) ? game.dayNight.currentWeather : 'CLEAR';
+    const isBloodMoon = (game.dayNight && game.dayNight.isBloodMoonDay && game.dayNight.isBloodMoonDay()) || weather === 'BLOOD_MOON';
+    const mult = isBloodMoon ? 2 : 1;
+
     if (this.isBoss) {
-      game.inventory.addItem('alien_chitin', 3);
-      game.inventory.addItem('titanium_alloy', 2);
-      game.inventory.addItem('plasma_core', 1);
-      game.inventory.addItem('monster_egg', 1);
+      game.inventory.addItem('alien_chitin', 3 * mult);
+      game.inventory.addItem('titanium_alloy', 2 * mult);
+      game.inventory.addItem('plasma_core', 1 * mult);
+      game.inventory.addItem('monster_egg', 1 * mult);
       if (floatingTexts.length < 40) {
-        floatingTexts.push(new FloatingText(this.x, this.y - 38, '🎁 +1 TRỨNG QUÁI VẬT, +3 GIÁP XÁC, +2 TITAN, +1 LÕI PLASMA!', '#facc15', 12, 2.0));
+        floatingTexts.push(new FloatingText(this.x, this.y - 38, `🎁 +${1 * mult} TRỨNG, +${3 * mult} GIÁP XÁC, +${2 * mult} TITAN, +${1 * mult} PLASMA!`, '#facc15', 12, 2.0));
       }
     } else {
-      game.inventory.addItem('alien_chitin', 1);
-      let bonusText = '+1 Giáp Xác Ngoại Lai';
-      if (Math.random() < 0.35) {
-        const extraItem = (this.species === 'exploder') ? 'sulfur_dust' : (this.species === 'frost_spitter' ? 'quartz_crystal' : 'iron_ore');
-        game.inventory.addItem(extraItem, 1);
-        const def = CONSTANTS.ITEM_TYPES[extraItem];
-        if (def) bonusText += ` & +1 ${def.name}`;
+      const chitinGain = (weather === 'ACID_RAIN') ? (2 * mult) : (1 * mult);
+      game.inventory.addItem('alien_chitin', chitinGain);
+      let bonusText = `+${chitinGain} Giáp Xác`;
+
+      if (weather === 'ACID_RAIN' && Math.random() < 0.65) {
+        game.inventory.addItem('egg_fluid', 1 * mult);
+        bonusText += ` & 🧪 +${1 * mult} Dịch Trứng`;
+      } else if (weather === 'EMP_STORM' && Math.random() < 0.55) {
+        game.inventory.addItem('tech_scrap', 1 * mult);
+        bonusText += ` & ⚡ +${1 * mult} Mảnh Công Nghệ`;
+        if (Math.random() < 0.22) {
+          game.inventory.addItem('plasma_core', 1);
+          bonusText += ` & 🔮 +1 Lõi Plasma!`;
+        }
       }
-      if (Math.random() < 0.28) {
+
+      if (Math.random() < (isBloodMoon ? 0.65 : 0.35)) {
+        const extraItem = (this.species === 'exploder') ? 'sulfur_dust' : (this.species === 'frost_spitter' ? 'quartz_crystal' : 'iron_ore');
+        game.inventory.addItem(extraItem, 1 * mult);
+        const def = CONSTANTS.ITEM_TYPES[extraItem];
+        if (def) bonusText += ` & +${1 * mult} ${def.name}`;
+      }
+      if (Math.random() < (isBloodMoon ? 0.50 : 0.28)) {
         game.inventory.addItem('monster_egg', 1);
         bonusText += ' & 🥚 +1 Trứng Quái Vật!';
       }
       if (floatingTexts.length < 40) {
-        floatingTexts.push(new FloatingText(this.x, this.y - 26, bonusText, '#c084fc', 11, 1.2));
+        floatingTexts.push(new FloatingText(this.x, this.y - 26, bonusText, isBloodMoon ? '#facc15' : '#c084fc', 11, 1.2));
       }
     }
   }

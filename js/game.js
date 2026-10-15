@@ -856,26 +856,28 @@ class GameEngine {
       const eggCnt = this.inventory ? this.inventory.getItemCount('monster_egg') : 0;
       const incReady = this.petSystem.incubator && this.petSystem.incubator.ready;
       const petLv = petSpec ? (petSpec.level || 1) : 0;
-      const petKey = `${petSpec ? petSpec.id : 'none'}_lv${petLv}_${eggCnt}_${incReady}`;
+      const droneLv = this.petSystem.droneLevel || 0;
+      const droneTag = droneLv > 0 ? ` • 🤖Lv.${droneLv}` : '';
+      const petKey = `${petSpec ? petSpec.id : 'none'}_lv${petLv}_${eggCnt}_${incReady}_dr${droneLv}`;
       if (vals.petKey !== petKey) {
         vals.petKey = petKey;
         if (petSpec) {
-          els.hudPetBadge.innerHTML = `${petSpec.badgeIcon} <strong>${petSpec.name}</strong> <span style="color:#facc15;">Lv.${petLv}</span>`;
+          els.hudPetBadge.innerHTML = `${petSpec.badgeIcon} <strong>${petSpec.name}</strong> <span style="color:#facc15;">Lv.${petLv}</span>${droneTag}`;
           els.hudPetBadge.style.borderColor = petSpec.color;
           els.hudPetBadge.style.color = petSpec.color;
         } else if (incReady) {
-          els.hudPetBadge.innerHTML = `🐣 <strong>Trứng Chín 100%!</strong> (Mở Lab)`;
+          els.hudPetBadge.innerHTML = `🐣 <strong>Trứng Chín 100%!</strong> (Mở Lab)${droneTag}`;
           els.hudPetBadge.style.borderColor = '#facc15';
           els.hudPetBadge.style.color = '#facc15';
         } else {
-          els.hudPetBadge.innerHTML = `🥚 <strong>Pet (0/1)</strong> • Trứng: ${eggCnt} [P]`;
+          els.hudPetBadge.innerHTML = `🥚 <strong>Pet (0/1)</strong> • Trứng: ${eggCnt} [P]${droneTag}`;
           els.hudPetBadge.style.borderColor = '#c084fc';
           els.hudPetBadge.style.color = '#e9d5ff';
         }
       }
     }
 
-    // 4. Day/Night & Blood Moon (Every 15 Days) Doomsday Clock Widget
+    // 4. Day/Night, Dynamic Weather & Blood Moon Doomsday Clock Widget
     const timeStr = this.dayNight.getTimeFormatted();
     if (vals.timeStr !== timeStr && els.clockTime) {
       vals.timeStr = timeStr;
@@ -884,33 +886,39 @@ class GameEngine {
 
     const isBMDay = this.dayNight.isBloodMoonDay ? this.dayNight.isBloodMoonDay() : false;
     const isBMNight = this.dayNight.isBloodMoonNight ? this.dayNight.isBloodMoonNight() : false;
-    const nextBM = this.dayNight.getNextBloodMoonDay ? this.dayNight.getNextBloodMoonDay() : 15;
-    const clockStateKey = `${this.dayNight.dayCount}_${this.dayNight.isNight}_${isBMDay}`;
+    const nextBM = this.dayNight.getNextBloodMoonDay ? this.dayNight.getNextBloodMoonDay() : 5;
+    const curWeather = this.dayNight.currentWeather || 'CLEAR';
+    const wCfg = this.dayNight.getWeatherConfig ? this.dayNight.getWeatherConfig(curWeather) : { icon: '☀', name: 'Quang Đãng', color: '#38bdf8' };
+    const clockStateKey = `${this.dayNight.dayCount}_${this.dayNight.isNight}_${isBMDay}_${curWeather}`;
 
     if (vals.clockStateKey !== clockStateKey) {
       vals.clockStateKey = clockStateKey;
       if (els.clockDay) {
         els.clockDay.innerText = isBMDay
-          ? `🩸 TRĂNG MÁU - NGÀY ${this.dayNight.dayCount}`
+          ? `🩸 HUYẾT NGUYỆT - NGÀY ${this.dayNight.dayCount}`
           : `NGÀY ${this.dayNight.dayCount}`;
         els.clockDay.style.color = isBMDay ? '#ff4d6d' : '';
       }
       if (els.clockPhase) {
-        if (isBMNight) {
+        if (isBMNight || curWeather === 'BLOOD_MOON') {
           if (els.phaseIcon) els.phaseIcon.innerText = '🩸';
-          if (els.phaseDesc) els.phaseDesc.innerText = 'ĐÊM TRĂNG MÁU (X10 QUÁI)';
+          if (els.phaseDesc) els.phaseDesc.innerText = 'HUYẾT NGUYỆT (LOOT X2)';
           els.clockPhase.style.color = '#ff1744';
+        } else if (curWeather === 'ACID_RAIN') {
+          if (els.phaseIcon) els.phaseIcon.innerText = '🌧️';
+          if (els.phaseDesc) els.phaseDesc.innerText = `${this.dayNight.isNight ? 'ĐÊM' : 'NGÀY'}: MƯA AXIT (X2 DỊCH/GIÁP)`;
+          els.clockPhase.style.color = '#84cc16';
+        } else if (curWeather === 'EMP_STORM') {
+          if (els.phaseIcon) els.phaseIcon.innerText = '⚡';
+          if (els.phaseDesc) els.phaseDesc.innerText = `${this.dayNight.isNight ? 'ĐÊM' : 'NGÀY'}: BÃO ĐIỆN TỪ (+25% SÚNG)`;
+          els.clockPhase.style.color = '#38bdf8';
         } else if (this.dayNight.isNight) {
           if (els.phaseIcon) els.phaseIcon.innerText = '💀';
-          if (els.phaseDesc) els.phaseDesc.innerText = `ĐÊM (TRĂNG MÁU: N.${nextBM})`;
+          if (els.phaseDesc) els.phaseDesc.innerText = `ĐÊM (HUYẾT NGUYỆT: N.${nextBM})`;
           els.clockPhase.style.color = '#ef4444';
-        } else if (isBMDay) {
-          if (els.phaseIcon) els.phaseIcon.innerText = '🩸';
-          if (els.phaseDesc) els.phaseDesc.innerText = 'ĐÊM NAY: TRĂNG MÁU!';
-          els.clockPhase.style.color = '#f43f5e';
         } else {
-          if (els.phaseIcon) els.phaseIcon.innerText = '☀';
-          if (els.phaseDesc) els.phaseDesc.innerText = `NGÀY (TRĂNG MÁU: N.${nextBM})`;
+          if (els.phaseIcon) els.phaseIcon.innerText = wCfg.icon || '☀';
+          if (els.phaseDesc) els.phaseDesc.innerText = `QUANG ĐÃNG (HN: N.${nextBM})`;
           els.clockPhase.style.color = '#38bdf8';
         }
       }

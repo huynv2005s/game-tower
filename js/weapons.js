@@ -209,6 +209,9 @@ class WeaponSystem {
 
   // Plasma Gun Basic Shot (Súng Trường Plasma Liên Thanh)
   gunShoot(player, angle, damage, range, level = 1) {
+    if (this.game && this.game.dayNight && this.game.dayNight.currentWeather === 'EMP_STORM') {
+      damage = Math.round(damage * 1.25);
+    }
     const speed = 660 + level * 40;
     const muzzleX = player.x + Math.cos(angle) * 18;
     const muzzleY = player.y + Math.sin(angle) * 18;

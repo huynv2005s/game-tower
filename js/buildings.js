@@ -641,22 +641,24 @@ class BuildingManager {
             const speed = lv >= 3 ? 720 : (lv === 2 ? 620 : 550);
             const vx = Math.cos(d.aimAngle) * speed;
             const vy = Math.sin(d.aimAngle) * speed;
+            const isEmp = this.game && this.game.dayNight && this.game.dayNight.currentWeather === 'EMP_STORM';
+            const turretDmg = isEmp ? Math.round(tierCfg.damage * 1.25) : tierCfg.damage;
 
             if (lv >= 3) {
               // Lv.3 Railgun Tesla Bolt (chains lightning on hit!)
-              projectiles.push(new Projectile(d.x, d.y, vx, vy, tierCfg.range, tierCfg.damage, 'turret_railgun', { chainCount: 2 }));
+              projectiles.push(new Projectile(d.x, d.y, vx, vy, tierCfg.range, turretDmg, 'turret_railgun', { chainCount: 2 }));
               particles.push(new Particle(d.x + Math.cos(d.aimAngle) * 16, d.y + Math.sin(d.aimAngle) * 16, 0, 0, '#facc15', 7, 0.14));
             } else if (lv === 2) {
               // Lv.2 Twin Gatling Laser Bolts
               const perpX = -Math.sin(d.aimAngle) * 4;
               const perpY = Math.cos(d.aimAngle) * 4;
-              const halfDmg = Math.ceil(tierCfg.damage * 0.55);
+              const halfDmg = Math.ceil(turretDmg * 0.55);
               projectiles.push(new Projectile(d.x + perpX, d.y + perpY, vx, vy, tierCfg.range, halfDmg, 'plasma_bullet', { color: '#e879f9' }));
               projectiles.push(new Projectile(d.x - perpX, d.y - perpY, vx, vy, tierCfg.range, halfDmg, 'plasma_bullet', { color: '#38bdf8' }));
               particles.push(new Particle(d.x + Math.cos(d.aimAngle) * 16, d.y + Math.sin(d.aimAngle) * 16, 0, 0, '#e879f9', 6, 0.12));
             } else {
               // Lv.1 Standard Turret Bolt
-              projectiles.push(new Projectile(d.x, d.y, vx, vy, tierCfg.range, tierCfg.damage, 'arrow'));
+              projectiles.push(new Projectile(d.x, d.y, vx, vy, tierCfg.range, turretDmg, 'arrow'));
               particles.push(new Particle(d.x + Math.cos(d.aimAngle) * 16, d.y + Math.sin(d.aimAngle) * 16, 0, 0, '#38bdf8', 5, 0.12));
             }
             window.audioManager.playBowShoot();

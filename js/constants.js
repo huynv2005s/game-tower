@@ -971,6 +971,96 @@ const CONSTANTS = {
         { id: 'seed_quartz_bloom', count: 6 }
       ]
     }
+  },
+
+  // Dynamic Weather & Apocalyptic Phenomenon System
+  WEATHER_TYPES: {
+    CLEAR: {
+      id: 'CLEAR',
+      name: 'Quang Đãng',
+      icon: '☀',
+      color: '#38bdf8',
+      desc: 'Thời tiết ổn định, tầm nhìn rõ ràng.'
+    },
+    ACID_RAIN: {
+      id: 'ACID_RAIN',
+      name: 'Mưa Axit Độc',
+      icon: '🌧️',
+      color: '#84cc16',
+      desc: 'Mưa axit ngoài trời (+0.30% Độc/s khi ở ngoài Lab), cây Lồng Cấy lớn nhanh +40% & Quái rớt X2 Giáp Xác + Dịch Trứng!'
+    },
+    EMP_STORM: {
+      id: 'EMP_STORM',
+      name: 'Bão Điện Từ',
+      icon: '⚡',
+      color: '#38bdf8',
+      desc: 'Sét đánh choáng quái ngoài trời, tăng +25% sát thương Súng Plasma/Tháp Canh/Drone & Quái rớt X2 Linh Kiện + Lõi Plasma!'
+    },
+    BLOOD_MOON: {
+      id: 'BLOOD_MOON',
+      name: 'Huyết Nguyệt',
+      icon: '🩸',
+      color: '#ef4444',
+      desc: 'Trăng Máu cuồng nộ: Mọi quái vật bị tiêu diệt đều rớt X2 CHIẾN LỢI PHẨM HIẾM (Trứng Quái Vật, Hợp Kim Titan, Giáp Xác)!'
+    }
+  },
+
+  // Autonomous Support Drone System (Auto-Harvest Resources + Auto-Repair Defenses + Combat Laser)
+  DRONE_TIERS: {
+    1: {
+      level: 1,
+      name: 'Drone Thu Thập & Sửa Chữa (Lv.1)',
+      droneCount: 1,
+      scanRadius: 280,
+      harvestInterval: 2.6,
+      repairPerSec: 16,
+      laserDamage: 15,
+      laserCooldown: 0.85,
+      armorBonus: 4,
+      color: '#38bdf8',
+      desc: 'Triển khai 1 Drone bay tự động: Quét 280px tự khai thác tài nguyên vào Balo (2.6s/lần), tự hàn sửa Tường/Tháp (+16 HP/s) & bắn Laser 15 DMG.',
+      cost: [
+        { id: 'titanium_alloy', count: 2, name: 'Hợp Kim Titan' },
+        { id: 'tech_scrap', count: 3, name: 'Mảnh Vỡ Công Nghệ' },
+        { id: 'quartz_crystal', count: 2, name: 'Tinh Thể Thạch Anh' }
+      ]
+    },
+    2: {
+      level: 2,
+      name: 'Phi Đội Drone Kép Từ Trường (Lv.2)',
+      droneCount: 2,
+      scanRadius: 400,
+      harvestInterval: 1.8,
+      repairPerSec: 34,
+      laserDamage: 24,
+      laserCooldown: 0.65,
+      armorBonus: 8,
+      color: '#a855f7',
+      desc: 'Mở khóa 2 Drone bay song song: Quét rộng 400px, tự thu hoạch nhanh (1.8s/lần), hàn sửa công trình +34 HP/s, bắn Laser 24 DMG & cộng +8 Giáp.',
+      cost: [
+        { id: 'titanium_alloy', count: 3, name: 'Hợp Kim Titan' },
+        { id: 'tech_scrap', count: 3, name: 'Mảnh Vỡ Công Nghệ' },
+        { id: 'plasma_core', count: 1, name: 'Lõi Năng Lượng Plasma' }
+      ]
+    },
+    3: {
+      level: 3,
+      name: 'Phi Đội Drone AI Siêu Nạp (Lv.3 MAX)',
+      droneCount: 2,
+      scanRadius: 540,
+      harvestInterval: 1.1,
+      repairPerSec: 60,
+      laserDamage: 38,
+      laserCooldown: 0.48,
+      armorBonus: 14,
+      color: '#facc15',
+      desc: '2 Drone AI Tối Thượng: Quét toàn khu 540px, tự thu hoạch cả Trứng Quái Vật & Quặng (1.1s/lần), hàn sửa siêu tốc +60 HP/s, bắn Plasma 38 DMG & +14 Giáp!',
+      cost: [
+        { id: 'titanium_alloy', count: 4, name: 'Hợp Kim Titan' },
+        { id: 'plasma_core', count: 2, name: 'Lõi Năng Lượng Plasma' },
+        { id: 'alien_chitin', count: 3, name: 'Giáp Xác Ngoại Lai' }
+      ]
+    }
   }
 };
 
