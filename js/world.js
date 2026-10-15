@@ -695,8 +695,8 @@ class WorldMap {
     if (this.groundCanvas) {
       const sx = Math.max(0, Math.floor(camera.x));
       const sy = Math.max(0, Math.floor(camera.y));
-      const sw = Math.min(this.width - sx, Math.ceil(camera.width));
-      const sh = Math.min(this.height - sy, Math.ceil(camera.height));
+      const sw = Math.min(this.width - sx, Math.ceil(camera.width) + 2);
+      const sh = Math.min(this.height - sy, Math.ceil(camera.height) + 2);
       if (sw > 0 && sh > 0) {
         ctx.drawImage(this.groundCanvas, sx, sy, sw, sh, sx - camera.x, sy - camera.y, sw, sh);
       }
@@ -736,6 +736,8 @@ class WorldMap {
     const camRight = camera.x + camera.width + 60;
     const camTop = camera.y - 60;
     const camBottom = camera.y + camera.height + 60;
+    const zoomFactor = camera.zoom || 1;
+    const badgeDetectDist = Math.round(115 / Math.min(1, zoomFactor));
 
     for (let i = 0; i < this.resourceNodes.length; i++) {
       const h = this.resourceNodes[i];
@@ -750,7 +752,7 @@ class WorldMap {
 
       // Ground ring
       ctx.strokeStyle = vis.color;
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = zoomFactor < 0.75 ? 2.0 : 1.4;
       ctx.beginPath();
       ctx.ellipse(sx, sy + 8, vis.w * 0.36, 5.5, 0, 0, Math.PI * 2);
       ctx.stroke();
@@ -783,8 +785,11 @@ class WorldMap {
       const dyP = player ? Math.abs(player.y - h.y) : 9999;
       const dxM = Math.abs(mouseWorldX - h.x);
       const dyM = Math.abs(mouseWorldY - h.y);
-      if ((dxP <= 105 && dyP <= 105) || (dxM <= 32 && dyM <= 32)) {
+      if ((dxP <= badgeDetectDist && dyP <= badgeDetectDist) || (dxM <= 36 && dyM <= 36)) {
         this.drawObjectBadge(ctx, sx, sy - 28, `${vis.icon} ${vis.tag}`, vis.color, '#ffffff');
+      } else if (zoomFactor <= 0.78) {
+        // Compact resource beacon icon when zoomed out on mobile so resources are easy to spot from afar
+        this.drawObjectBadge(ctx, sx, sy - 26, vis.icon, vis.color, '#ffffff', 0.75);
       }
     }
 

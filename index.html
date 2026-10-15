@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/c:/Go/demo/assets/icons/icon-192.png">
 
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=10">
+  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=11">
 </head>
 <body>
 
@@ -77,10 +77,22 @@
         </div>
       </div>
 
-      <!-- Current Biome Indicator (Tactical GPS Recon) -->
-      <div class="current-biome" id="current-biome-badge">
-        <span class="radar-blip-dot"></span>
-        <span id="biome-text-label">ĐỒNG BẰNG HOANG TÀN</span>
+      <!-- Current Biome Indicator & Camera Zoom Controls -->
+      <div class="biome-and-zoom-row">
+        <div class="current-biome" id="current-biome-badge">
+          <span class="radar-blip-dot"></span>
+          <span id="biome-text-label">ĐỒNG BẰNG HOANG TÀN</span>
+        </div>
+
+        <!-- Map Camera Zoom & Full Map Controls -->
+        <div id="zoom-controls" title="Thu nhỏ / Phóng to tầm nhìn Bản Đồ (Hoặc dùng 2 ngón tay chụm/tách trên màn hình)">
+          <button id="btn-zoom-out" class="zoom-ctrl-btn" title="Thu nhỏ góc nhìn (Nhìn rộng hơn) [-]">🔍−</button>
+          <button id="btn-zoom-reset" class="zoom-ctrl-pct" title="Bấm để đổi nhanh tầm nhìn (Rộng / Vừa / Gần) [Z]">
+            <span id="zoom-level-label">62%</span>
+          </button>
+          <button id="btn-zoom-in" class="zoom-ctrl-btn" title="Phóng to góc nhìn (Nhìn gần hơn) [+]">🔍+</button>
+          <button id="btn-tactical-map" class="zoom-ctrl-map" title="Mở Bản Đồ Chiến Thuật & Định Vị Tài Nguyên [N]">🗺️</button>
+        </div>
       </div>
     </div>
 
@@ -96,7 +108,7 @@
 
     <!-- Right: Minimap Tactical Sonar & Bunker Command Actions -->
     <div id="right-hud">
-      <div id="minimap-container" class="hud-panel radar-plate">
+      <div id="minimap-container" class="hud-panel radar-plate" onclick="window.gameEngine && window.gameEngine.toggleTacticalMap()" title="Bấm để phóng to Bản Đồ Chiến Thuật & Định Vị Tài Nguyên [Phím N]">
         <div class="radar-compass-n">N</div>
         <div class="radar-compass-w">W</div>
         <div class="radar-compass-e">E</div>
@@ -104,6 +116,7 @@
         <div class="radar-scan-line"></div>
         <div class="radar-grid-reticle"></div>
         <canvas id="minimap-canvas" width="140" height="112"></canvas>
+        <div class="minimap-expand-hint">🔍 BẢN ĐỒ</div>
       </div>
       <div class="hud-actions">
         <button id="btn-toggle-touch" class="hud-btn tactical-btn" onclick="window.mobileController.toggleControls()">📱 <span class="hud-btn-label">CẢM ỨNG</span></button>
@@ -284,21 +297,21 @@
   <div id="help-modal" class="modal-backdrop">
     <div class="modal-window">
       <div class="modal-header">
-        <div class="modal-title">📖 HƯỚNG DẪN ĐIỀU KHIỂN, NÂNG CẤP TƯỜNG & SÚNG</div>
+        <div class="modal-title">📖 HƯỚNG DẪN ĐIỀU KHIỂN, ZOOM MAP, NÂNG CẤP TƯỜNG & SÚNG</div>
         <button class="close-btn" onclick="toggleHelpModal()">✕</button>
       </div>
 
       <div class="guide-content">
         <div class="guide-section">
-          <div class="guide-heading">🎮 PHÍM ĐIỀU KHIỂN CƠ BẢN</div>
-          <p><span class="guide-key">W A S D</span> hoặc Mũi tên: Di chuyển nhân vật</p>
-          <p><span class="guide-key">Chuột Trái</span>: Tấn công thường / Giữ chuột xả đạn Súng Plasma / Thu hoạch quặng</p>
-          <p><span class="guide-key">SPACE</span>: <strong>Lướt nhanh (Dash)</strong> - Tăng tốc tức thì, né đòn tấn công</p>
+          <div class="guide-heading">🎮 PHÍM ĐIỀU KHIỂN & ZOOM BẢN ĐỒ (MOBILE & PC)</div>
+          <p><span class="guide-key">🔍− / 🔍+</span> hoặc <strong>Chụm/Tách 2 ngón tay trên màn hình</strong>: <strong>Thu nhỏ / Phóng to góc nhìn Bản Đồ</strong> để nhìn rộng đường đi và tìm tài nguyên từ xa!</p>
+          <p><span class="guide-key">🗺️ BẢN ĐỒ</span> hoặc bấm vào <strong>Minimap / Phím [N]</strong>: Mở <strong>Bản Đồ Chiến Thuật Toàn Cảnh</strong> hiển thị vị trí Quặng, Thảo dược, Cầu gỗ, Sông hồ và Ổ trứng.</p>
+          <p><span class="guide-key">W A S D</span> / Joystick ảo: Di chuyển nhân vật | <span class="guide-key">SPACE</span>: <strong>Lướt nhanh (Dash)</strong></p>
+          <p><span class="guide-key">Chuột Trái / Chạm</span>: Tấn công thường / Giữ xả đạn Súng Plasma / Thu hoạch quặng</p>
           <p><span class="guide-key">1, 2, 3, 4, G</span>: Đổi nhanh 5 loại vũ khí (Giáo, Gậy, Dao, Cung, <strong>Súng Trường Plasma [G]</strong>)</p>
           <p><span class="guide-key">9</span> hoặc <span class="guide-key">R</span>: <strong>Nâng cấp / Sửa chữa Tường & Súng Thủ Thành</strong> (Lv.1 ➔ Lv.2 ➔ Lv.3)</p>
           <p><span class="guide-key">I</span> hoặc <span class="guide-key">TAB</span>: Bật / Tắt Balo Kho đồ 20 ô & 5 ô Trang bị</p>
-          <p><span class="guide-key">U</span>: <strong>Cứu Hộ Khẩn Cấp (Thoát Kẹt)</strong> - Dịch chuyển về an toàn khi bị kẹt địa hình / kẹt quái vật</p>
-          <p><span class="guide-key">M</span>: Bật / Tắt âm thanh</p>
+          <p><span class="guide-key">U</span>: <strong>Cứu Hộ Khẩn Cấp (Thoát Kẹt)</strong> | <span class="guide-key">M</span>: Bật / Tắt âm thanh</p>
         </div>
 
         <div class="guide-section">
@@ -319,6 +332,45 @@
           <p>• <strong>Tháp Canh Súng:</strong> Lv.1 Tháp Tiêu Chuẩn ➔ Lv.2 <em>Tháp Súng Kép Gatling Laser</em> (Bắn 2 tia) ➔ Lv.3 <em>Tháp Pháo Railgun Tesla</em> (Sát thương 52, giật sét dây chuyền 3 mục tiêu).</p>
           <p>• <strong>Súng Cối:</strong> Lv.1 Cối Thường ➔ Lv.2 <em>Pháo Cối Nhiệt Hạch Napalm</em> ➔ Lv.3 <em>Pháo Quỹ Đạo Hạt Nhân Mini</em> (135 AoE DMG + Choáng 1.2s).</p>
           <p>• <strong>Nguyên Liệu Nâng Cấp Mới:</strong> Khai thác <em>Quặng Sắt Titan</em> trên núi, <em>Mạch Lõi Plasma</em> ở bờ biển, hạ quái nhặt <em>Giáp Xác Ngoại Lai</em>, và nung <em>Hợp Kim Titan</em> tại Lò Nung!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FULL TACTICAL MAP & RESOURCE RADAR MODAL [N / V / Tap Minimap] -->
+  <div id="tactical-map-modal" class="modal-backdrop">
+    <div class="modal-window tactical-map-window">
+      <div class="modal-header">
+        <div class="modal-title">🗺️ BẢN ĐỒ CHIẾN THUẬT & ĐỊNH VỊ TÀI NGUYÊN TOÀN KHU VỰC</div>
+        <button class="close-btn" onclick="window.gameEngine && window.gameEngine.toggleTacticalMap()">✕</button>
+      </div>
+
+      <!-- Quick Camera Zoom Preset Bar -->
+      <div class="tactical-zoom-presets">
+        <span id="tactical-map-zoom-label" class="zoom-preset-status">Góc nhìn: 62%</span>
+        <button class="zoom-preset-btn" onclick="window.gameEngine && window.gameEngine.setZoom(0.45, false, true)">🔍 Siêu Rộng (45%)</button>
+        <button class="zoom-preset-btn" onclick="window.gameEngine && window.gameEngine.setZoom(0.60, false, true)">📱 Chuẩn Mobile (60%)</button>
+        <button class="zoom-preset-btn" onclick="window.gameEngine && window.gameEngine.setZoom(0.80, false, true)">👁 Tầm Vừa (80%)</button>
+        <button class="zoom-preset-btn" onclick="window.gameEngine && window.gameEngine.setZoom(1.00, false, true)">🎯 Cận Cảnh (100%)</button>
+      </div>
+
+      <div class="tactical-map-body">
+        <div class="tactical-map-canvas-wrap">
+          <canvas id="tactical-map-canvas" width="520" height="416"></canvas>
+        </div>
+
+        <div class="tactical-map-legend">
+          <div class="legend-title">📌 CHÚ GIẢI ĐỊA HÌNH & TÀI NGUYÊN</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#4ade80;border:2px solid #fff;"></span> <strong>Vị trí của bạn</strong> (Khung vàng = Tầm nhìn Camera)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#10b981;"></span> <strong>Căn cứ Phòng Lab & Trạm Chế Tạo</strong> (Giữa bản đồ)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#d97706;"></span> <strong>Cầu Gỗ vượt sông</strong> (Hàng giữa & phía Nam đồng bằng)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#facc15;"></span> <strong>Quặng Lưu Huỳnh</strong> (Đỉnh núi phía Bắc)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#38bdf8;"></span> <strong>Tinh Thể Thạch Anh</strong> (Sườn núi phía Bắc)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#f8fafc;"></span> <strong>Quặng Sắt Titan</strong> (Vùng núi đá)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span> <strong>Tuyết Liên, Rêu Bạc & Quả Rừng</strong> (Núi & Đồng bằng)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#fb923c;"></span> <strong>Mảnh Vỡ Phi Thuyền & Trụ Plasma</strong> (Bờ biển phía Nam)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#f43f5e;"></span> <strong>Ổ Trứng & Quái Vật Ngoại Lai</strong></div>
+          <div class="legend-tip">💡 <strong>Mẹo trên Mobile:</strong> Bạn có thể dùng <strong>2 ngón tay chụm/tách</strong> trực tiếp trên màn hình chơi hoặc bấm nút <strong>🔍− / 🔍+</strong> ở góc trái trên để thu nhỏ bản đồ nhìn rõ đường đi!</div>
         </div>
       </div>
     </div>
@@ -474,25 +526,25 @@
   </script>
 
   <!-- Import Scripts -->
-  <script src="/c:/Go/demo/js/constants.js?v=10"></script>
-  <script src="/c:/Go/demo/js/audio.js?v=10"></script>
-  <script src="/c:/Go/demo/js/pixelart.js?v=10"></script>
-  <script src="/c:/Go/demo/js/buildings.js?v=10"></script>
-  <script src="/c:/Go/demo/js/world.js?v=10"></script>
-  <script src="/c:/Go/demo/js/entities.js?v=10"></script>
-  <script src="/c:/Go/demo/js/weapons.js?v=10"></script>
-  <script src="/c:/Go/demo/js/inventory.js?v=10"></script>
-  <script src="/c:/Go/demo/js/lab.js?v=10"></script>
-  <script src="/c:/Go/demo/js/daynight.js?v=10"></script>
-  <script src="/c:/Go/demo/js/savegame.js?v=10"></script>
-  <script src="/c:/Go/demo/js/mobile.js?v=10"></script>
-  <script src="/c:/Go/demo/js/game.js?v=10"></script>
+  <script src="/c:/Go/demo/js/constants.js?v=11"></script>
+  <script src="/c:/Go/demo/js/audio.js?v=11"></script>
+  <script src="/c:/Go/demo/js/pixelart.js?v=11"></script>
+  <script src="/c:/Go/demo/js/buildings.js?v=11"></script>
+  <script src="/c:/Go/demo/js/world.js?v=11"></script>
+  <script src="/c:/Go/demo/js/entities.js?v=11"></script>
+  <script src="/c:/Go/demo/js/weapons.js?v=11"></script>
+  <script src="/c:/Go/demo/js/inventory.js?v=11"></script>
+  <script src="/c:/Go/demo/js/lab.js?v=11"></script>
+  <script src="/c:/Go/demo/js/daynight.js?v=11"></script>
+  <script src="/c:/Go/demo/js/savegame.js?v=11"></script>
+  <script src="/c:/Go/demo/js/mobile.js?v=11"></script>
+  <script src="/c:/Go/demo/js/game.js?v=11"></script>
 
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=10')
+        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=11')
           .then((reg) => console.log('✅ PWA Service Worker Registered! Scope:', reg.scope))
           .catch((err) => console.warn('PWA Service Worker Warning:', err));
       });

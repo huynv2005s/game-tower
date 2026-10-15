@@ -26,6 +26,12 @@ class MobileController {
     this.container = null;
     this.rotateOverlay = null;
 
+    // Pinch-to-zoom state
+    this.isPinching = false;
+    this.pinchStartDist = 0;
+    this.pinchStartZoom = 1.0;
+    this.pinchEndTime = 0;
+
     this.initDOM();
     this.bindEvents();
     this.checkOrientation();
@@ -111,11 +117,27 @@ class MobileController {
       if (window.unstuckPlayer) window.unstuckPlayer();
     });
 
-    // Direct Canvas Touch for Building Placement, Structure Interaction & Tap-to-Attack
+    // Map Zoom & Full Tactical Map Buttons
+    this.bindActionButton('btn-zoom-out', () => {
+      if (this.game) this.game.adjustZoom(-0.12);
+    });
+    this.bindActionButton('btn-zoom-in', () => {
+      if (this.game) this.game.adjustZoom(0.12);
+    });
+    this.bindActionButton('btn-zoom-reset', () => {
+      if (this.game) this.game.cycleZoomPreset();
+    });
+    this.bindActionButton('btn-tactical-map', () => {
+      if (this.game) this.game.toggleTacticalMap();
+    });
+
+    // Direct Canvas Touch for Pinch-to-Zoom, Building Placement, Structure Interaction & Tap-to-Attack
     const canvas = document.getElementById('gameCanvas');
     if (canvas) {
       canvas.addEventListener('touchstart', (e) => this.onCanvasTouchStart(e), { passive: false });
       canvas.addEventListener('touchmove', (e) => this.onCanvasTouchMove(e), { passive: false });
+      canvas.addEventListener('touchend', (e) => this.onCanvasTouchEnd(e), { passive: false });
+      canvas.addEventListener('touchcancel', (e) => this.onCanvasTouchEnd(e), { passive: false });
     }
 
     // Prevent default browser touch interactions (pinch-to-zoom, pull-to-refresh)
@@ -211,16 +233,43 @@ class MobileController {
     });
   }
 
+  getCanvasTouches(e) {
+    const list = [];
+    if (!e.touches) return list;
+    for (let i = 0; i < e.touches.length; i++) {
+      const t = e.touches[i];
+      if (t.identifier === this.joystickTouchId) continue;
+      if (t.target && t.target.id === 'gameCanvas') {
+        list.push(t);
+      }
+    }
+    return list;
+  }
+
   onCanvasTouchStart(e) {
     if (!this.game || !this.game.player) return;
+
+    const canvasTouches = this.getCanvasTouches(e);
+    if (canvasTouches.length >= 2) {
+      e.preventDefault();
+      this.isPinching = true;
+      const t1 = canvasTouches[0];
+      const t2 = canvasTouches[1];
+      this.pinchStartDist = Math.max(10, Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY));
+      this.pinchStartZoom = this.game.camera.zoom || 1.0;
+      return;
+    }
+
+    if (this.isPinching || (performance.now() - this.pinchEndTime < 180)) return;
     if (!e.changedTouches || e.changedTouches.length === 0) return;
 
     const touch = e.changedTouches[0];
     window.audioManager.ensureContext();
     this.isUsingTouchAim = true;
 
-    const worldX = touch.clientX + this.game.camera.x;
-    const worldY = touch.clientY + this.game.camera.y;
+    const zoom = (this.game.camera && this.game.camera.zoom) ? this.game.camera.zoom : 1;
+    const worldX = touch.clientX / zoom + this.game.camera.x;
+    const worldY = touch.clientY / zoom + this.game.camera.y;
     this.game.mouse.screenX = touch.clientX;
     this.game.mouse.screenY = touch.clientY;
     this.game.mouse.worldX = worldX;
@@ -263,14 +312,45 @@ class MobileController {
   }
 
   onCanvasTouchMove(e) {
-    if (!this.game || !e.changedTouches || e.changedTouches.length === 0) return;
+    if (!this.game) return;
+
+    const canvasTouches = this.getCanvasTouches(e);
+    if (canvasTouches.length >= 2) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = canvasTouches[0];
+      const t2 = canvasTouches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      if (!this.isPinching) {
+        this.isPinching = true;
+        this.pinchStartDist = Math.max(10, dist);
+        this.pinchStartZoom = this.game.camera.zoom || 1.0;
+      } else if (this.pinchStartDist > 10) {
+        const scale = dist / this.pinchStartDist;
+        this.game.setZoom(this.pinchStartZoom * scale, true, true);
+      }
+      return;
+    }
+
+    if (this.isPinching || !e.changedTouches || e.changedTouches.length === 0) return;
+
     const touch = e.changedTouches[0];
+    const zoom = (this.game.camera && this.game.camera.zoom) ? this.game.camera.zoom : 1;
     this.game.mouse.screenX = touch.clientX;
     this.game.mouse.screenY = touch.clientY;
-    this.game.mouse.worldX = touch.clientX + this.game.camera.x;
-    this.game.mouse.worldY = touch.clientY + this.game.camera.y;
+    this.game.mouse.worldX = touch.clientX / zoom + this.game.camera.x;
+    this.game.mouse.worldY = touch.clientY / zoom + this.game.camera.y;
     if (this.game.buildingManager && this.game.buildingManager.buildMode) {
       this.game.buildingManager.updateHoverTile(this.game.mouse.worldX, this.game.mouse.worldY);
+    }
+  }
+
+  onCanvasTouchEnd(e) {
+    if (this.isPinching) {
+      const canvasTouches = this.getCanvasTouches(e);
+      if (canvasTouches.length < 2) {
+        this.isPinching = false;
+        this.pinchEndTime = performance.now();
+      }
     }
   }
 

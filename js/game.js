@@ -14,8 +14,13 @@ class GameEngine {
       x: 0,
       y: 0,
       width: window.innerWidth,
-      height: window.innerHeight
+      height: window.innerHeight,
+      zoom: 1.0,
+      targetZoom: 1.0,
+      minZoom: 0.36,
+      maxZoom: 1.40
     };
+    this.userCustomZoom = false;
 
     // State & Systems
     this.keys = {};
@@ -56,10 +61,108 @@ class GameEngine {
     this.isPaused = false;
     this.frameCount = 0;
     this.minimapBgCanvas = null;
+    this.tacticalMapBgCanvas = null;
     this._hudCache = null;
   }
 
+  getDefaultZoom() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    // Narrow portrait mobile: zoom out significantly so player sees surrounding paths & resources
+    if (w < 600) return 0.54;
+    // Mobile landscape / compact tablet viewports: wide tactical camera view
+    if (w <= 1024 || h <= 580) return 0.62;
+    return 1.0;
+  }
+
+  getEffectiveMinZoom() {
+    const worldW = (this.world && this.world.width) ? this.world.width : 3200;
+    const worldH = (this.world && this.world.height) ? this.world.height : 2560;
+    const fitZoom = Math.max(this.canvas.width / worldW, this.canvas.height / worldH);
+    return Math.max(this.camera.minZoom, Math.min(1.0, fitZoom));
+  }
+
+  setZoom(newZoom, immediate = false, isUserAction = false) {
+    const minZ = this.getEffectiveMinZoom();
+    const clamped = Math.max(minZ, Math.min(this.camera.maxZoom, newZoom));
+    this.camera.targetZoom = clamped;
+
+    if (isUserAction) {
+      this.userCustomZoom = true;
+      try {
+        localStorage.setItem('alien_apocalypse_zoom_v2', clamped.toFixed(2));
+      } catch (e) {}
+    }
+
+    if (immediate) {
+      const prevW = this.camera.width;
+      const prevH = this.camera.height;
+      this.camera.zoom = clamped;
+      this.camera.width = this.canvas.width / this.camera.zoom;
+      this.camera.height = this.canvas.height / this.camera.zoom;
+      this.camera.x -= (this.camera.width - prevW) / 2;
+      this.camera.y -= (this.camera.height - prevH) / 2;
+      this.clampCamera();
+    }
+
+    this.updateZoomUI();
+  }
+
+  adjustZoom(delta, immediate = false) {
+    this.setZoom(this.camera.targetZoom + delta, immediate, true);
+    if (this.player && this.floatingTexts && this.floatingTexts.length < 40) {
+      const pct = Math.round(this.camera.targetZoom * 100);
+      this.floatingTexts.push(new FloatingText(this.player.x, this.player.y - 34, `🔍 ZOOM BẢN ĐỒ: ${pct}%`, '#38bdf8', 12, 0.75));
+    }
+  }
+
+  cycleZoomPreset() {
+    const presets = [0.45, 0.56, 0.68, 0.82, 1.0, 1.2];
+    const cur = this.camera.targetZoom;
+    let nextZoom = presets[0];
+    for (let i = 0; i < presets.length; i++) {
+      if (presets[i] > cur + 0.04) {
+        nextZoom = presets[i];
+        break;
+      }
+    }
+    this.setZoom(nextZoom, false, true);
+    if (this.player && this.floatingTexts) {
+      const pct = Math.round(this.camera.targetZoom * 100);
+      const modeDesc = pct <= 50 ? 'TOÀN CẢNH RỘNG' : (pct <= 70 ? 'TẦM NHÌN MOBILE' : (pct <= 90 ? 'TẦM NHÌN VỪA' : 'CẬN CẢNH'));
+      this.floatingTexts.push(new FloatingText(this.player.x, this.player.y - 34, `🔍 GÓC NHÌN: ${pct}% (${modeDesc})`, '#facc15', 12, 1.0));
+    }
+  }
+
+  updateZoomUI() {
+    const pct = Math.round((this.camera.targetZoom || this.camera.zoom || 1) * 100) + '%';
+    const badge = document.getElementById('zoom-level-label');
+    if (badge) badge.innerText = pct;
+    const modalBadge = document.getElementById('tactical-map-zoom-label');
+    if (modalBadge) modalBadge.innerText = `Góc nhìn: ${pct}`;
+  }
+
+  clampCamera() {
+    if (!this.world) return;
+    const maxCamX = Math.max(0, this.world.width - this.camera.width);
+    const maxCamY = Math.max(0, this.world.height - this.camera.height);
+    this.camera.x = Math.max(0, Math.min(maxCamX, this.camera.x));
+    this.camera.y = Math.max(0, Math.min(maxCamY, this.camera.y));
+  }
+
   init() {
+    // Load saved zoom preference or apply optimal mobile/desktop default zoom
+    let initialZoom = this.getDefaultZoom();
+    try {
+      const savedZ = parseFloat(localStorage.getItem('alien_apocalypse_zoom_v2'));
+      if (!isNaN(savedZ) && savedZ >= 0.35 && savedZ <= 1.5) {
+        initialZoom = savedZ;
+        this.userCustomZoom = true;
+      }
+    } catch (e) {}
+    this.camera.zoom = initialZoom;
+    this.camera.targetZoom = initialZoom;
+
     // Resize canvas
     this.resizeCanvas();
     window.addEventListener('resize', () => this.resizeCanvas());
@@ -94,9 +197,15 @@ class GameEngine {
       this.saveManager.loadGame();
     }
 
+    // Snap camera immediately to player on startup
+    this.camera.x = this.player.x - this.camera.width / 2;
+    this.camera.y = this.player.y - this.camera.height / 2;
+    this.clampCamera();
+
     // Initial UI render
     this.inventory.renderUI();
     this.updateHUD(true);
+    this.updateZoomUI();
 
     // Start Game Loop
     requestAnimationFrame((t) => this.loop(t));
@@ -105,8 +214,19 @@ class GameEngine {
   resizeCanvas() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
-    this.camera.width = this.canvas.width;
-    this.camera.height = this.canvas.height;
+    if (!this.userCustomZoom) {
+      const autoZ = this.getDefaultZoom();
+      this.camera.zoom = autoZ;
+      this.camera.targetZoom = autoZ;
+    } else {
+      const minZ = this.getEffectiveMinZoom();
+      if (this.camera.zoom < minZ) this.camera.zoom = minZ;
+      if (this.camera.targetZoom < minZ) this.camera.targetZoom = minZ;
+    }
+    this.camera.width = this.canvas.width / (this.camera.zoom || 1);
+    this.camera.height = this.canvas.height / (this.camera.zoom || 1);
+    this.clampCamera();
+    this.updateZoomUI();
     if (this.ctx) {
       this.ctx.imageSmoothingEnabled = true;
       if (this.ctx.imageSmoothingQuality) {
@@ -247,11 +367,34 @@ class GameEngine {
       if (e.code === 'KeyU') {
         this.unstuckPlayer();
       }
+
+      // Camera Zoom Shortcuts [-, +, =, Z]
+      if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
+        this.adjustZoom(-0.12);
+      }
+      if (e.code === 'Equal' || e.code === 'NumpadAdd') {
+        this.adjustZoom(0.12);
+      }
+      if (e.code === 'KeyZ') {
+        this.cycleZoomPreset();
+      }
+
+      // Tactical Map Modal Toggle [KeyN or KeyV]
+      if (e.code === 'KeyN' || e.code === 'KeyV') {
+        this.toggleTacticalMap();
+      }
     });
 
     window.addEventListener('keyup', (e) => {
       this.keys[e.code] = false;
     });
+
+    // Mouse Wheel Zoom on Canvas
+    this.canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.10 : -0.10;
+      this.adjustZoom(delta);
+    }, { passive: false });
 
     // Disable context menu on right click to allow quick cancel build mode
     window.addEventListener('contextmenu', (e) => {
@@ -263,10 +406,11 @@ class GameEngine {
 
     // Mouse movement
     window.addEventListener('mousemove', (e) => {
+      const z = this.camera.zoom || 1;
       this.mouse.screenX = e.clientX;
       this.mouse.screenY = e.clientY;
-      this.mouse.worldX = e.clientX + this.camera.x;
-      this.mouse.worldY = e.clientY + this.camera.y;
+      this.mouse.worldX = e.clientX / z + this.camera.x;
+      this.mouse.worldY = e.clientY / z + this.camera.y;
       if (this.mobileController && this.mobileController.joystickTouchId === null &&
           this.mobileController.moveVector.x === 0 && this.mobileController.moveVector.y === 0) {
         this.mobileController.isUsingTouchAim = false;
@@ -286,10 +430,11 @@ class GameEngine {
 
       if (e.button === 0) { // Left click
         if (e.target.tagName === 'CANVAS') {
+          const z = this.camera.zoom || 1;
           this.mouse.screenX = e.clientX;
           this.mouse.screenY = e.clientY;
-          this.mouse.worldX = e.clientX + this.camera.x;
-          this.mouse.worldY = e.clientY + this.camera.y;
+          this.mouse.worldX = e.clientX / z + this.camera.x;
+          this.mouse.worldY = e.clientY / z + this.camera.y;
 
           // If in Build Mode, place or upgrade structure!
           if (this.buildingManager.buildMode) {
@@ -319,19 +464,42 @@ class GameEngine {
     dt = Math.min(dt, 0.1);
     this.frameCount++;
 
-    // Update world mouse coords
-    this.mouse.worldX = this.mouse.screenX + this.camera.x;
-    this.mouse.worldY = this.mouse.screenY + this.camera.y;
+    // Smoothly interpolate camera zoom toward targetZoom
+    if (Math.abs(this.camera.targetZoom - this.camera.zoom) > 0.001) {
+      const prevW = this.camera.width;
+      const prevH = this.camera.height;
+      this.camera.zoom += (this.camera.targetZoom - this.camera.zoom) * Math.min(1, dt * 12);
+      this.camera.width = this.canvas.width / this.camera.zoom;
+      this.camera.height = this.canvas.height / this.camera.zoom;
+      this.camera.x -= (this.camera.width - prevW) / 2;
+      this.camera.y -= (this.camera.height - prevH) / 2;
+    } else if (this.camera.zoom !== this.camera.targetZoom) {
+      this.camera.zoom = this.camera.targetZoom;
+      this.camera.width = this.canvas.width / this.camera.zoom;
+      this.camera.height = this.canvas.height / this.camera.zoom;
+    }
 
-    // Check if UI modal is open (Crafting, Inventory, Help, GameOver)
+    // Update world mouse coords with camera zoom
+    const z = this.camera.zoom || 1;
+    this.mouse.worldX = this.mouse.screenX / z + this.camera.x;
+    this.mouse.worldY = this.mouse.screenY / z + this.camera.y;
+
+    // Check if UI modal is open (Crafting, Inventory, Help, GameOver, TacticalMap)
     if (!this._modalEls) {
       this._modalEls = {
         help: document.getElementById('help-modal'),
-        gameover: document.getElementById('gameover-modal')
+        gameover: document.getElementById('gameover-modal'),
+        tacticalMap: document.getElementById('tactical-map-modal')
       };
     }
+    const isTacticalMapOpen = this._modalEls.tacticalMap && this._modalEls.tacticalMap.style.display === 'flex';
+    if (isTacticalMapOpen && this.frameCount % 4 === 0) {
+      this.renderTacticalMap();
+    }
+
     const isModalOpen = (this.lab && this.lab.isOpen) ||
                         (this.inventory && this.inventory.isOpen) ||
+                        isTacticalMapOpen ||
                         (this._modalEls.help && this._modalEls.help.style.display === 'flex') ||
                         (this._modalEls.gameover && this._modalEls.gameover.style.display === 'flex');
 
@@ -369,8 +537,7 @@ class GameEngine {
     this.camera.y += (targetCamY - this.camera.y) * 0.12;
 
     // Clamp camera within world boundaries
-    this.camera.x = Math.max(0, Math.min(this.world.width - this.camera.width, this.camera.x));
-    this.camera.y = Math.max(0, Math.min(this.world.height - this.camera.height, this.camera.y));
+    this.clampCamera();
 
     // Update Monsters
     for (let i = this.monsters.length - 1; i >= 0; i--) {
@@ -428,6 +595,11 @@ class GameEngine {
   render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    this.ctx.save();
+    if (this.camera.zoom && this.camera.zoom !== 1) {
+      this.ctx.scale(this.camera.zoom, this.camera.zoom);
+    }
+
     // 1. Render World Map Tiles, Mountains & Forests (Cached offscreen ground + frustum culled nodes)
     this.world.render(this.ctx, this.camera, this.player);
 
@@ -461,6 +633,8 @@ class GameEngine {
     for (let ft of this.floatingTexts) {
       ft.render(this.ctx, this.camera);
     }
+
+    this.ctx.restore();
 
     // 9. Render Minimap (throttled every 4 frames for 60 FPS performance)
     if (this.frameCount % 4 === 0) {
@@ -909,13 +1083,21 @@ class GameEngine {
     if (!this.minimapBgCanvas) this.buildMinimapCache();
     mctx.drawImage(this.minimapBgCanvas, 0, 0);
 
-    // 2. Draw Unhatched Alien Eggs on Minimap (Magenta dots)
-    mctx.fillStyle = '#e879f9';
-    for (let h of this.world.harvestables) {
-      if (h.isDestroyed || h.type !== 'alien_egg') continue;
+    // 2. Draw Resource Nodes & Unhatched Alien Eggs on Minimap
+    for (let h of this.world.resourceNodes) {
+      if (h.isDestroyed) continue;
       const ex = (h.x / this.world.width) * mw;
       const ey = (h.y / this.world.height) * mh;
-      mctx.fillRect(ex - 1, ey - 1, 2, 2);
+      if (h.type === 'alien_egg') {
+        mctx.fillStyle = '#e879f9';
+        mctx.fillRect(ex - 1, ey - 1, 2.2, 2.2);
+      } else if (h.type === 'sulfur_ore' || h.type === 'tech_debris') {
+        mctx.fillStyle = '#facc15';
+        mctx.fillRect(ex - 0.8, ey - 0.8, 1.6, 1.6);
+      } else if (h.type === 'quartz_ore' || h.type === 'plasma_node' || h.type === 'titanium_ore') {
+        mctx.fillStyle = '#38bdf8';
+        mctx.fillRect(ex - 0.8, ey - 0.8, 1.6, 1.6);
+      }
     }
 
     // 3. Draw Placed Defenses (color-coded by upgrade level)
@@ -950,8 +1132,8 @@ class GameEngine {
     const camY = (this.camera.y / this.world.height) * mh;
     const camW = (this.camera.width / this.world.width) * mw;
     const camH = (this.camera.height / this.world.height) * mh;
-    mctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-    mctx.lineWidth = 0.8;
+    mctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    mctx.lineWidth = 0.9;
     mctx.strokeRect(camX, camY, camW, camH);
 
     // 6. Draw Player on Minimap (Bright green pulsing beacon)
@@ -969,6 +1151,182 @@ class GameEngine {
     mctx.strokeStyle = '#38bdf8';
     mctx.lineWidth = 1;
     mctx.strokeRect(0, 0, mw, mh);
+  }
+
+  toggleTacticalMap() {
+    const modal = document.getElementById('tactical-map-modal');
+    if (!modal) return;
+    const isOpening = modal.style.display !== 'flex';
+    modal.style.display = isOpening ? 'flex' : 'none';
+    if (isOpening) {
+      this.updateZoomUI();
+      this.renderTacticalMap();
+    }
+  }
+
+  buildTacticalMapCache(mw, mh) {
+    if (!this.tacticalMapBgCanvas) {
+      this.tacticalMapBgCanvas = document.createElement('canvas');
+    }
+    this.tacticalMapBgCanvas.width = mw;
+    this.tacticalMapBgCanvas.height = mh;
+    const tctx = this.tacticalMapBgCanvas.getContext('2d');
+
+    const scaleX = mw / this.world.cols;
+    const scaleY = mh / this.world.rows;
+
+    for (let r = 0; r < this.world.rows; r++) {
+      for (let c = 0; c < this.world.cols; c++) {
+        const t = this.world.tiles[r][c];
+        let col = '#2d5a27';
+        if (t === CONSTANTS.TILES.SNOW_PEAK) col = '#cbd5e1';
+        else if (t === CONSTANTS.TILES.MOUNTAIN_ROCK || t === CONSTANTS.TILES.MOUNTAIN_SLATE) col = '#475569';
+        else if (t === CONSTANTS.TILES.RIVER_WATER || t === CONSTANTS.TILES.LAKE_WATER) col = '#0284c7';
+        else if (t === CONSTANTS.TILES.WOODEN_BRIDGE) col = '#d97706';
+        else if (t === CONSTANTS.TILES.DIRT_PATH) col = '#854d0e';
+        else if (t === CONSTANTS.TILES.SAND || t === CONSTANTS.TILES.SAND_WET) col = '#eab308';
+        else if (t === CONSTANTS.TILES.OCEAN_SHALLOW) col = '#0d9488';
+        else if (t === CONSTANTS.TILES.OCEAN_DEEP) col = '#0f172a';
+        else if (t === CONSTANTS.TILES.TREE_ALIEN_PINE || t === CONSTANTS.TILES.TREE_POST_APOC) col = '#14532d';
+
+        tctx.fillStyle = col;
+        tctx.fillRect(c * scaleX, r * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
+      }
+    }
+
+    // Biome Region Labels on Tactical Map
+    tctx.save();
+    tctx.font = 'bold 11px "Chakra Petch", sans-serif';
+    tctx.textAlign = 'center';
+    tctx.fillStyle = 'rgba(248, 250, 252, 0.85)';
+    tctx.shadowColor = '#000';
+    tctx.shadowBlur = 4;
+    tctx.fillText('🏔 VÙNG NÚI TỬ THẦN (Lưu Huỳnh, Thạch Anh, Titan, Tuyết Liên, Ổ Trứng)', mw * 0.5, mh * 0.12);
+    tctx.fillText('🏕 ĐỒNG BẰNG TRUNG TÂM & CĂN CỨ (Gỗ, Thảo Dược, Cầu Gỗ, Sông Hồ)', mw * 0.42, mh * 0.52);
+    tctx.fillText('🌊 BỜ BIỂN NHIỄM XẠ (Mảnh Vỡ Phi Thuyền, Trụ Năng Lượng Plasma)', mw * 0.5, mh * 0.86);
+    tctx.restore();
+  }
+
+  renderTacticalMap() {
+    const canvas = document.getElementById('tactical-map-canvas');
+    if (!canvas || !this.world || !this.player) return;
+    const ctx = canvas.getContext('2d');
+    const mw = canvas.width;
+    const mh = canvas.height;
+
+    if (!this.tacticalMapBgCanvas || this.tacticalMapBgCanvas.width !== mw || this.tacticalMapBgCanvas.height !== mh) {
+      this.buildTacticalMapCache(mw, mh);
+    }
+
+    ctx.drawImage(this.tacticalMapBgCanvas, 0, 0);
+
+    // 1. Draw Wild Berry Flora (Green/Purple dots)
+    for (let f of this.world.wildFlora) {
+      if (f.isHarvested) continue;
+      const fx = (f.x / this.world.width) * mw;
+      const fy = (f.y / this.world.height) * mh;
+      ctx.fillStyle = f.isBlighted ? '#c084fc' : '#4ade80';
+      ctx.fillRect(fx - 1.5, fy - 1.5, 3, 3);
+    }
+
+    // 2. Draw Resource Nodes (Sulfur, Quartz, Titanium, Herbs, Tech Debris, Plasma, Alien Eggs)
+    for (let h of this.world.resourceNodes) {
+      if (h.isDestroyed) continue;
+      const rx = (h.x / this.world.width) * mw;
+      const ry = (h.y / this.world.height) * mh;
+      let col = '#facc15';
+      let rSize = 3.5;
+      if (h.type === 'sulfur_ore') col = '#facc15';
+      else if (h.type === 'quartz_ore') col = '#38bdf8';
+      else if (h.type === 'titanium_ore') col = '#f8fafc';
+      else if (h.type === 'snow_lotus' || h.type === 'silver_moss') col = '#4ade80';
+      else if (h.type === 'tech_debris') col = '#fb923c';
+      else if (h.type === 'plasma_node') col = '#22d3ee';
+      else if (h.type === 'alien_egg') { col = '#f43f5e'; rSize = 4.2; }
+
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(rx, ry, rSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // 3. Draw Base Structures & Safe Zone Ring
+    for (let s of this.world.structures) {
+      const sx = ((s.x + s.width / 2) / this.world.width) * mw;
+      const sy = ((s.y + s.height / 2) / this.world.height) * mh;
+      if (s.type === 'biolab') {
+        const rad = (s.isolationRadius / this.world.width) * mw;
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#10b981';
+        ctx.fillRect(sx - 4, sy - 4, 8, 8);
+      } else {
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(sx - 3, sy - 3, 6, 6);
+      }
+    }
+
+    // 4. Draw Placed Defenses
+    if (this.buildingManager) {
+      for (let d of this.buildingManager.defenses) {
+        const dx = (d.x / this.world.width) * mw;
+        const dy = (d.y / this.world.height) * mh;
+        ctx.fillStyle = d.level === 3 ? '#facc15' : (d.level === 2 ? '#c084fc' : '#38bdf8');
+        ctx.fillRect(dx - 2, dy - 2, 4, 4);
+      }
+    }
+
+    // 5. Draw Monsters
+    for (let m of this.monsters) {
+      if (m.isDead) continue;
+      const mx = (m.x / this.world.width) * mw;
+      const my = (m.y / this.world.height) * mh;
+      ctx.fillStyle = m.species === 'dummy' ? '#facc15' : (m.isBoss ? '#c084fc' : '#ef4444');
+      const sz = m.isBoss ? 6 : 3.5;
+      ctx.fillRect(mx - sz / 2, my - sz / 2, sz, sz);
+    }
+
+    // 6. Draw Camera Viewport Box
+    const camX = (this.camera.x / this.world.width) * mw;
+    const camY = (this.camera.y / this.world.height) * mh;
+    const camW = (this.camera.width / this.world.width) * mw;
+    const camH = (this.camera.height / this.world.height) * mh;
+    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(camX, camY, camW, camH);
+
+    // 7. Draw Player Position Marker
+    const px = (this.player.x / this.world.width) * mw;
+    const py = (this.player.y / this.world.height) * mh;
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.35)';
+    ctx.beginPath();
+    ctx.arc(px, py, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#4ade80';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.save();
+    ctx.font = 'bold 10px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    ctx.fillText('📍 BẠN ĐANG Ở ĐÂY', px, py - 9);
+    ctx.restore();
   }
 }
 

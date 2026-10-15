@@ -86,8 +86,8 @@ class DayNightSystem {
   renderLighting(ctx, camera, player) {
     if (this.lightLevel >= 0.95) return;
 
-    const w = ctx.canvas.width;
-    const h = ctx.canvas.height;
+    const w = Math.ceil(camera.width);
+    const h = Math.ceil(camera.height);
     const scale = 0.5;
     const lw = Math.max(1, Math.ceil(w * scale));
     const lh = Math.max(1, Math.ceil(h * scale));
