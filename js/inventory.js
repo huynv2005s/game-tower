@@ -55,6 +55,11 @@ class InventorySystem {
     this.addItem('sulfur_dust', 8);
     this.addItem('quartz_crystal', 5);
     this.addItem('monster_egg', 2);
+    this.addItem('wild_berry', 4);
+    this.addItem('seed_snow_lotus', 4);
+    this.addItem('seed_silver_moss', 4);
+    this.addItem('seed_wild_berry', 4);
+    this.addItem('seed_quartz_bloom', 2);
   }
 
   getItemCount(itemId) {

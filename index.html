@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="/c:/Go/demo/assets/icons/icon-192.png">
 
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=13">
+  <link rel="stylesheet" href="/c:/Go/demo/css/style.css?v=15">
 </head>
 <body>
 
@@ -127,6 +127,7 @@
         <button id="btn-toggle-touch" class="hud-btn tactical-btn" onclick="window.mobileController.toggleControls()">📱 <span class="hud-btn-label">CẢM ỨNG</span></button>
         <button id="btn-save-game" class="hud-btn tactical-btn" onclick="window.saveManager.saveGame(false)">💾 <span class="hud-btn-label">LƯU</span><span class="hud-key-hint"> [K]</span></button>
         <button id="btn-biolab" class="hud-btn tactical-btn" onclick="window.labSystem.open('lab')">🧬 <span class="hud-btn-label">LAB</span><span class="hud-key-hint"> [F]</span></button>
+        <button id="btn-hydroponics" class="hud-btn tactical-btn" onclick="window.labSystem.open('hydroponics')" title="Nông Trại Thủy Canh & Mở Rộng Quy Mô Trồng Cây (Lv.1 -> Lv.4)" style="border-color:#10b981; color:#a7f3d0;">🌱 <span class="hud-btn-label">TRỒNG CÂY</span></button>
         <button id="btn-incubator" class="hud-btn tactical-btn" onclick="window.labSystem.open('incubator')" title="Lồng Ấp Trứng Quái Vật & Thú Cưng Đồng Hành (Chỉ ấp trong Phòng Lab) [Phím P]">🐣 <span class="hud-btn-label">ẤP PET</span><span class="hud-key-hint"> [P]</span></button>
         <button id="btn-workbench" class="hud-btn tactical-btn" onclick="window.labSystem.open('workbench')">🔨 <span class="hud-btn-label">CHẾ TẠO</span></button>
         <button id="btn-workshop" class="hud-btn tactical-btn" onclick="window.labSystem.open('workshop')">⚙ <span class="hud-btn-label">XƯỞNG</span></button>
@@ -314,6 +315,18 @@
 
       <div class="guide-content">
         <div class="guide-section">
+          <div class="guide-heading">🌱 NÂNG CẤP PHÒNG LAB & MỞ RỘNG NÔNG TRẠI TRỒNG CÂY (LV.1 ➔ LV.4 MAX)</div>
+          <p>• <strong>Mở rộng Quy Mô Trồng Cây:</strong> Bấm nút <span class="guide-key">🌱 TRỒNG CÂY</span> trên HUD hoặc phím <span class="guide-key">F</span> cạnh Phòng Lab để mở <strong>Nông Trại Thủy Canh</strong> và bấm <strong>⬆️ NÂNG CẤP PHÒNG LAB</strong>.</p>
+          <p>• <strong>4 Cấp Độ Mở Rộng Nhà Kính:</strong>
+            <br>1. <strong>Lv.1 Phòng Lab Khởi Đầu:</strong> <strong>3 Lồng Cấy</strong> | Mọc 35s | Sản lượng x2/lồng | Hoàn hạt 25% | Vùng cách ly 150px.
+            <br>2. <strong>Lv.2 Nhà Kính Thủy Canh Mở Rộng:</strong> <strong>6 Lồng Cấy</strong> | Mọc 24s | Sản lượng x3/lồng | Hoàn hạt 50% | Vùng cách ly 205px (+1.2 HP/s).
+            <br>3. <strong>Lv.3 Quần Thể Nông Trại Sinh Học:</strong> <strong>9 Lồng Cấy</strong> | Mọc 16s | Sản lượng x4/lồng | Hoàn hạt 75% | Vùng cách ly 260px (+2.5 HP/s, giảm độc).
+            <br>4. <strong>Lv.4 Trung Tâm Sinh Quyển Tối Thượng:</strong> <strong>12 Lồng Cấy</strong> | Mọc 10s | Sản lượng x6/lồng | <strong>Hoàn hạt 100% (Trồng Vĩnh Viễn)</strong> | Vùng cách ly 320px (+4.5 HP/s).
+          </p>
+          <p>• <strong>4 Giống Cây Quý & Tự Động Hóa:</strong> Trồng <em>Tuyết Liên</em>, <em>Rêu Bạc</em>, <em>Quả Mọng Sạch</em> và <em>Mầm Tinh Thể Thạch Anh</em>. Hỗ trợ <strong>Gieo Đồng Loạt</strong>, <strong>Thu Hoạch Tất Cả</strong>, <strong>Tưới Nước Tăng Tốc (+50%)</strong> và <strong>Tự Động Gieo Lại</strong>!</p>
+        </div>
+
+        <div class="guide-section">
           <div class="guide-heading">🐣 NHẶT TRỨNG QUÁI VẬT & ẤP THÚ CƯNG TẠI PHÒNG LAB (TỐI ĐA 1 PET)</div>
           <p>• <strong>Cách nhặt Trứng Quái Vật:</strong> Lại gần <em>Ổ Trứng Ngoại Lai</em> trên bản đồ bấm <span class="guide-key">F</span> (hoặc đập vỡ ổ trứng / tiêu diệt Quái &amp; Boss ban đêm) để nhặt <strong>Trứng Quái Vật Đột Biến</strong>.</p>
           <p>• <strong>Chỉ ấp được trong Phòng Lab Cách Ly:</strong> Mang trứng về <strong>Phòng Lab Cách Ly</strong> (giữa bản đồ), bấm <span class="guide-key">F</span> hoặc <span class="guide-key">P</span> mở tab <strong>🐣 ẤP TRỨNG &amp; PET</strong> (hoặc click trực tiếp vào Trứng trong Balo khi đang đứng trong Phòng Lab) để đưa trứng vào lồng ấp.</p>
@@ -403,20 +416,20 @@
 
   <!-- BIO-LAB & FURNACE MODAL -->
   <div id="lab-modal" class="modal-backdrop">
-    <div class="modal-window" style="width: 780px;">
+    <div class="modal-window" style="width: 820px;">
       <div class="modal-header">
-        <div class="modal-title">🧬 TRUNG TÂM PHÒNG LAB, ẤP TRỨNG PET, BÀO CHẾ & THỦ THÀNH</div>
+        <div class="modal-title">🧬 TRUNG TÂM PHÒNG LAB, NÔNG TRẠI THỦY CANH, ẤP PET & THỦ THÀNH</div>
         <button class="close-btn" onclick="window.labSystem.close()">✕</button>
       </div>
 
       <!-- Navigation Tabs -->
       <div class="lab-tabs">
-        <button class="lab-tab-btn active" data-tab="lab" onclick="window.labSystem.switchTab('lab')">🧬 BÀO CHẾ THUỐC</button>
+        <button class="lab-tab-btn active" data-tab="lab" onclick="window.labSystem.switchTab('lab')">🧬 BÀO CHẾ & NÂNG CẤP LAB</button>
+        <button class="lab-tab-btn" data-tab="hydroponics" onclick="window.labSystem.switchTab('hydroponics')" style="border-color:#10b981; color:#a7f3d0;">🌱 NÔNG TRẠI TRỒNG CÂY</button>
         <button class="lab-tab-btn" data-tab="incubator" onclick="window.labSystem.switchTab('incubator')" style="border-color:#a855f7; color:#f3e8ff;">🐣 ẤP TRỨNG & PET</button>
         <button class="lab-tab-btn" data-tab="furnace" onclick="window.labSystem.switchTab('furnace')">🔥 LÒ NUNG KHỬ TRÙNG</button>
         <button class="lab-tab-btn" data-tab="workbench" onclick="window.labSystem.switchTab('workbench')">🔨 BÀN CHẾ TẠO</button>
         <button class="lab-tab-btn" data-tab="workshop" onclick="window.labSystem.switchTab('workshop')">⚙ XƯỞNG THỦ THÀNH</button>
-        <button class="lab-tab-btn" data-tab="hydroponics" onclick="window.labSystem.switchTab('hydroponics')">🌱 LỒNG CẤY CÁCH LY</button>
       </div>
 
       <!-- Tab Content 1: Bio-Lab Antidote Alchemy -->
@@ -442,7 +455,7 @@
       <!-- Tab Content 5: Isolated Hydroponics -->
       <div id="tab-content-hydro" style="display: none;">
         <div style="font-size: 11px; color: #a7f3d0; margin-bottom: 8px;">
-          🛡 <em>Vùng vô trùng cách ly:</em> Cây cấy nuôi trong lồng kính không bao giờ bị biến mất hay nhiễm bệnh qua đêm!
+          🛡 <em>Nhà Kính Thủy Canh Cách Ly:</em> Nâng cấp Phòng Lab từ Lv.1 ➔ Lv.4 để mở rộng tới 12 Lồng Cấy, tăng tốc độ mọc (10s), tăng sản lượng thu hoạch (x6/lồng) và hoàn 100% hạt giống!
         </div>
         <div id="hydroponics-pods"></div>
       </div>
@@ -557,26 +570,26 @@
   </script>
 
   <!-- Import Scripts (Absolute Paths) -->
-  <script src="/c:/Go/demo/js/constants.js?v=14"></script>
-  <script src="/c:/Go/demo/js/audio.js?v=14"></script>
-  <script src="/c:/Go/demo/js/pixelart.js?v=14"></script>
-  <script src="/c:/Go/demo/js/buildings.js?v=14"></script>
-  <script src="/c:/Go/demo/js/world.js?v=14"></script>
-  <script src="/c:/Go/demo/js/entities.js?v=14"></script>
-  <script src="/c:/Go/demo/js/weapons.js?v=14"></script>
-  <script src="/c:/Go/demo/js/pets.js?v=14"></script>
-  <script src="/c:/Go/demo/js/inventory.js?v=14"></script>
-  <script src="/c:/Go/demo/js/lab.js?v=14"></script>
-  <script src="/c:/Go/demo/js/daynight.js?v=14"></script>
-  <script src="/c:/Go/demo/js/savegame.js?v=14"></script>
-  <script src="/c:/Go/demo/js/mobile.js?v=14"></script>
-  <script src="/c:/Go/demo/js/game.js?v=14"></script>
+  <script src="/c:/Go/demo/js/constants.js?v=15"></script>
+  <script src="/c:/Go/demo/js/audio.js?v=15"></script>
+  <script src="/c:/Go/demo/js/pixelart.js?v=15"></script>
+  <script src="/c:/Go/demo/js/buildings.js?v=15"></script>
+  <script src="/c:/Go/demo/js/world.js?v=15"></script>
+  <script src="/c:/Go/demo/js/entities.js?v=15"></script>
+  <script src="/c:/Go/demo/js/weapons.js?v=15"></script>
+  <script src="/c:/Go/demo/js/pets.js?v=15"></script>
+  <script src="/c:/Go/demo/js/inventory.js?v=15"></script>
+  <script src="/c:/Go/demo/js/lab.js?v=15"></script>
+  <script src="/c:/Go/demo/js/daynight.js?v=15"></script>
+  <script src="/c:/Go/demo/js/savegame.js?v=15"></script>
+  <script src="/c:/Go/demo/js/mobile.js?v=15"></script>
+  <script src="/c:/Go/demo/js/game.js?v=15"></script>
 
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=14')
+        navigator.serviceWorker.register('/c:/Go/demo/service-worker.js?v=15')
           .then((reg) => console.log('✅ PWA Service Worker Registered! Scope:', reg.scope))
           .catch((err) => console.warn('PWA Service Worker Warning:', err));
       });

@@ -724,6 +724,13 @@ class WorldMap {
       if (Math.hypot(x - cx, y - cy) <= reach) {
         return s;
       }
+      if (s.type === 'biolab') {
+        const midX = s.x + s.width / 2;
+        const midY = s.y + s.height / 2 - 12;
+        if (Math.hypot(x - midX, y - midY) <= reach + 38) {
+          return s;
+        }
+      }
     }
     return null;
   }
@@ -957,12 +964,19 @@ class WorldMap {
       }
     }
 
-    // 5. Render Central Base Structures (Bio-Lab, Furnace, Workbench, Workshop)
+    // 5. Render Central Base Structures (Bio-Lab + Expanded Greenhouse Pods, Furnace, Workbench, Workshop)
     const stationMeta = {
-      biolab:    { sprite: 'building_biolab',    label: '🧬 PHÒNG LAB CÁCH LY [F]',   color: '#10b981' },
-      furnace:   { sprite: 'building_furnace',   label: '🔥 LÒ NUNG KHỬ TRÙNG [F]',   color: '#f97316' },
-      workbench: { sprite: 'building_workbench', label: '🔨 BÀN CHẾ TẠO [F]',         color: '#eab308' },
+      biolab:    { sprite: 'building_biolab',    label: '🧬 PHÒNG LAB & TRỒNG CÂY [F]', color: '#10b981' },
+      furnace:   { sprite: 'building_furnace',   label: '🔥 LÒ NUNG KHỬ TRÙNG [F]',     color: '#f97316' },
+      workbench: { sprite: 'building_workbench', label: '🔨 BÀN CHẾ TẠO [F]',           color: '#eab308' },
       workshop:  { sprite: 'building_workshop',  label: '⚙ XƯỞNG THỦ THÀNH & SÚNG [F]', color: '#38bdf8' }
+    };
+
+    const podSpriteMap = {
+      seed_snow_lotus: 'obj_snow_lotus',
+      seed_silver_moss: 'obj_silver_moss',
+      seed_wild_berry: 'tile_berry_clean',
+      seed_quartz_bloom: 'obj_quartz_ore'
     };
 
     for (let s of this.structures) {
@@ -971,12 +985,83 @@ class WorldMap {
       const cx = sx + s.width / 2;
       const cy = sy + s.height / 2;
 
-      if (cx < -200 || cx > camera.width + 200 || cy < -200 || cy > camera.height + 200) continue;
+      if (cx < -320 || cx > camera.width + 320 || cy < -320 || cy > camera.height + 320) continue;
 
       if (s.type === 'biolab') {
+        const labSys = (this.game && this.game.lab) ? this.game.lab : null;
+        const labLv = labSys ? (labSys.labLevel || 1) : 1;
+        const isoRad = s.isolationRadius || 150;
+
+        // 5a. Quarantine Aura scaled to upgraded isolationRadius
         const auraSpr = window.pixelArt.get('fx_biolab_aura');
         if (auraSpr) {
-          ctx.drawImage(auraSpr, cx - auraSpr.width / 2, cy - auraSpr.height / 2);
+          const auraDiam = isoRad * 2;
+          ctx.drawImage(auraSpr, cx - auraDiam / 2, cy - auraDiam / 2, auraDiam, auraDiam);
+        }
+
+        if (labLv >= 2) {
+          ctx.save();
+          ctx.strokeStyle = labLv >= 4 ? 'rgba(250, 204, 21, 0.42)' : (labLv === 3 ? 'rgba(192, 132, 252, 0.38)' : 'rgba(56, 189, 248, 0.35)');
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([8, 6]);
+          ctx.beginPath();
+          ctx.arc(cx, cy, isoRad, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 5b. Render Hydroponic Greenhouse Plots around the Bio-Lab (3 -> 6 -> 9 -> 12 Pods)
+        const podOffsets = [
+          // Lv.1 (3 Pods - North Terrace Row 1)
+          { dx: 14, dy: -22 }, { dx: 48, dy: -22 }, { dx: 82, dy: -22 },
+          // Lv.2 (+3 Pods = 6 Pods - West & East Greenhouse Wings)
+          { dx: -22, dy: 22 }, { dx: -22, dy: 58 }, { dx: 118, dy: 22 },
+          // Lv.3 (+3 Pods = 9 Pods - North Terrace Row 2)
+          { dx: 14, dy: -58 }, { dx: 48, dy: -58 }, { dx: 82, dy: -58 },
+          // Lv.4 (+3 Pods = 12 Pods - Outer Corner Biosphere Pods)
+          { dx: 118, dy: 58 }, { dx: -22, dy: -22 }, { dx: 118, dy: -22 }
+        ];
+
+        const pods = (labSys && Array.isArray(labSys.hydroPods)) ? labSys.hydroPods : [];
+        const podBedSpr = window.pixelArt.get('building_greenhouse_pod');
+
+        for (let i = 0; i < pods.length && i < podOffsets.length; i++) {
+          const pod = pods[i];
+          const off = podOffsets[i];
+          const px = sx + off.dx;
+          const py = sy + off.dy;
+
+          if (podBedSpr) {
+            ctx.drawImage(podBedSpr, px - 18, py - 18, 36, 36);
+          }
+
+          if (pod.seedId) {
+            const pct = Math.min(1, Math.max(0, pod.progress / (pod.growthTime || 35)));
+            const cropSprKey = podSpriteMap[pod.seedId] || 'obj_snow_lotus';
+            const cropSpr = window.pixelArt.get(cropSprKey);
+            if (cropSpr) {
+              const scale = 0.42 + pct * 0.44;
+              const drawW = 34 * scale;
+              const drawH = 34 * scale;
+              ctx.drawImage(cropSpr, px - drawW / 2, py - drawH / 2 - 2, drawW, drawH);
+            }
+
+            if (pod.ready) {
+              const pulse = 0.65 + Math.sin(now * 0.006 + i) * 0.3;
+              ctx.strokeStyle = `rgba(250, 204, 21, ${pulse.toFixed(2)})`;
+              ctx.lineWidth = 1.6;
+              ctx.beginPath();
+              ctx.arc(px, py, 15, 0, Math.PI * 2);
+              ctx.stroke();
+            } else {
+              // Mini progress bar on greenhouse bed
+              const bw = 22, bh = 3;
+              ctx.fillStyle = '#090d16';
+              ctx.fillRect(px - bw / 2 - 1, py + 11, bw + 2, bh + 1);
+              ctx.fillStyle = '#38bdf8';
+              ctx.fillRect(px - bw / 2, py + 11.5, bw * pct, bh);
+            }
+          }
         }
       }
 
@@ -987,15 +1072,33 @@ class WorldMap {
           ctx.drawImage(sprite, sx, sy, s.width, s.height);
         }
         const distP = player ? Math.hypot(player.x - (s.x + s.width / 2), player.y - (s.y + s.height / 2)) : 9999;
-        const isNear = distP <= 95;
+        const isNear = distP <= 115;
+
+        let badgeText = meta.label;
+        let badgeCol = isNear ? '#ffffff' : meta.color;
+        let badgeY = sy - 10;
+
+        if (s.type === 'biolab' && this.game && this.game.lab) {
+          const lv = this.game.lab.labLevel || 1;
+          const totalPods = this.game.lab.hydroPods ? this.game.lab.hydroPods.length : 3;
+          const readyCnt = this.game.lab.hydroPods ? this.game.lab.hydroPods.filter(p => p.seedId && p.ready).length : 0;
+          badgeY = lv >= 3 ? sy - 78 : sy - 42;
+          if (readyCnt > 0) {
+            badgeText = `✨ LAB LV.${lv} (${readyCnt}/${totalPods} CÂY ĐÃ CHÍN - BẤM [F] THU HOẠCH!)`;
+            badgeCol = '#facc15';
+          } else {
+            badgeText = `🧬 PHÒNG LAB LV.${lv} (${totalPods} LỒNG TRỒNG CÂY) [F]`;
+          }
+        }
+
         this.drawObjectBadge(
           ctx,
           cx,
-          sy - 10,
-          meta.label,
-          isNear ? '#ffffff' : meta.color,
+          badgeY,
+          badgeText,
+          badgeCol,
           isNear ? '#fef08a' : '#f8fafc',
-          isNear ? 0.95 : 0.78
+          isNear ? 0.95 : 0.80
         );
       }
     }

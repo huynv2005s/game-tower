@@ -331,10 +331,12 @@ class GameEngine {
           this.world.pickupAlienEgg(nearEgg, this);
           return;
         }
-        const struct = this.world.getStructureNear(this.player.x, this.player.y, 85);
+        const struct = this.world.getStructureNear(this.player.x, this.player.y, 90);
         if (struct) {
           if (struct.type === 'biolab') {
-            this.lab.open('lab');
+            const hasReadyCrop = this.lab && this.lab.hydroPods && this.lab.hydroPods.some(p => p.seedId && p.ready);
+            const nearGreenhouse = this.player.y < struct.y + 42;
+            this.lab.open((hasReadyCrop || nearGreenhouse) ? 'hydroponics' : 'lab');
             return;
           } else if (struct.type === 'furnace') {
             this.lab.open('furnace');
@@ -971,10 +973,16 @@ class GameEngine {
           onClickMode = 'interact';
           promptHtml = `🥚 BẤM <span class="key-hint">[F / 💬]</span> HOẶC ĐÁNH: <strong>NHẶT TRỨNG QUÁI VẬT ĐEM VỀ PHÒNG LAB ẤP PET!</strong>`;
         } else if (struct) {
-          promptKey = `struct_${struct.type}`;
+          const labLv = (this.lab && this.lab.labLevel) ? this.lab.labLevel : 1;
+          const readyCrops = (this.lab && this.lab.hydroPods) ? this.lab.hydroPods.filter(p => p.seedId && p.ready).length : 0;
+          promptKey = `struct_${struct.type}_${labLv}_${readyCrops}`;
           onClickMode = 'interact';
           if (struct.type === 'biolab') {
-            promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>PHÒNG LAB CÁCH LY & ẤP TRỨNG PET</strong>`;
+            if (readyCrops > 0) {
+              promptHtml = `✨ BẤM <span class="key-hint">[F / 💬]</span>: <strong>THU HOẠCH ${readyCrops} LỒNG CÂY CHÍN & NÂNG CẤP LAB (LV.${labLv})</strong>`;
+            } else {
+              promptHtml = `🧬 BẤM <span class="key-hint">[F / 💬]</span>: <strong>PHÒNG LAB LV.${labLv} — NÂNG CẤP MỞ RỘNG TRỒNG CÂY & ẤP PET</strong>`;
+            }
           } else if (struct.type === 'furnace') {
             promptHtml = `BẤM <span class="key-hint">[F / 💬]</span>: <strong>LÒ NUNG KHỬ TRÙNG</strong>`;
           } else if (struct.type === 'workbench') {

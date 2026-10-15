@@ -1,22 +1,171 @@
 // Bio-Lab, Furnace, Workbench & Workshop Interactive Management System
-// Includes Multi-Tier Wall & Defense Gun Upgrades (Lv.1 -> Lv.3) and Player Gun / Weapon Upgrades (Lv.1 -> Lv.3)
+// Includes Bio-Lab & Hydroponics Expansion Upgrades (Lv.1 -> Lv.4 MAX: 3 -> 12 Pods),
+// Multi-Tier Wall & Defense Gun Upgrades (Lv.1 -> Lv.3), and Player Gun / Weapon Upgrades (Lv.1 -> Lv.3)
 
 class LabSystem {
   constructor(game) {
     this.game = game;
     this.isOpen = false;
-    this.currentTab = 'lab'; // 'lab', 'furnace', 'workbench', 'workshop', 'hydroponics'
+    this.currentTab = 'lab'; // 'lab', 'furnace', 'workbench', 'workshop', 'hydroponics', 'incubator'
     this._lastHydroPercentSum = -1;
 
-    // 3 Isolated Hydroponic Growth Pods inside Bio-Lab
+    // Bio-Lab Expansion Level (Lv.1: 3 pods -> Lv.2: 6 pods -> Lv.3: 9 pods -> Lv.4: 12 pods)
+    this.labLevel = 1;
+    this.autoReplant = true;
+    this.regenTickTimer = 0;
+
+    // Isolated Hydroponic Growth Pods inside Bio-Lab & Expanded Greenhouse
     this.hydroPods = [
-      { id: 0, seedId: null, progress: 0, growthTime: 40, ready: false },
-      { id: 1, seedId: null, progress: 0, growthTime: 40, ready: false },
-      { id: 2, seedId: null, progress: 0, growthTime: 40, ready: false }
+      { id: 0, seedId: null, progress: 0, growthTime: 35, ready: false },
+      { id: 1, seedId: null, progress: 0, growthTime: 35, ready: false },
+      { id: 2, seedId: null, progress: 0, growthTime: 35, ready: false }
     ];
   }
 
+  getTierConfig(level = this.labLevel) {
+    const tiers = CONSTANTS.BIOLAB_TIERS || {};
+    return tiers[level] || tiers[1] || {
+      level: 1,
+      name: 'Phòng Lab Cách Ly Cơ Bản (Lv.1)',
+      shortTitle: 'Lab Cấp 1 (3 Lồng Cấy)',
+      podCount: 3,
+      growthTime: 35,
+      harvestYield: 2,
+      seedRefundChance: 0.25,
+      isolationRadius: 150,
+      hpRegenInZone: 0,
+      toxinCleanseInZone: 0,
+      color: '#10b981'
+    };
+  }
+
+  syncPodsWithLevel() {
+    const tier = this.getTierConfig(this.labLevel);
+    const targetPods = tier.podCount || 3;
+    const targetGrowth = tier.growthTime || 35;
+
+    while (this.hydroPods.length < targetPods) {
+      this.hydroPods.push({
+        id: this.hydroPods.length,
+        seedId: null,
+        progress: 0,
+        growthTime: targetGrowth,
+        ready: false
+      });
+    }
+
+    for (let i = 0; i < this.hydroPods.length; i++) {
+      const pod = this.hydroPods[i];
+      pod.id = i;
+      pod.growthTime = targetGrowth;
+      if (pod.seedId && pod.progress >= pod.growthTime) {
+        pod.progress = pod.growthTime;
+        pod.ready = true;
+      }
+    }
+
+    // Update Bio-Lab structure isolationRadius on World Map
+    if (this.game && this.game.world && this.game.world.structures) {
+      for (let s of this.game.world.structures) {
+        if (s.type === 'biolab') {
+          s.isolationRadius = tier.isolationRadius || 150;
+          s.level = this.labLevel;
+        }
+      }
+    }
+  }
+
+  upgradeBioLab() {
+    if (this.labLevel >= 4) {
+      if (this.game && this.game.saveManager) {
+        this.game.saveManager.showSaveToast('★ Phòng Lab & Nhà Kính đã đạt Cấp 4 Tối Đa (12 Lồng Cấy)! ★');
+      }
+      return false;
+    }
+
+    const nextLv = this.labLevel + 1;
+    const nextTier = this.getTierConfig(nextLv);
+    if (!nextTier || !nextTier.cost) return false;
+
+    for (let req of nextTier.cost) {
+      if (this.getItemCountInInventory(req.id) < req.count) {
+        const msg = '⚠️ THIẾU NGUYÊN LIỆU NÂNG CẤP PHÒNG LAB!';
+        if (this.game && this.game.floatingTexts && this.game.player) {
+          this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, msg, '#ef4444', 12, 1.2));
+        }
+        if (this.game && this.game.saveManager) {
+          this.game.saveManager.showSaveToast(msg);
+        }
+        return false;
+      }
+    }
+
+    // Deduct upgrade materials
+    for (let req of nextTier.cost) {
+      let needed = req.count;
+      for (let i = 0; i < this.game.inventory.slotCount; i++) {
+        const slot = this.game.inventory.slots[i];
+        if (slot && slot.id === req.id) {
+          const take = Math.min(slot.count, needed);
+          slot.count -= take;
+          needed -= take;
+          if (slot.count <= 0) this.game.inventory.slots[i] = null;
+          if (needed <= 0) break;
+        }
+      }
+    }
+
+    this.labLevel = nextLv;
+    this.syncPodsWithLevel();
+
+    // Grant starter bonus seeds for newly expanded greenhouse pods!
+    if (Array.isArray(nextTier.bonusSeeds) && this.game && this.game.inventory) {
+      for (let b of nextTier.bonusSeeds) {
+        this.game.inventory.addItem(b.id, b.count);
+      }
+    }
+
+    if (window.audioManager) window.audioManager.playEquip();
+
+    if (this.game && this.game.player) {
+      const p = this.game.player;
+      const msg = `🌱 ĐÃ NÂNG CẤP: ${nextTier.name.toUpperCase()} (${nextTier.podCount} LỒNG CẤY | THU HOẠCH X${nextTier.harvestYield})!`;
+      if (this.game.floatingTexts) {
+        this.game.floatingTexts.push(new FloatingText(p.x, p.y - 38, msg, nextTier.color || '#22c55e', 14, 2.5));
+      }
+      if (this.game.saveManager) {
+        this.game.saveManager.showSaveToast(msg);
+      }
+      if (this.game.particles) {
+        for (let i = 0; i < 20; i++) {
+          const a = (i / 20) * Math.PI * 2;
+          const spd = 45 + Math.random() * 75;
+          this.game.particles.push(new Particle(p.x, p.y, Math.cos(a) * spd, Math.sin(a) * spd, nextTier.color || '#4ade80', 4, 0.5));
+        }
+      }
+    }
+
+    if (this.game && this.game.buildMinimapCache) {
+      this.game.buildMinimapCache();
+    }
+    if (this.game && this.game.inventory && this.game.inventory.isOpen) {
+      this.game.inventory.renderUI();
+    }
+    if (this.game && this.game.updateHUD) {
+      this.game.updateHUD(true);
+    }
+
+    this._lastHydroPercentSum = -999;
+    this.switchTab(this.currentTab);
+    return true;
+  }
+
   update(dt) {
+    const tier = this.getTierConfig(this.labLevel);
+    if (this.hydroPods.length < (tier.podCount || 3)) {
+      this.syncPodsWithLevel();
+    }
+
     let percentSum = 0;
     for (let pod of this.hydroPods) {
       if (pod.seedId && !pod.ready) {
@@ -27,6 +176,23 @@ class LabSystem {
         }
       }
       percentSum += pod.seedId ? Math.floor((pod.progress / pod.growthTime) * 100) : -1;
+    }
+
+    // Passive Bio-Lab Sanctuary Aura (Lv.2+ heals HP & cleanses Toxin when standing inside Bio-Lab Zone)
+    if ((tier.hpRegenInZone > 0 || tier.toxinCleanseInZone > 0) && this.game && this.game.player && !this.game.player.isDead && this.game.world) {
+      this.regenTickTimer += dt;
+      if (this.regenTickTimer >= 1.0) {
+        this.regenTickTimer -= 1.0;
+        const p = this.game.player;
+        if (this.game.world.isInsideIsolation(p.x, p.y)) {
+          if (tier.hpRegenInZone > 0 && p.hp < p.maxHp) {
+            p.hp = Math.min(p.maxHp, p.hp + tier.hpRegenInZone);
+          }
+          if (tier.toxinCleanseInZone > 0 && p.infection > 0) {
+            p.infection = Math.max(0, p.infection - tier.toxinCleanseInZone);
+          }
+        }
+      }
     }
 
     // Only re-render Hydroponics DOM when percentage integer changes (prevents 60fps DOM thrashing!)
@@ -67,6 +233,7 @@ class LabSystem {
 
     if (tab === 'lab') {
       this.renderRecipesTab('LAB', 'lab-recipe-list', 'BÀO CHẾ');
+      this.prependBioLabUpgradeCard('lab-recipe-list');
     } else if (tab === 'furnace') {
       this.renderRecipesTab('FURNACE', 'furnace-recipe-list', 'NUNG NGUYÊN LIỆU');
     } else if (tab === 'workbench') {
@@ -380,84 +547,507 @@ class LabSystem {
     this.switchTab(this.currentTab);
   }
 
+  buildBioLabUpgradeCardElement(includeHydroShortcut = false) {
+    const curTier = this.getTierConfig(this.labLevel);
+    const isMax = this.labLevel >= 4;
+    const nextTier = !isMax ? this.getTierConfig(this.labLevel + 1) : null;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'biolab-upgrade-banner';
+    wrapper.style.cssText = `
+      background: linear-gradient(135deg, rgba(6, 78, 59, 0.38) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 2px solid ${curTier.color || '#10b981'};
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 0 18px rgba(16, 185, 129, 0.22);
+    `;
+
+    let actionAreaHtml = '';
+    let reqListHtml = '';
+    let canUpgrade = false;
+
+    if (isMax) {
+      actionAreaHtml = `
+        <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+          <button class="craft-btn disabled" disabled style="background:#713f12; color:#fde047; border:1px solid #facc15; opacity:1;">
+            ★ ĐÃ ĐẠT CẤP TỐI ĐA (LV.4 MAX)
+          </button>
+          ${includeHydroShortcut ? `<button class="craft-btn can-craft" style="font-size:11px; padding:6px 12px; background:#0284c7;" onclick="window.labSystem.switchTab('hydroponics')">🌱 MỞ NÔNG TRẠI 12 LỒNG CẤY</button>` : ''}
+        </div>
+      `;
+    } else if (nextTier) {
+      canUpgrade = true;
+      reqListHtml = nextTier.cost.map(req => {
+        const has = this.getItemCountInInventory(req.id);
+        const enough = has >= req.count;
+        if (!enough) canUpgrade = false;
+        const def = CONSTANTS.ITEM_TYPES[req.id];
+        return `
+          <div class="recipe-req ${enough ? 'req-met' : 'req-missing'}">
+            <span>${def ? def.name : req.name}:</span>
+            <span>${has} / ${req.count}</span>
+          </div>
+        `;
+      }).join('');
+
+      actionAreaHtml = `
+        <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; min-width:185px;">
+          <button class="craft-btn ${canUpgrade ? 'can-craft' : 'disabled'} btn-do-upgrade-lab" ${canUpgrade ? '' : 'disabled'} style="width:100%; font-size:11px; padding:9px 14px; ${canUpgrade ? 'background:linear-gradient(90deg, #059669, #0284c7); border:1px solid #38bdf8;' : ''}">
+            ⬆ NÂNG CẤP LAB LV.${nextTier.level} (${nextTier.podCount} LỒNG)
+          </button>
+          ${includeHydroShortcut ? `<button class="seed-btn" style="width:100%; font-size:10px; border-color:#10b981; color:#a7f3d0;" onclick="window.labSystem.switchTab('hydroponics')">🌱 Vào Khu Trồng Cây (${curTier.podCount} Lồng)</button>` : ''}
+        </div>
+      `;
+    }
+
+    wrapper.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:260px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="background:${curTier.color}; color:#090d16; font-weight:900; font-size:10px; padding:2px 7px; border-radius:4px;">
+              CẤP ${this.labLevel} / 4
+            </span>
+            <span style="font-weight:800; font-size:13px; color:${curTier.color}; letter-spacing:0.4px;">
+              🏡 ${curTier.name}
+            </span>
+          </div>
+          <div style="font-size:11px; color:#cbd5e1; margin-top:5px; line-height:1.45;">
+            • <strong>Quy mô hiện tại:</strong> <span style="color:#4ade80; font-weight:800;">${curTier.podCount} Lồng Cấy</span> &nbsp;|&nbsp;
+            <strong>Tốc độ lớn:</strong> <span style="color:#38bdf8; font-weight:800;">${curTier.growthTime}s/vụ</span> &nbsp;|&nbsp;
+            <strong>Sản lượng:</strong> <span style="color:#facc15; font-weight:800;">x${curTier.harvestYield} cây/lồng</span> &nbsp;|&nbsp;
+            <strong>Hoàn hạt:</strong> <span style="color:#e879f9; font-weight:800;">${Math.round(curTier.seedRefundChance * 100)}%</span>
+          </div>
+          ${!isMax && nextTier ? `
+            <div style="margin-top:6px; padding:6px 9px; background:rgba(56, 189, 248, 0.12); border-left:3px solid ${nextTier.color}; border-radius:4px; font-size:11px; color:#e2e8f0;">
+              🚀 <strong>Mở rộng lên Cấp ${nextTier.level} (${nextTier.name}):</strong>
+              Tăng quy mô lên <strong style="color:#4ade80;">${nextTier.podCount} Lồng Cấy</strong>, chín nhanh <strong style="color:#38bdf8;">${nextTier.growthTime}s</strong>, thu hoạch <strong style="color:#facc15;">x${nextTier.harvestYield} cây/lồng</strong>, bán kính cách ly <strong style="color:#a7f3d0;">${nextTier.isolationRadius}px</strong> (Hồi +${nextTier.hpRegenInZone} HP/s) + 🎁 <em>Tặng kèm gói hạt giống mới!</em>
+            </div>
+            <div class="recipe-ingredients" style="margin-top:6px;">${reqListHtml}</div>
+          ` : `
+            <div style="margin-top:5px; font-size:11px; color:#fde047;">
+              ✨ Phòng Lab đã mở rộng quy mô tối đa: 12 Lồng Cấy Sinh Quyển, thu hoạch x6 cây/lồng, hoàn trả 100% hạt giống và hồi +5 HP/s trong vùng cách ly!
+            </div>
+          `}
+        </div>
+        ${actionAreaHtml}
+      </div>
+    `;
+
+    const upgBtn = wrapper.querySelector('.btn-do-upgrade-lab');
+    if (upgBtn && canUpgrade) {
+      upgBtn.onclick = () => this.upgradeBioLab();
+    }
+    return wrapper;
+  }
+
+  prependBioLabUpgradeCard(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const card = this.buildBioLabUpgradeCardElement(true);
+    container.insertBefore(card, container.firstChild);
+  }
+
   renderHydroponicsTab() {
     const container = document.getElementById('hydroponics-pods');
     if (!container) return;
+    this.syncPodsWithLevel();
     container.innerHTML = '';
+
+    const curTier = this.getTierConfig(this.labLevel);
+
+    // 1. Bio-Lab Expansion & Upgrade Card at Top
+    container.appendChild(this.buildBioLabUpgradeCardElement(false));
+
+    // 2. Seed Bank, Quick Extractor & Mass Farming Toolbar
+    const seedTypes = [
+      { seedId: 'seed_snow_lotus', cropId: 'snow_lotus', shortName: 'Tuyết Liên', icon: '🪷', color: '#e879f9' },
+      { seedId: 'seed_silver_moss', cropId: 'silver_moss', shortName: 'Rêu Bạc', icon: '🌿', color: '#4ade80' },
+      { seedId: 'seed_wild_berry', cropId: 'wild_berry', shortName: 'Quả Mọng', icon: '🍓', color: '#fb7185' },
+      { seedId: 'seed_quartz_bloom', cropId: 'quartz_crystal', shortName: 'Thạch Anh', icon: '💎', color: '#38bdf8' }
+    ];
+
+    const emptyCount = this.hydroPods.filter(p => !p.seedId).length;
+    const readyCount = this.hydroPods.filter(p => p.seedId && p.ready).length;
+    const growingCount = this.hydroPods.filter(p => p.seedId && !p.ready).length;
+    const waterCount = this.getItemCountInInventory('pure_water');
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'hydro-mass-toolbar';
+    toolbar.style.cssText = 'background:#090e1a; border:1px solid #1e293b; border-radius:8px; padding:10px 12px; margin-bottom:12px; display:flex; flex-direction:column; gap:8px;';
+
+    const seedBankHtml = seedTypes.map(st => {
+      const sCount = this.getItemCountInInventory(st.seedId);
+      const cCount = this.getItemCountInInventory(st.cropId);
+      const canPlantAll = emptyCount > 0 && (sCount > 0 || cCount > 0);
+      return `
+        <div style="background:#111827; border:1px solid ${st.color}55; border-radius:6px; padding:6px 8px; display:flex; align-items:center; justify-content:space-between; gap:6px; flex:1; min-width:155px;">
+          <div style="font-size:11px; line-height:1.3;">
+            <div style="color:${st.color}; font-weight:800;">${st.icon} ${st.shortName}</div>
+            <div style="font-size:10px; color:#94a3b8;">Giống: <strong style="color:#f8fafc;">${sCount}</strong> | Cây: <strong style="color:#cbd5e1;">${cCount}</strong></div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <button class="seed-btn" style="padding:3px 7px; font-size:9px; border-color:${st.color}; color:${st.color};"
+              ${canPlantAll ? '' : 'disabled'}
+              onclick="window.labSystem.plantAllPods('${st.seedId}')"
+              title="Gieo đồng loạt ${st.shortName} vào tất cả lồng trống">
+              🌾 Gieo Hết
+            </button>
+            <button class="seed-btn" style="padding:2px 6px; font-size:9px; color:#cbd5e1;"
+              ${cCount > 0 ? '' : 'disabled'}
+              onclick="window.labSystem.quickExtractSeed('${st.seedId}')"
+              title="Tách 1 ${st.shortName} thành +2 Hạt Giống ngay tại Lab">
+              🧬 +2 Giống
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    toolbar.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:11px; font-weight:800; color:#a7f3d0;">
+          🌱 ĐIỀU KHIỂN NÔNG TRẠI QUY MÔ LỚN (${this.hydroPods.length} LỒNG: ${readyCount} Chín | ${growingCount} Đang lớn | ${emptyCount} Trống)
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="harvest-btn" style="padding:5px 12px; font-size:11px; ${readyCount > 0 ? 'background:#10b981;' : 'background:#1f2937; color:#64748b; box-shadow:none; animation:none; cursor:default;'}"
+            ${readyCount > 0 ? '' : 'disabled'}
+            onclick="window.labSystem.harvestAllPods()">
+            🎉 THU HOẠCH TẤT CẢ (${readyCount} LỒNG ➔ +${readyCount * curTier.harvestYield} CÂY)
+          </button>
+          <button class="seed-btn" style="padding:5px 10px; font-size:10px; border-color:#38bdf8; color:#38bdf8;"
+            ${growingCount > 0 && waterCount > 0 ? '' : 'disabled'}
+            onclick="window.labSystem.irrigateAllPods()"
+            title="Dùng 1 Nước Tinh Khiết tưới phun sương thúc đẩy +50% tiến độ toàn bộ lồng đang trồng">
+            💧 TƯỚI TĂNG TỐC +50% (Nước: ${waterCount})
+          </button>
+          <button class="seed-btn" style="padding:5px 10px; font-size:10px; border-color:${this.autoReplant ? '#4ade80' : '#64748b'}; color:${this.autoReplant ? '#4ade80' : '#94a3b8'};"
+            onclick="window.labSystem.toggleAutoReplant()">
+            🔄 Tự Gieo Lại: ${this.autoReplant ? 'BẬT' : 'TẮT'}
+          </button>
+        </div>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        ${seedBankHtml}
+      </div>
+    `;
+    container.appendChild(toolbar);
+
+    // 3. Multi-Column Grid of Hydroponic Growth Pods (3 -> 6 -> 9 -> 12 Pods)
+    const gridEl = document.createElement('div');
+    gridEl.className = 'hydro-pods-grid';
 
     this.hydroPods.forEach((pod, idx) => {
       const podEl = document.createElement('div');
       podEl.className = 'hydro-pod';
+      if (pod.ready) {
+        podEl.style.borderColor = '#10b981';
+        podEl.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.25)';
+      }
+
+      const zoneTag = idx < 3
+        ? 'Lồng Nội Khu'
+        : (idx < 6 ? 'Nhà Kính Cánh Tây' : (idx < 9 ? 'Nhà Kính Cánh Đông' : 'Khu Sinh Quyển Nam'));
 
       if (!pod.seedId) {
+        const plantBtns = seedTypes.map(st => {
+          const sCnt = this.getItemCountInInventory(st.seedId);
+          const cCnt = this.getItemCountInInventory(st.cropId);
+          const avail = sCnt > 0 || cCnt > 0;
+          return `
+            <button class="seed-btn" style="padding:4px 7px; font-size:10px; border-color:${avail ? st.color + '88' : '#334155'}; color:${avail ? '#f8fafc' : '#64748b'};"
+              onclick="window.labSystem.plantSeed(${idx}, '${st.seedId}')"
+              title="${sCnt > 0 ? `Cấy 1 ${st.shortName} (Còn ${sCnt} hạt)` : (cCnt > 0 ? `Tự động tách 1 ${st.shortName} để cấy ngay` : 'Chưa có giống hoặc cây mẫu')}">
+              ${st.icon} ${st.shortName} (${sCnt > 0 ? sCnt : (cCnt > 0 ? 'Tách' : 0)})
+            </button>
+          `;
+        }).join('');
+
         podEl.innerHTML = `
-          <div class="pod-title">🌱 LỒNG CẤY SỐ ${idx + 1}: TRỐNG</div>
-          <div class="pod-status">Môi trường vô trùng 100%, sẵn sàng gieo giống.</div>
-          <div class="pod-actions">
-            <button class="seed-btn" onclick="window.labSystem.plantSeed(${idx}, 'seed_snow_lotus')">Cấy Tuyết Liên</button>
-            <button class="seed-btn" onclick="window.labSystem.plantSeed(${idx}, 'seed_silver_moss')">Cấy Rêu Bạc</button>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="pod-title">🌱 LỒNG #${idx + 1}: TRỐNG</div>
+            <span style="font-size:9px; color:#64748b; background:#111827; padding:1px 6px; border-radius:4px;">${zoneTag}</span>
+          </div>
+          <div class="pod-status" style="font-size:10px;">Vô trùng 100% — Thu hoạch <strong>x${curTier.harvestYield} cây</strong> sau <strong>${curTier.growthTime}s</strong>:</div>
+          <div class="pod-actions" style="flex-wrap:wrap; gap:5px;">
+            ${plantBtns}
           </div>
         `;
       } else {
         const seedDef = CONSTANTS.ITEM_TYPES[pod.seedId];
+        const cropDef = seedDef && seedDef.targetCrop ? CONSTANTS.ITEM_TYPES[seedDef.targetCrop] : null;
         const percent = Math.min(100, Math.floor((pod.progress / pod.growthTime) * 100));
+        const secLeft = Math.max(0, Math.ceil(pod.growthTime - pod.progress));
+        const iconUrl = (window.pixelArt && cropDef) ? window.pixelArt.getDataURL(`icon_${cropDef.icon}`) : '';
 
         podEl.innerHTML = `
-          <div class="pod-title">🧪 LỒNG CẤY SỐ ${idx + 1}: ${seedDef ? seedDef.name : ''}</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              ${iconUrl ? `<img src="${iconUrl}" style="width:28px;height:28px;image-rendering:pixelated;border-radius:4px;background:#111827;padding:2px;border:1px solid #334155;">` : ''}
+              <div>
+                <div class="pod-title" style="color:${pod.ready ? '#fde047' : '#38bdf8'};">
+                  ${pod.ready ? '✨' : '🧪'} LỒNG #${idx + 1}: ${cropDef ? cropDef.name : (seedDef ? seedDef.name : '')}
+                </div>
+                <div style="font-size:9px; color:#94a3b8;">${zoneTag} • Sản lượng: <strong style="color:#4ade80;">x${curTier.harvestYield}</strong></div>
+              </div>
+            </div>
+            <span style="font-family:monospace; font-size:11px; font-weight:800; color:${pod.ready ? '#4ade80' : '#7dd3fc'};">
+              ${pod.ready ? 'CHÍN 100%' : `${secLeft}s`}
+            </span>
+          </div>
           <div class="pod-progress-bar">
-            <div class="pod-progress-fill" style="width: ${percent}%;"></div>
+            <div class="pod-progress-fill" style="width: ${percent}%; background:${pod.ready ? 'linear-gradient(90deg, #facc15, #10b981)' : 'linear-gradient(90deg, #0284c7, #34d399)'};"></div>
           </div>
-          <div class="pod-status">
-            ${pod.ready ? '✨ ĐÃ TRƯỞNG THÀNH! THẢO DƯỢC TINH KHIẾT 100%' : `Đang nuôi dưỡng nhân tạo (${percent}%)...`}
-          </div>
-          <div class="pod-actions">
+          <div class="pod-actions" style="justify-content:space-between; align-items:center;">
+            <span style="font-size:10px; color:${pod.ready ? '#86efac' : '#94a3b8'};">
+              ${pod.ready ? `Sẵn sàng thu hoạch +${curTier.harvestYield} cây sạch!` : `Đang quang hợp sinh học (${percent}%)...`}
+            </span>
             ${pod.ready ? 
-              `<button class="harvest-btn" onclick="window.labSystem.harvestPod(${idx})">🎉 THU HOẠCH SẠCH (x2)</button>` : 
-              `<button class="seed-btn disabled" disabled>Đang sinh trưởng...</button>`
+              `<button class="harvest-btn" style="padding:5px 12px; font-size:10px;" onclick="window.labSystem.harvestPod(${idx})">🎉 THU HOẠCH (x${curTier.harvestYield})</button>` : 
+              `<button class="seed-btn disabled" style="padding:4px 8px; font-size:10px;" disabled>Đang lớn...</button>`
             }
           </div>
         `;
       }
 
-      container.appendChild(podEl);
+      gridEl.appendChild(podEl);
     });
+
+    container.appendChild(gridEl);
   }
 
-  plantSeed(podIndex, seedId) {
-    if (this.getItemCountInInventory(seedId) < 1) {
-      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, 'BẠN KHÔNG CÓ MẦM GIỐNG NÀY!', '#ef4444', 12, 0.9));
-      return;
-    }
+  // Ensure player has at least 1 seed of seedId (or automatically extracts 2 seeds from 1 raw crop!)
+  ensureSeedAvailable(seedId, silent = false) {
+    if (this.getItemCountInInventory(seedId) >= 1) return true;
 
-    this.game.inventory.removeItem(this.game.inventory.slots.findIndex(s => s && s.id === seedId), 1);
-
-    const pod = this.hydroPods[podIndex];
-    pod.seedId = seedId;
-    pod.progress = 0;
-    pod.ready = false;
-
-    window.audioManager.playEquip();
-    this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, 'ĐÃ CẤY MẦM VÀO LỒNG VÔ TRÙNG!', '#22c55e', 12, 1.0));
-    this._lastHydroPercentSum = -999;
-    this.renderHydroponicsTab();
-  }
-
-  harvestPod(podIndex) {
-    const pod = this.hydroPods[podIndex];
-    if (!pod || !pod.ready) return;
-
-    const seedDef = CONSTANTS.ITEM_TYPES[pod.seedId];
+    const seedDef = CONSTANTS.ITEM_TYPES[seedId];
+    if (!seedDef || !seedDef.targetCrop) return false;
     const cropId = seedDef.targetCrop;
 
-    this.game.inventory.addItem(cropId, 2);
+    // Auto-extract 1 raw crop into 2 seeds if player has the raw crop in inventory!
+    if (this.getItemCountInInventory(cropId) >= 1) {
+      const cropSlot = this.game.inventory.slots.findIndex(s => s && s.id === cropId);
+      if (cropSlot !== -1) {
+        this.game.inventory.removeItem(cropSlot, 1);
+        this.game.inventory.addItem(seedId, 2);
+        if (!silent && this.game && this.game.floatingTexts && this.game.player) {
+          const cropDef = CONSTANTS.ITEM_TYPES[cropId];
+          this.game.floatingTexts.push(new FloatingText(
+            this.game.player.x, this.game.player.y - 36,
+            `🧬 TỰ ĐỘNG TÁCH 1 ${cropDef ? cropDef.name : cropId} ➔ +2 HẠT GIỐNG!`,
+            '#a855f7', 11, 1.1
+          ));
+        }
+        return true;
+      }
+    }
+    return false;
+  }
 
-    window.audioManager.playEquip();
-    this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, `THU HOẠCH THÀNH CÔNG: +2 ${CONSTANTS.ITEM_TYPES[cropId].name}!`, '#38bdf8', 13, 1.2));
+  quickExtractSeed(seedId) {
+    const seedDef = CONSTANTS.ITEM_TYPES[seedId];
+    if (!seedDef || !seedDef.targetCrop) return false;
+    const cropId = seedDef.targetCrop;
+    const cropDef = CONSTANTS.ITEM_TYPES[cropId];
+
+    if (this.getItemCountInInventory(cropId) < 1) {
+      const msg = `⚠️ Cần ít nhất 1 ${cropDef ? cropDef.name : cropId} trong kho để tách hạt giống!`;
+      if (this.game && this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    const slotIdx = this.game.inventory.slots.findIndex(s => s && s.id === cropId);
+    if (slotIdx === -1) return false;
+    this.game.inventory.removeItem(slotIdx, 1);
+    this.game.inventory.addItem(seedId, 2);
+
+    if (window.audioManager) window.audioManager.playEquip();
+    const msg = `🧬 ĐÃ TÁCH CHIẾT: +2 ${seedDef.name}!`;
+    if (this.game && this.game.floatingTexts && this.game.player) {
+      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 28, msg, '#22c55e', 12, 1.1));
+    }
+    this._lastHydroPercentSum = -999;
+    this.renderHydroponicsTab();
+    return true;
+  }
+
+  plantSeed(podIndex, seedId, silent = false) {
+    this.syncPodsWithLevel();
+    const pod = this.hydroPods[podIndex];
+    if (!pod || pod.seedId) return false;
+
+    if (!this.ensureSeedAvailable(seedId, silent)) {
+      if (!silent && this.game && this.game.floatingTexts && this.game.player) {
+        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, 'BẠN CHƯA CÓ HẠT GIỐNG HOẶC CÂY MẪU NÀY!', '#ef4444', 12, 1.0));
+      }
+      return false;
+    }
+
+    const slotIdx = this.game.inventory.slots.findIndex(s => s && s.id === seedId);
+    if (slotIdx === -1) return false;
+    this.game.inventory.removeItem(slotIdx, 1);
+
+    const tier = this.getTierConfig(this.labLevel);
+    pod.seedId = seedId;
+    pod.progress = 0;
+    pod.growthTime = tier.growthTime || 35;
+    pod.ready = false;
+
+    if (!silent) {
+      if (window.audioManager) window.audioManager.playEquip();
+      if (this.game && this.game.floatingTexts && this.game.player) {
+        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 25, `🌱 ĐÃ GIEO GIỐNG VÀO LỒNG #${podIndex + 1}!`, '#22c55e', 12, 1.0));
+      }
+      this._lastHydroPercentSum = -999;
+      this.renderHydroponicsTab();
+    }
+    return true;
+  }
+
+  plantAllPods(seedId) {
+    this.syncPodsWithLevel();
+    let plantedCount = 0;
+    for (let i = 0; i < this.hydroPods.length; i++) {
+      if (!this.hydroPods[i].seedId) {
+        if (this.plantSeed(i, seedId, true)) {
+          plantedCount++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    if (plantedCount > 0) {
+      if (window.audioManager) window.audioManager.playEquip();
+      const seedDef = CONSTANTS.ITEM_TYPES[seedId];
+      const msg = `🌾 ĐÃ GIEO ĐỒNG LOẠT ${plantedCount} LỒNG: ${seedDef ? seedDef.name : seedId}!`;
+      if (this.game && this.game.floatingTexts && this.game.player) {
+        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, msg, '#4ade80', 13, 1.4));
+      }
+      if (this.game && this.game.saveManager) {
+        this.game.saveManager.showSaveToast(msg);
+      }
+      this._lastHydroPercentSum = -999;
+      this.renderHydroponicsTab();
+    } else {
+      const msg = '⚠️ Không còn lồng trống hoặc đã hết hạt giống/cây mẫu!';
+      if (this.game && this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+    }
+    return plantedCount;
+  }
+
+  harvestPod(podIndex, silent = false) {
+    const pod = this.hydroPods[podIndex];
+    if (!pod || !pod.ready) return false;
+
+    const prevSeedId = pod.seedId;
+    const seedDef = CONSTANTS.ITEM_TYPES[prevSeedId];
+    if (!seedDef) return false;
+    const cropId = seedDef.targetCrop;
+    const cropDef = CONSTANTS.ITEM_TYPES[cropId];
+
+    const tier = this.getTierConfig(this.labLevel);
+    const yieldCount = tier.harvestYield || 2;
+    this.game.inventory.addItem(cropId, yieldCount);
+
+    // Roll for bonus seed refund from upgraded Bio-Lab
+    let refundedSeed = false;
+    if (Math.random() < (tier.seedRefundChance || 0.25)) {
+      this.game.inventory.addItem(prevSeedId, 1);
+      refundedSeed = true;
+    }
 
     pod.seedId = null;
     pod.progress = 0;
     pod.ready = false;
 
+    // Auto-replant if enabled and seed is available
+    let replanted = false;
+    if (this.autoReplant && this.getItemCountInInventory(prevSeedId) >= 1) {
+      replanted = this.plantSeed(podIndex, prevSeedId, true);
+    }
+
+    if (!silent) {
+      if (window.audioManager) window.audioManager.playEquip();
+      const extraTxt = refundedSeed ? ' (+1 Hạt Giống)' : '';
+      const replantTxt = replanted ? ' [Đã tự gieo lại]' : '';
+      const msg = `🎉 THU HOẠCH: +${yieldCount} ${cropDef ? cropDef.name : cropId}${extraTxt}${replantTxt}!`;
+      if (this.game && this.game.floatingTexts && this.game.player) {
+        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, msg, '#38bdf8', 13, 1.4));
+      }
+      this._lastHydroPercentSum = -999;
+      this.renderHydroponicsTab();
+    }
+    return { cropId, yieldCount, refundedSeed, replanted };
+  }
+
+  harvestAllPods() {
+    this.syncPodsWithLevel();
+    let harvestedPods = 0;
+    let totalItems = 0;
+    for (let i = 0; i < this.hydroPods.length; i++) {
+      if (this.hydroPods[i].seedId && this.hydroPods[i].ready) {
+        const res = this.harvestPod(i, true);
+        if (res) {
+          harvestedPods++;
+          totalItems += res.yieldCount;
+        }
+      }
+    }
+
+    if (harvestedPods > 0) {
+      if (window.audioManager) window.audioManager.playEquip();
+      const msg = `🎉 ĐÃ THU HOẠCH TẤT CẢ ${harvestedPods} LỒNG CẤY: TỔNG CỘNG +${totalItems} SẢN PHẨM SẠCH!`;
+      if (this.game && this.game.floatingTexts && this.game.player) {
+        this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 34, msg, '#facc15', 14, 1.8));
+      }
+      if (this.game && this.game.saveManager) {
+        this.game.saveManager.showSaveToast(msg);
+      }
+      this._lastHydroPercentSum = -999;
+      if (this.isOpen && this.currentTab === 'hydroponics') {
+        this.renderHydroponicsTab();
+      }
+    }
+    return harvestedPods;
+  }
+
+  irrigateAllPods() {
+    const growingPods = this.hydroPods.filter(p => p.seedId && !p.ready);
+    if (growingPods.length === 0) return false;
+
+    const waterSlot = this.game.inventory.slots.findIndex(s => s && s.id === 'pure_water');
+    if (waterSlot === -1) {
+      const msg = '⚠️ Cần 1 Nước Tinh Khiết để tưới phun sương tăng tốc!';
+      if (this.game && this.game.saveManager) this.game.saveManager.showSaveToast(msg);
+      return false;
+    }
+
+    this.game.inventory.removeItem(waterSlot, 1);
+    for (let pod of growingPods) {
+      pod.progress = Math.min(pod.growthTime, pod.progress + pod.growthTime * 0.5);
+      if (pod.progress >= pod.growthTime) {
+        pod.progress = pod.growthTime;
+        pod.ready = true;
+      }
+    }
+
+    if (window.audioManager) window.audioManager.playEquip();
+    const msg = `💧 ĐÃ TƯỚI NƯỚC SINH HỌC: TĂNG +50% TIẾN ĐỘ CHO ${growingPods.length} LỒNG CẤY!`;
+    if (this.game && this.game.floatingTexts && this.game.player) {
+      this.game.floatingTexts.push(new FloatingText(this.game.player.x, this.game.player.y - 30, msg, '#38bdf8', 13, 1.5));
+    }
+    if (this.game && this.game.saveManager) {
+      this.game.saveManager.showSaveToast(msg);
+    }
+    this._lastHydroPercentSum = -999;
+    this.renderHydroponicsTab();
+    return true;
+  }
+
+  toggleAutoReplant() {
+    this.autoReplant = !this.autoReplant;
+    if (window.audioManager) window.audioManager.playEquip();
     this._lastHydroPercentSum = -999;
     this.renderHydroponicsTab();
   }

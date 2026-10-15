@@ -1266,21 +1266,31 @@ body, html {
   cursor: not-allowed;
 }
 
-/* Hydroponics Pods */
+/* Hydroponics Pods & Expanded Greenhouse Grid */
 #hydroponics-pods {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  max-height: 56vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.hydro-pods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 10px;
 }
 
 .hydro-pod {
   background: #090e1a;
   border: 1px solid #1e293b;
   border-radius: 8px;
-  padding: 14px;
+  padding: 11px 13px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
+  transition: border-color 0.2s ease;
 }
 
 .pod-title {

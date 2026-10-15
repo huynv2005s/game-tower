@@ -22,7 +22,7 @@ class SaveManager {
       if (!this.game || !this.game.player || !this.game.dayNight) return false;
 
       const saveData = {
-        version: 4,
+        version: 5,
         saveTime: Date.now(),
         dayNight: {
           dayCount: this.game.dayNight.dayCount,
@@ -71,6 +71,8 @@ class SaveManager {
             hp: h.hp,
             isDestroyed: h.isDestroyed
           })) : [],
+        labLevel: this.game.lab ? (this.game.lab.labLevel || 1) : 1,
+        autoReplant: this.game.lab ? (this.game.lab.autoReplant !== false) : true,
         hydroponics: (this.game.lab && this.game.lab.hydroPods) ?
           JSON.parse(JSON.stringify(this.game.lab.hydroPods)) : [],
         pets: this.game.petSystem ? {
@@ -183,6 +185,22 @@ class SaveManager {
           }
         }
 
+        // Migrate older saves to v5 so player receives starter seeds for Bio-Lab farming expansion
+        if (!data.version || data.version < 5) {
+          if (this.game.inventory.getItemCount('seed_snow_lotus') === 0) {
+            this.game.inventory.addItem('seed_snow_lotus', 4);
+          }
+          if (this.game.inventory.getItemCount('seed_silver_moss') === 0) {
+            this.game.inventory.addItem('seed_silver_moss', 4);
+          }
+          if (this.game.inventory.getItemCount('seed_wild_berry') === 0) {
+            this.game.inventory.addItem('seed_wild_berry', 4);
+          }
+          if (this.game.inventory.getItemCount('seed_quartz_bloom') === 0) {
+            this.game.inventory.addItem('seed_quartz_bloom', 2);
+          }
+        }
+
         if (data.inventory.armorSlots) {
           this.game.inventory.armorSlots = data.inventory.armorSlots;
         }
@@ -217,9 +235,14 @@ class SaveManager {
         this.game.minimapDirty = true;
       }
 
-      // 7. Restore Hydroponics
-      if (Array.isArray(data.hydroponics) && this.game.lab) {
-        this.game.lab.hydroPods = data.hydroponics;
+      // 7. Restore Bio-Lab Upgrade Level & Hydroponics Pods
+      if (this.game.lab) {
+        this.game.lab.labLevel = Math.max(1, Math.min(4, data.labLevel || 1));
+        this.game.lab.autoReplant = data.autoReplant !== false;
+        if (Array.isArray(data.hydroponics)) {
+          this.game.lab.hydroPods = data.hydroponics;
+        }
+        this.game.lab.syncPodsWithLevel();
       }
 
       // 8. Restore Companion Pet & Bio-Lab Incubator (Strictly 1 Active Pet)

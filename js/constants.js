@@ -306,9 +306,11 @@ const CONSTANTS = {
       desc: 'Kháng thể tinh chế đặc biệt: GIẢM NGAY 60% ĐỘC TỐ + MIỄN NHIỄM ĐỘC TỐ TRONG 1 NGÀY!' 
     },
 
-    // Phase 2: Seeds for Bio-Lab Hydroponics
-    seed_snow_lotus: { name: 'Mầm Cấy Tuyết Liên', category: 'seed', targetCrop: 'snow_lotus', icon: 'seed_lotus', maxStack: 99, desc: 'Mô tế bào dùng cấy nuôi trong Phòng Lab cách ly, thu hoạch thảo dược sạch 100%.' },
-    seed_silver_moss: { name: 'Bào Tử Rêu Bạc', category: 'seed', targetCrop: 'silver_moss', icon: 'seed_moss', maxStack: 99, desc: 'Bào tử rêu sạch dùng nhân giống trong lồng sinh học của Phòng Lab.' },
+    // Phase 2 & 7: Seeds for Bio-Lab Hydroponics & Expanded Greenhouse
+    seed_snow_lotus: { name: 'Mầm Cấy Tuyết Liên', category: 'seed', targetCrop: 'snow_lotus', icon: 'seed_lotus', maxStack: 99, desc: 'Mô tế bào dùng cấy nuôi trong Phòng Lab cách ly, thu hoạch Tuyết Liên sạch 100% (+12 HP, -12% Độc).' },
+    seed_silver_moss: { name: 'Bào Tử Rêu Bạc', category: 'seed', targetCrop: 'silver_moss', icon: 'seed_moss', maxStack: 99, desc: 'Bào tử rêu sạch dùng nhân giống trong lồng sinh học Phòng Lab (+15 HP, -8% Độc).' },
+    seed_wild_berry: { name: 'Hạt Giống Quả Mọng Ngọt', category: 'seed', targetCrop: 'wild_berry', icon: 'seed_berry', maxStack: 99, desc: 'Hạt giống quả mọng tinh tuyển trồng trong Phòng Lab, thu hoạch Quả Mọng Sạch (+18 HP, 0% Độc) không bao giờ nhiễm độc!' },
+    seed_quartz_bloom: { name: 'Mầm Thảo Dược Tinh Thể', category: 'seed', targetCrop: 'quartz_crystal', icon: 'seed_quartz', maxStack: 99, desc: 'Mầm sinh khoáng lai tạo trong Phòng Lab, thu hoạch Tinh Thể Thạch Anh dùng chế Kháng Thể & Lõi Plasma!' },
 
     // Phase 3: Defensive Structures & Upgrades
     defense_wall: { name: 'Tường Chắn Phòng Thủ', category: 'defense', structType: 'wall', icon: 'defense_wall', maxStack: 99, desc: 'Tường bê tông gia cố (250-1000 HP), chặn đường quái, có thể nâng cấp lên Cấp 3!' },
@@ -383,6 +385,26 @@ const CONSTANTS = {
           { id: 'pure_water', count: 1, name: 'Nước Tinh Khiết' }
         ],
         output: { id: 'seed_silver_moss', count: 2 }
+      },
+      {
+        id: 'seed_wild_berry',
+        name: 'Nhân Hạt Giống Quả Mọng Ngọt (x2 Hạt)',
+        desc: 'Tách chiết 1 Quả Mọng Sạch thành 2 Hạt Giống để trồng đại trà trong Nhà Kính Phòng Lab.',
+        inputs: [
+          { id: 'wild_berry', count: 1, name: 'Quả Mọng Tự Nhiên Sạch' },
+          { id: 'pure_water', count: 1, name: 'Nước Tinh Khiết' }
+        ],
+        output: { id: 'seed_wild_berry', count: 2 }
+      },
+      {
+        id: 'seed_quartz_bloom',
+        name: 'Lai Tạo Mầm Thảo Dược Tinh Thể (x2 Mầm)',
+        desc: 'Cấy ghép Tinh Thể Thạch Anh với Nước Tinh Khiết tạo 2 Mầm Thảo Dược Tinh Thể thu hoạch Thạch Anh.',
+        inputs: [
+          { id: 'quartz_crystal', count: 1, name: 'Tinh Thể Thạch Anh' },
+          { id: 'pure_water', count: 1, name: 'Nước Tinh Khiết' }
+        ],
+        output: { id: 'seed_quartz_bloom', count: 2 }
       }
     ],
 
@@ -839,6 +861,101 @@ const CONSTANTS = {
       toxinCleansePerSec: 1.2,
       statsBonus: { hp: 25, armor: 5, toxinResist: 30, speedBonus: 12 },
       desc: 'Pet Huyền Thoại! Bắn Tia Laser Plasma tầm xa 300px (22 DMG + Giật sét lan), đồng thời Hồi +2 HP/s & Giảm -1.2% Độc Tố/s!'
+    }
+  },
+
+  // Phase 7: Bio-Lab & Hydroponics Expansion Upgrade System (Lv.1 -> Lv.4 MAX)
+  BIOLAB_TIERS: {
+    1: {
+      level: 1,
+      name: 'Phòng Lab Cách Ly Cơ Bản (Lv.1)',
+      shortTitle: 'Lab Cấp 1 (3 Lồng Cấy)',
+      podCount: 3,
+      growthTime: 35,
+      harvestYield: 2,
+      seedRefundChance: 0.25,
+      isolationRadius: 150,
+      hpRegenInZone: 0,
+      toxinCleanseInZone: 0,
+      color: '#10b981',
+      desc: 'Quy mô khởi đầu: 3 Lồng Cấy vô trùng, thời gian lớn 35s, thu hoạch x2 cây/lồng, bán kính cách ly 150px.'
+    },
+    2: {
+      level: 2,
+      name: 'Nhà Kính Sinh Học Mở Rộng (Lv.2)',
+      shortTitle: 'Lab Cấp 2 (6 Lồng Cấy)',
+      podCount: 6,
+      growthTime: 24,
+      harvestYield: 3,
+      seedRefundChance: 0.50,
+      isolationRadius: 205,
+      hpRegenInZone: 1.5,
+      toxinCleanseInZone: 0.4,
+      color: '#38bdf8',
+      desc: 'Mở rộng gấp đôi: 6 Lồng Cấy (+3 luống nhà kính ngoài trời), tốc độ lớn nhanh (24s), thu hoạch x3 cây/lồng, hồi +1.5 HP/s trong vùng Lab (205px).',
+      cost: [
+        { id: 'wood', count: 5, name: 'Gỗ Cây Biến Dị' },
+        { id: 'stone', count: 4, name: 'Đá Núi Cứng' },
+        { id: 'pure_water', count: 1, name: 'Nước Tinh Khiết' },
+        { id: 'quartz_crystal', count: 1, name: 'Tinh Thể Thạch Anh' }
+      ],
+      bonusSeeds: [
+        { id: 'seed_snow_lotus', count: 3 },
+        { id: 'seed_silver_moss', count: 3 },
+        { id: 'seed_wild_berry', count: 3 }
+      ]
+    },
+    3: {
+      level: 3,
+      name: 'Quần Thể Nông Trại Thủy Canh (Lv.3)',
+      shortTitle: 'Lab Cấp 3 (9 Lồng Cấy)',
+      podCount: 9,
+      growthTime: 16,
+      harvestYield: 4,
+      seedRefundChance: 0.75,
+      isolationRadius: 260,
+      hpRegenInZone: 3.0,
+      toxinCleanseInZone: 0.9,
+      color: '#c084fc',
+      desc: 'Quy mô công nghiệp: 9 Lồng Cấy (+6 luống nhà kính), lớn siêu tốc (16s), thu hoạch x4 cây/lồng (+75% hoàn hạt giống), hồi +3 HP/s & lọc độc trong vùng Lab (260px).',
+      cost: [
+        { id: 'wood', count: 6, name: 'Gỗ Cây Biến Dị' },
+        { id: 'stone', count: 5, name: 'Đá Núi Cứng' },
+        { id: 'titanium_alloy', count: 2, name: 'Hợp Kim Titan' },
+        { id: 'tech_scrap', count: 2, name: 'Mảnh Vỡ Công Nghệ' }
+      ],
+      bonusSeeds: [
+        { id: 'seed_snow_lotus', count: 4 },
+        { id: 'seed_silver_moss', count: 4 },
+        { id: 'seed_wild_berry', count: 4 },
+        { id: 'seed_quartz_bloom', count: 3 }
+      ]
+    },
+    4: {
+      level: 4,
+      name: 'Siêu Trung Tâm Sinh Quyển Vũ Trụ (Lv.4 MAX)',
+      shortTitle: 'Lab Cấp 4 MAX (12 Lồng Cấy)',
+      podCount: 12,
+      growthTime: 10,
+      harvestYield: 6,
+      seedRefundChance: 1.0,
+      isolationRadius: 320,
+      hpRegenInZone: 5.0,
+      toxinCleanseInZone: 1.8,
+      color: '#facc15',
+      desc: 'Quy mô tối thượng: 12 Lồng Cấy Sinh Quyển, chín thần tốc 10s, thu hoạch x6 cây/lồng + 100% hoàn hạt giống tự động, hào quang Sinh Quyển 320px hồi +5 HP/s & thanh lọc độc!',
+      cost: [
+        { id: 'titanium_alloy', count: 3, name: 'Hợp Kim Titan' },
+        { id: 'plasma_core', count: 2, name: 'Lõi Năng Lượng Plasma' },
+        { id: 'quartz_crystal', count: 2, name: 'Tinh Thể Thạch Anh' },
+        { id: 'egg_fluid', count: 1, name: 'Dịch Tuyến Trứng Ngoại Lai' }
+      ],
+      bonusSeeds: [
+        { id: 'seed_snow_lotus', count: 6 },
+        { id: 'seed_silver_moss', count: 6 },
+        { id: 'seed_wild_berry', count: 6 },
+        { id: 'seed_quartz_bloom', count: 6 }
+      ]
     }
   }
 };

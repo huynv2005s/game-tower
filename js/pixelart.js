@@ -2101,7 +2101,7 @@ class PixelArt {
       this.cache['icon_antidote_pure'] = canvas;
     }
 
-    // Seeds
+    // Seeds & Hydroponic Greenhouse Pod Sprites
     {
       const { canvas, ctx } = this.createCanvas(S, S);
       ctx.strokeStyle = '#38bdf8';
@@ -2117,6 +2117,70 @@ class PixelArt {
       ctx.beginPath(); ctx.arc(16, 16, 12, 0, Math.PI * 2); ctx.stroke();
       ctx.drawImage(this.cache['obj_silver_moss'], 4, 4, 24, 24);
       this.cache['icon_seed_moss'] = canvas;
+    }
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(16, 16, 12, 0, Math.PI * 2); ctx.stroke();
+      ctx.drawImage(this.cache['tile_berry_clean'], 4, 4, 24, 24);
+      this.cache['icon_seed_berry'] = canvas;
+    }
+    {
+      const { canvas, ctx } = this.createCanvas(S, S);
+      ctx.strokeStyle = '#c084fc';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(16, 16, 12, 0, Math.PI * 2); ctx.stroke();
+      ctx.drawImage(this.cache['obj_quartz_ore'], 4, 4, 24, 24);
+      this.cache['icon_seed_quartz'] = canvas;
+    }
+
+    // High-Tech Hydroponic Greenhouse Pod Bed (36x36 for World Map Bio-Lab Expansion)
+    {
+      const { canvas, ctx } = this.createCanvas(36, 36);
+      // Ground shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.roundRect(2, 6, 32, 28, 6);
+      ctx.fill();
+
+      // Titanium planter frame
+      const frameGrad = ctx.createLinearGradient(0, 4, 36, 32);
+      frameGrad.addColorStop(0, '#334155');
+      frameGrad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = frameGrad;
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.roundRect(3, 4, 30, 28, 5);
+      ctx.fill();
+      ctx.stroke();
+
+      // Nutrient soil / hydro gel bed inside
+      const bedGrad = ctx.createRadialGradient(18, 18, 2, 18, 18, 13);
+      bedGrad.addColorStop(0, '#064e3b');
+      bedGrad.addColorStop(1, '#022c22');
+      ctx.fillStyle = bedGrad;
+      ctx.beginPath();
+      ctx.roundRect(6, 7, 24, 22, 3);
+      ctx.fill();
+
+      // Glowing cyan hydro irrigation lines
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(8, 14); ctx.lineTo(28, 14);
+      ctx.moveTo(8, 22); ctx.lineTo(28, 22);
+      ctx.stroke();
+
+      // Corner LED indicators
+      ctx.fillStyle = '#34d399';
+      ctx.fillRect(5, 6, 2, 2);
+      ctx.fillRect(29, 6, 2, 2);
+      ctx.fillRect(5, 28, 2, 2);
+      ctx.fillRect(29, 28, 2, 2);
+
+      this.cache['building_greenhouse_pod'] = canvas;
     }
   }
 

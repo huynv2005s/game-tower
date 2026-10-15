@@ -619,7 +619,9 @@ class MobileController {
     const struct = this.game.world.getStructureNear(p.x, p.y, 95);
     if (struct) {
       if (struct.type === 'biolab') {
-        this.game.lab.open('lab');
+        const hasReadyCrop = this.game.lab && this.game.lab.hydroPods && this.game.lab.hydroPods.some(pod => pod.seedId && pod.ready);
+        const nearGreenhouse = p.y < struct.y + 42;
+        this.game.lab.open((hasReadyCrop || nearGreenhouse) ? 'hydroponics' : 'lab');
         return;
       } else if (struct.type === 'furnace') {
         this.game.lab.open('furnace');
