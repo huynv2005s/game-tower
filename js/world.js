@@ -13,6 +13,7 @@ class WorldMap {
 
     this.tiles = [];
     this.harvestables = []; // All interactive world objects
+    this.harvestableTileMap = new Map(); // O(1) tile lookup: (row << 8) | col -> harvestable
     this.resourceNodes = []; // Non-tree harvestables for fast rendering
     this.treeNodes = [];     // Tree harvestables for fast rendering
     this.structures = [];   // Bio-Lab, Furnace, Workbench, Workshop
@@ -21,10 +22,15 @@ class WorldMap {
     this.cliffBorders = [];  // Vertical cliff walls along mountain edge
     this.mountainMists = []; // Soft drifting mountain mist clouds
     this.ambientSpores = []; // Drifting forest spores & embers
+    this._badgeWidthCache = Object.create(null);
 
     // Offscreen Ground Cache Canvas (Eliminates 600+ tile drawImage calls per frame!)
     this.groundCanvas = null;
     this.groundCtx = null;
+  }
+
+  _tileKey(col, row) {
+    return (row << 8) | col;
   }
 
   generate() {
@@ -33,6 +39,7 @@ class WorldMap {
       this.tiles[r] = new Array(this.cols).fill(CONSTANTS.TILES.GRASS);
     }
     this.harvestables = [];
+    this.harvestableTileMap.clear();
     this.resourceNodes = [];
     this.treeNodes = [];
     this.mountainPeaks = [];
@@ -496,26 +503,29 @@ class WorldMap {
   }
 
   addHarvestable(col, row, type, name, dropItemId, dropCount, hp = 20, metadata = {}) {
+    const nodeCfg = (CONSTANTS.RESOURCE_NODES && CONSTANTS.RESOURCE_NODES[type]) ? CONSTANTS.RESOURCE_NODES[type] : null;
     const obj = {
       col,
       row,
       x: col * this.tileSize + this.tileSize / 2,
       y: row * this.tileSize + this.tileSize / 2,
       type,
-      name,
-      dropItemId,
-      dropCount,
-      hp,
-      maxHp: hp,
+      name: name || (nodeCfg ? nodeCfg.name : type),
+      dropItemId: dropItemId || (nodeCfg ? nodeCfg.dropItemId : 'wood'),
+      dropCount: dropCount !== undefined ? dropCount : (nodeCfg ? nodeCfg.dropCount : 1),
+      hp: hp !== undefined ? hp : (nodeCfg ? nodeCfg.hp : 20),
+      maxHp: hp !== undefined ? hp : (nodeCfg ? nodeCfg.hp : 20),
       isDestroyed: false,
       ...metadata
     };
     this.harvestables.push(obj);
-    if (type === 'alien_tree') {
+    this.harvestableTileMap.set(this._tileKey(col, row), obj);
+    if (type === 'alien_tree' || (nodeCfg && nodeCfg.isTree)) {
       this.treeNodes.push(obj);
     } else {
       this.resourceNodes.push(obj);
     }
+    return obj;
   }
 
   getTile(c, r) {
@@ -608,7 +618,6 @@ class WorldMap {
       return { x: targetX, y: targetY };
     }
 
-    // Sample points along the straight line between monster and target to see if RIVER_WATER blocks the path
     let crossesRiver = false;
     const steps = 8;
     for (let i = 1; i < steps; i++) {
@@ -626,7 +635,6 @@ class WorldMap {
       return { x: targetX, y: targetY };
     }
 
-    // Pick the nearest bridge crossing
     let bestBridge = this.bridgeCrossings[0];
     let bestScore = Infinity;
     for (let i = 0; i < this.bridgeCrossings.length; i++) {
@@ -638,31 +646,39 @@ class WorldMap {
       }
     }
 
-    // If the monster is not yet aligned with the bridge row, guide it to the bridge entrance on its side of the river first
     if (Math.abs(y - bestBridge.y) > 22) {
       const entryX = (x < bestBridge.x) ? bestBridge.westEntryX : bestBridge.eastEntryX;
       return { x: entryX, y: bestBridge.y };
     }
 
-    // Once aligned with the bridge row, walk straight across to the other side of the bridge
     const exitX = (targetX < bestBridge.x) ? bestBridge.westEntryX : bestBridge.eastEntryX;
     return { x: exitX, y: bestBridge.y };
   }
 
-
-  // Find harvestable near point
+  // O(1) Tile-Window Harvestable Lookup (replaces O(N) full array scan!)
   getHarvestableAt(x, y, reach = 50) {
     const rSq = reach * reach;
-    for (let i = 0; i < this.harvestables.length; i++) {
-      const h = this.harvestables[i];
-      if (h.isDestroyed) continue;
-      const dx = h.x - x;
-      const dy = h.y - y;
-      if (dx * dx + dy * dy <= rSq) {
-        return h;
+    const centerCol = Math.floor(x / this.tileSize);
+    const centerRow = Math.floor(y / this.tileSize);
+    const span = Math.ceil(reach / this.tileSize);
+    let best = null;
+    let bestDistSq = rSq;
+
+    for (let r = centerRow - span; r <= centerRow + span; r++) {
+      const rowBits = r << 8;
+      for (let c = centerCol - span; c <= centerCol + span; c++) {
+        const h = this.harvestableTileMap.get(rowBits | c);
+        if (!h || h.isDestroyed) continue;
+        const dx = h.x - x;
+        const dy = h.y - y;
+        const dSq = dx * dx + dy * dy;
+        if (dSq <= bestDistSq) {
+          bestDistSq = dSq;
+          best = h;
+        }
       }
     }
-    return null;
+    return best;
   }
 
   damageHarvestable(h, damage) {
@@ -737,13 +753,20 @@ class WorldMap {
 
   getAlienEggNear(x, y, reach = 68) {
     const rSq = reach * reach;
-    for (let i = 0; i < this.resourceNodes.length; i++) {
-      const h = this.resourceNodes[i];
-      if (h.isDestroyed || h.type !== 'alien_egg') continue;
-      const dx = h.x - x;
-      const dy = h.y - y;
-      if (dx * dx + dy * dy <= rSq) {
-        return h;
+    const centerCol = Math.floor(x / this.tileSize);
+    const centerRow = Math.floor(y / this.tileSize);
+    const span = Math.ceil(reach / this.tileSize);
+
+    for (let r = centerRow - span; r <= centerRow + span; r++) {
+      const rowBits = r << 8;
+      for (let c = centerCol - span; c <= centerCol + span; c++) {
+        const h = this.harvestableTileMap.get(rowBits | c);
+        if (!h || h.isDestroyed || h.type !== 'alien_egg') continue;
+        const dx = h.x - x;
+        const dy = h.y - y;
+        if (dx * dx + dy * dy <= rSq) {
+          return h;
+        }
       }
     }
     return null;
@@ -807,7 +830,11 @@ class WorldMap {
     ctx.save();
     ctx.font = 'bold 10px "Segoe UI", Tahoma, sans-serif';
     const paddingX = 7;
-    const textWidth = ctx.measureText(text).width;
+    let textWidth = this._badgeWidthCache[text];
+    if (textWidth === undefined) {
+      textWidth = ctx.measureText(text).width;
+      this._badgeWidthCache[text] = textWidth;
+    }
     const boxW = textWidth + paddingX * 2;
     const boxH = 18;
     const bx = x - boxW / 2;
@@ -864,17 +891,8 @@ class WorldMap {
       }
     }
 
-    // 3. Render 2.5D Standing Resource Nodes (Sulfur, Quartz, Titanium, Snow Lotus, Silver Moss, Alien Egg, Tech Debris, Plasma Node)
-    const resourceVisualMap = {
-      sulfur_ore:   { sprite: 'obj_sulfur_ore',   w: 44, h: 44, color: '#facc15', icon: '🟡', tag: 'Quặng Lưu Huỳnh' },
-      quartz_ore:   { sprite: 'obj_quartz_ore',   w: 44, h: 44, color: '#38bdf8', icon: '💎', tag: 'Tinh Thể Thạch Anh' },
-      titanium_ore: { sprite: 'obj_titanium_ore', w: 44, h: 44, color: '#e2e8f0', icon: '🔩', tag: 'Quặng Sắt Titan' },
-      snow_lotus:   { sprite: 'obj_snow_lotus',   w: 44, h: 44, color: '#e879f9', icon: '🪷', tag: 'Tuyết Liên Núi Cao' },
-      silver_moss:  { sprite: 'obj_silver_moss',  w: 44, h: 44, color: '#4ade80', icon: '🌿', tag: 'Rêu Bạc Đỉnh Núi' },
-      alien_egg:    { sprite: 'obj_alien_egg',    w: 48, h: 48, color: '#f43f5e', icon: '🥚', tag: 'Ổ Trứng Quái Vật ([F] Nhặt Ấp / Đánh)' },
-      tech_debris:  { sprite: 'obj_tech_debris',  w: 48, h: 44, color: '#fb923c', icon: '🛸', tag: 'Mảnh Vỡ Phi Thuyền' },
-      plasma_node:  { sprite: 'obj_plasma_node',  w: 44, h: 44, color: '#22d3ee', icon: '⚡', tag: 'Trụ Năng Lượng Plasma' }
-    };
+    // 3. Render 2.5D Standing Resource Nodes (Data-Driven via CONSTANTS.RESOURCE_NODES)
+    const resourceVisualMap = CONSTANTS.RESOURCE_NODES || {};
 
     const camLeft = camera.x - 60;
     const camRight = camera.x + camera.width + 60;

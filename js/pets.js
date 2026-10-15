@@ -634,25 +634,31 @@ class PetSystem {
       }
     }
 
-    // 5. Ranged Auto-Attack on Nearby Monsters
+    // 5. Ranged Auto-Attack on Nearby Monsters (O(1) SpatialGrid target lookup)
     if (this.attackCooldownTimer > 0) {
       this.attackCooldownTimer -= dt;
     }
 
     if (this.attackCooldownTimer <= 0 && this.game.monsters && this.game.monsters.length > 0) {
       let bestTarget = null;
-      let bestDist = spec.attackRange || 260;
+      const maxRange = spec.attackRange || 260;
 
-      for (let i = 0; i < this.game.monsters.length; i++) {
-        const m = this.game.monsters[i];
-        if (m.isDead) continue;
-        // Only shoot training dummy if player is right next to it and attacking
-        if (m.species === 'dummy' && Math.hypot(p.x - m.x, p.y - m.y) > 150) continue;
-
-        const d = Math.hypot(m.x - this.petX, m.y - this.petY);
-        if (d <= bestDist) {
-          bestDist = d;
-          bestTarget = m;
+      if (this.game.monsterGrid) {
+        bestTarget = this.game.monsterGrid.findClosest(
+          this.petX, this.petY, maxRange,
+          m => m.species !== 'dummy' || Math.hypot(p.x - m.x, p.y - m.y) <= 150
+        );
+      } else {
+        let bestDist = maxRange;
+        for (let i = 0; i < this.game.monsters.length; i++) {
+          const m = this.game.monsters[i];
+          if (m.isDead) continue;
+          if (m.species === 'dummy' && Math.hypot(p.x - m.x, p.y - m.y) > 150) continue;
+          const d = Math.hypot(m.x - this.petX, m.y - this.petY);
+          if (d <= bestDist) {
+            bestDist = d;
+            bestTarget = m;
+          }
         }
       }
 
@@ -677,7 +683,6 @@ class PetSystem {
     let projType = spec.projectileType || 'pet_arrow';
     let extra = { color: spec.color, petId: spec.id, petLevel: spec.level || 1 };
 
-    // Archer Pet every 3rd shot fires a Piercing Critical Arrow!
     if (spec.id === 'pet_archer' && this.shotCounter % 3 === 0) {
       dmg = Math.round(dmg * 1.75);
       extra.isCritArrow = true;
@@ -686,7 +691,6 @@ class PetSystem {
       }
     }
 
-    // Lv.3 MAX Pet fires Twin Projectiles!
     const count = spec.projectileCount || 1;
     if (count >= 2) {
       const spread = 0.11;
@@ -739,7 +743,6 @@ class PetSystem {
     const nextCfg = CONSTANTS.DRONE_TIERS[nextLv];
     if (!nextCfg) return false;
 
-    // Verify materials
     for (const req of nextCfg.cost) {
       if (this.game.inventory.getItemCount(req.id) < req.count) {
         const msg = `⚠️ Thiếu nguyên liệu để chế tạo/nâng cấp ${nextCfg.name}!`;
@@ -748,7 +751,6 @@ class PetSystem {
       }
     }
 
-    // Deduct materials
     for (const req of nextCfg.cost) {
       let rem = req.count;
       for (let i = 0; i < this.game.inventory.slotCount; i++) {
@@ -822,7 +824,6 @@ class PetSystem {
     }
 
     const p = this.game.player;
-    // Anchor is either Player ('follow') or Bio-Lab Center ('base')
     let anchorX = p.x;
     let anchorY = p.y;
     if (this.droneMode === 'base' && this.game.world && this.game.world.structures) {
@@ -845,17 +846,18 @@ class PetSystem {
         if (d.beamTimer <= 0) d.beamType = null;
       }
 
-      // 1. Find Damaged Defense Structures within scanRadius to Auto-Repair
+      // 1. O(1) SpatialGrid query for Damaged Defense Structures within scanRadius
       let repairTarget = null;
       if (this.game.buildingManager && this.game.buildingManager.defenses.length > 0) {
+        const bm = this.game.buildingManager;
+        const nearDefs = bm.defenseGrid ? bm.defenseGrid.queryRadius(anchorX, anchorY, cfg.scanRadius) : bm.defenses;
         let lowestRatio = 1.0;
-        for (let k = 0; k < this.game.buildingManager.defenses.length; k++) {
-          const def = this.game.buildingManager.defenses[k];
-          if (def.hp >= def.maxHp) continue;
+        for (let k = 0; k < nearDefs.length; k++) {
+          const def = nearDefs[k];
+          if (!def || def.hp >= def.maxHp) continue;
           const dist = Math.hypot(def.x - anchorX, def.y - anchorY);
           if (dist <= cfg.scanRadius) {
             const ratio = def.hp / def.maxHp;
-            // Second drone prefers a different damaged structure if available
             if (ratio < lowestRatio || (i === 1 && repairTarget && def !== repairTarget)) {
               lowestRatio = ratio;
               repairTarget = def;
@@ -864,7 +866,6 @@ class PetSystem {
         }
       }
 
-      // Orbit target position (fly closer to repair target if actively welding)
       const orbitR = this.droneMode === 'base' ? 68 : 42;
       let targetX = anchorX + Math.cos(d.orbitAngle) * orbitR;
       let targetY = anchorY + Math.sin(d.orbitAngle) * (orbitR * 0.72) - 18;
@@ -882,7 +883,6 @@ class PetSystem {
         d.y += (targetY - d.y) * Math.min(1, dt * 5.2);
       }
 
-      // Execute Continuous Nano-Welding Repair on Damaged Defense Structure
       if (repairTarget) {
         const healAmt = (cfg.repairPerSec / cfg.droneCount) * dt;
         repairTarget.hp = Math.min(repairTarget.maxHp, repairTarget.hp + healAmt);
@@ -902,12 +902,11 @@ class PetSystem {
         }
       }
 
-      // 2. Auto-Harvest Nearby World Resources & Wild Berries
+      // 2. Auto-Harvest Nearby World Resources & Wild Berries (O(1) tile window lookup!)
       d.harvestTimer -= dt;
       if (d.harvestTimer <= 0 && this.game.world && this.game.inventory) {
         d.harvestTimer = cfg.harvestInterval;
 
-        // First check ripe wild berry bushes nearby
         let harvestedSomething = false;
         if (this.game.world.wildFlora) {
           for (let f of this.game.world.wildFlora) {
@@ -930,22 +929,9 @@ class PetSystem {
           }
         }
 
-        // Next scan mineral/wood/herb/egg harvestables within scanRadius
-        if (!harvestedSomething && this.game.world.harvestables) {
-          let bestH = null;
-          let bestHDist = cfg.scanRadius;
-          for (let h of this.game.world.harvestables) {
-            if (h.isDestroyed) continue;
-            // Only Lv.3 Drone automatically extracts intact Alien Egg nests
-            if (h.type === 'alien_egg' && this.droneLevel < 3) continue;
-            const distH = Math.hypot(h.x - d.x, h.y - d.y);
-            if (distH <= bestHDist) {
-              bestHDist = distH;
-              bestH = h;
-            }
-          }
-
-          if (bestH) {
+        if (!harvestedSomething) {
+          const bestH = this.game.world.getHarvestableAt(d.x, d.y, cfg.scanRadius);
+          if (bestH && (bestH.type !== 'alien_egg' || this.droneLevel >= 3)) {
             const harvestPower = 20 + this.droneLevel * 10;
             const destroyed = this.game.world.damageHarvestable(bestH, harvestPower);
             d.beamType = 'harvest';
@@ -970,18 +956,25 @@ class PetSystem {
         }
       }
 
-      // 3. Auto-Attack Nearby Monsters with Support Laser
+      // 3. Auto-Attack Nearby Monsters with Support Laser (O(1) SpatialGrid target lookup!)
       d.attackTimer -= dt;
       if (d.attackTimer <= 0 && this.game.monsters && this.game.monsters.length > 0 && this.game.projectiles) {
         let bestM = null;
-        let bestMDist = cfg.scanRadius;
-        for (let m of this.game.monsters) {
-          if (m.isDead) continue;
-          if (m.species === 'dummy' && Math.hypot(p.x - m.x, p.y - m.y) > 140) continue;
-          const distM = Math.hypot(m.x - d.x, m.y - d.y);
-          if (distM <= bestMDist) {
-            bestMDist = distM;
-            bestM = m;
+        if (this.game.monsterGrid) {
+          bestM = this.game.monsterGrid.findClosest(
+            d.x, d.y, cfg.scanRadius,
+            m => m.species !== 'dummy' || Math.hypot(p.x - m.x, p.y - m.y) <= 140
+          );
+        } else {
+          let bestMDist = cfg.scanRadius;
+          for (let m of this.game.monsters) {
+            if (m.isDead) continue;
+            if (m.species === 'dummy' && Math.hypot(p.x - m.x, p.y - m.y) > 140) continue;
+            const distM = Math.hypot(m.x - d.x, m.y - d.y);
+            if (distM <= bestMDist) {
+              bestMDist = distM;
+              bestM = m;
+            }
           }
         }
 

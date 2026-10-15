@@ -3,13 +3,21 @@
 class WeaponSystem {
   constructor(game) {
     this.game = game;
-    this.weaponLevels = {
-      SPEAR: 1,
-      STAFF: 1,
-      DAGGER: 1,
-      BOW: 1,
-      GUN: 1
-    };
+    this.weaponLevels = {};
+    if (CONSTANTS && CONSTANTS.WEAPONS) {
+      for (const k of Object.keys(CONSTANTS.WEAPONS)) {
+        this.weaponLevels[k] = 1;
+      }
+    } else {
+      this.weaponLevels = { SPEAR: 1, STAFF: 1, DAGGER: 1, BOW: 1, GUN: 1 };
+    }
+  }
+
+  _queryMonstersNear(x, y, radius) {
+    if (this.game && this.game.monsterGrid) {
+      return this.game.monsterGrid.queryRadius(x, y, radius);
+    }
+    return (this.game && this.game.monsters) ? this.game.monsters : [];
   }
 
   getWeaponLevel(weaponKey) {
@@ -31,7 +39,7 @@ class WeaponSystem {
     };
   }
 
-  // Upgrade a specific weapon (SPEAR, STAFF, DAGGER, BOW, GUN) from Lv.1 -> Lv.2 -> Lv.3
+  // Upgrade a specific weapon from Lv.1 -> Lv.2 -> Lv.3
   upgradeWeapon(weaponKey) {
     if (!CONSTANTS.WEAPONS[weaponKey]) return false;
     const curLv = this.getWeaponLevel(weaponKey);
@@ -56,11 +64,9 @@ class WeaponSystem {
       return false;
     }
 
-    // Consume materials
     this.game.buildingManager.consumeCost(tierCfg.cost);
     this.weaponLevels[weaponKey] = nextLv;
 
-    // Audio & Visuals
     window.audioManager.playEquip();
     const p = this.game.player;
     const col = nextLv >= 3 ? '#facc15' : '#38bdf8';
@@ -81,7 +87,6 @@ class WeaponSystem {
       this.game.saveManager.showSaveToast(msg);
     }
 
-    // Switch to the upgraded weapon automatically
     this.switchWeapon(weaponKey);
     if (this.game.lab && this.game.lab.isOpen) {
       this.game.lab.switchTab(this.game.lab.currentTab);
@@ -90,7 +95,6 @@ class WeaponSystem {
     return true;
   }
 
-  // Switch active weapon
   switchWeapon(weaponKey) {
     if (!CONSTANTS.WEAPONS[weaponKey]) return;
     this.game.player.activeWeapon = weaponKey;
@@ -104,7 +108,6 @@ class WeaponSystem {
     if (this.game.updateHUD) this.game.updateHUD(true);
   }
 
-  // Basic Attack (Left Mouse Click)
   performBasicAttack(player, mouseWorldX, mouseWorldY) {
     if (player.attackCooldownTimer > 0 || player.isVaulting) return;
 
@@ -115,7 +118,9 @@ class WeaponSystem {
 
     const angle = Math.atan2(mouseWorldY - player.y, mouseWorldX - player.x);
 
-    if (weaponKey === 'SPEAR') {
+    if (typeof w.onAttack === 'function') {
+      w.onAttack(player, angle, w, this.game);
+    } else if (weaponKey === 'SPEAR') {
       window.audioManager.playSpearAttack();
       this.spearThrust(player, angle, w.damage, w.range, w.level);
     } else if (weaponKey === 'STAFF') {
@@ -130,72 +135,82 @@ class WeaponSystem {
     } else if (weaponKey === 'GUN') {
       window.audioManager.playBowShoot();
       this.gunShoot(player, angle, w.damage, w.range, w.level);
+    } else if (w.projectileType) {
+      window.audioManager.playBowShoot();
+      const speed = w.projectileSpeed || 520;
+      this.game.projectiles.push(new Projectile(player.x, player.y, Math.cos(angle) * speed, Math.sin(angle) * speed, w.range, w.damage, w.projectileType, { color: w.color }));
+    } else {
+      window.audioManager.playHit();
+      this.spearThrust(player, angle, w.damage, w.range, w.level);
     }
 
-    // Also check hitting breakable world harvestables (Eggs, Ores, Herbs, Debris)
     this.checkHarvestableHit(player, mouseWorldX, mouseWorldY, w.range, w.level);
   }
 
-  // Spear Basic Thrust
   spearThrust(player, angle, damage, range, level = 1) {
     const tipX = player.x + Math.cos(angle) * range;
     const tipY = player.y + Math.sin(angle) * range;
+    const hitR = 30 + level * 3;
 
     const col = level >= 3 ? '#facc15' : '#38bdf8';
     this.game.particles.push(new Particle(tipX, tipY, Math.cos(angle) * 35, Math.sin(angle) * 35, col, 6 + level, 0.15));
 
-    for (let m of this.game.monsters) {
-      if (m.isDead) continue;
+    const candidates = this._queryMonstersNear(tipX, tipY, hitR);
+    for (let i = 0; i < candidates.length; i++) {
+      const m = candidates[i];
+      if (!m || m.isDead) continue;
       const dist = Math.hypot(m.x - tipX, m.y - tipY);
-      if (dist <= 30 + level * 3) {
+      if (dist <= hitR) {
         m.takeDamage(damage, this.game.particles, this.game.floatingTexts);
         m.applyKnockback(Math.cos(angle) * 125, Math.sin(angle) * 125, 0.2);
       }
     }
   }
 
-  // Staff Basic Swing
   staffSwing(player, angle, damage, range, level = 1) {
     const swingX = player.x + Math.cos(angle) * (range * 0.7);
     const swingY = player.y + Math.sin(angle) * (range * 0.7);
+    const hitR = 36 + level * 4;
 
     const col = level >= 3 ? '#facc15' : '#c084fc';
     this.game.particles.push(new Particle(swingX, swingY, 0, 0, col, 22 + level * 3, 0.18, 'ring'));
 
-    for (let m of this.game.monsters) {
-      if (m.isDead) continue;
+    const candidates = this._queryMonstersNear(swingX, swingY, hitR);
+    for (let i = 0; i < candidates.length; i++) {
+      const m = candidates[i];
+      if (!m || m.isDead) continue;
       const dist = Math.hypot(m.x - swingX, m.y - swingY);
-      if (dist <= 36 + level * 4) {
+      if (dist <= hitR) {
         m.takeDamage(damage, this.game.particles, this.game.floatingTexts);
         m.applyKnockback(Math.cos(angle) * 85, Math.sin(angle) * 85, 0.18);
       }
     }
   }
 
-  // Dagger Basic Slash
   daggerSlash(player, angle, damage, range, level = 1) {
     const slashX = player.x + Math.cos(angle) * range;
     const slashY = player.y + Math.sin(angle) * range;
+    const hitR = 28 + level * 3;
 
     const col = level >= 3 ? '#facc15' : '#4ade80';
     for (let i = 0; i < 4; i++) {
       this.game.particles.push(new Particle(slashX, slashY, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60, col, 3, 0.12));
     }
 
-    for (let m of this.game.monsters) {
-      if (m.isDead) continue;
+    const candidates = this._queryMonstersNear(slashX, slashY, hitR);
+    for (let i = 0; i < candidates.length; i++) {
+      const m = candidates[i];
+      if (!m || m.isDead) continue;
       const dist = Math.hypot(m.x - slashX, m.y - slashY);
-      if (dist <= 28 + level * 3) {
+      if (dist <= hitR) {
         m.takeDamage(damage, this.game.particles, this.game.floatingTexts);
       }
     }
   }
 
-  // Bow Basic Shot
   bowShoot(player, angle, damage, range, level = 1) {
     const speed = 490 + level * 30;
     if (level >= 3) {
-      // Lv.3 Bow shoots a twin-arrow volley!
       for (let offset of [-0.05, 0.05]) {
         const a = angle + offset;
         this.game.projectiles.push(new Projectile(player.x, player.y, Math.cos(a) * speed, Math.sin(a) * speed, range, Math.round(damage * 0.65), 'arrow'));
@@ -207,7 +222,6 @@ class WeaponSystem {
     }
   }
 
-  // Plasma Gun Basic Shot (Súng Trường Plasma Liên Thanh)
   gunShoot(player, angle, damage, range, level = 1) {
     if (this.game && this.game.dayNight && this.game.dayNight.currentWeather === 'EMP_STORM') {
       damage = Math.round(damage * 1.25);
@@ -220,7 +234,6 @@ class WeaponSystem {
     this.game.particles.push(new Particle(muzzleX, muzzleY, 0, 0, flashCol, 6, 0.10));
 
     if (level >= 3) {
-      // Lv.3 Overcharged Plasma Rifle: Center Rail-Plasma bolt + 2 side laser bolts!
       this.game.projectiles.push(new Projectile(
         muzzleX, muzzleY,
         Math.cos(angle) * speed, Math.sin(angle) * speed,
@@ -235,7 +248,6 @@ class WeaponSystem {
         ));
       }
     } else if (level === 2) {
-      // Lv.2 Twin Plasma Bolts
       const perpX = -Math.sin(angle) * 4;
       const perpY = Math.cos(angle) * 4;
       const vx = Math.cos(angle) * speed;
@@ -244,16 +256,13 @@ class WeaponSystem {
       this.game.projectiles.push(new Projectile(muzzleX + perpX, muzzleY + perpY, vx, vy, range, halfDmg, 'plasma_bullet', { color: '#38bdf8' }));
       this.game.projectiles.push(new Projectile(muzzleX - perpX, muzzleY - perpY, vx, vy, range, halfDmg, 'plasma_bullet', { color: '#e879f9' }));
     } else {
-      // Lv.1 Single Plasma Bolt
       const vx = Math.cos(angle) * speed;
       const vy = Math.sin(angle) * speed;
       this.game.projectiles.push(new Projectile(muzzleX, muzzleY, vx, vy, range, damage, 'plasma_bullet', { color: '#38bdf8' }));
     }
   }
 
-  // Harvestable world interact (break eggs, mine ores, gather herbs, scoop water, harvest berries, click lab)
   checkHarvestableHit(player, targetX, targetY, reach, weaponLevel = 1) {
-    // 1. Check clicking on Bio-Lab, Furnace, Workbench, or Workshop when nearby
     const struct = this.game.world.getStructureNear(player.x, player.y, 90);
     if (struct) {
       const distToClick = Math.hypot(targetX - (struct.x + struct.width / 2), targetY - (struct.y + struct.height / 2));
@@ -276,7 +285,6 @@ class WeaponSystem {
 
     const nearRadius = Math.min(reach + 16, 68);
 
-    // 2. Check Harvesting Wild Flora (Berries)
     const bush = this.game.world.getWildFloraAt(targetX, targetY, reach) ||
                  this.game.world.getWildFloraAt(player.x, player.y, nearRadius);
     if (bush && Math.hypot(bush.x - player.x, bush.y - player.y) <= reach + 28) {
@@ -294,7 +302,6 @@ class WeaponSystem {
       }
     }
 
-    // 3. Check Harvesting Ores, Herbs, Alien Eggs, Debris, Titanium, Plasma Nodes
     const h = this.game.world.getHarvestableAt(targetX, targetY, reach) ||
               this.game.world.getHarvestableAt(player.x, player.y, nearRadius);
     if (h && Math.hypot(h.x - player.x, h.y - player.y) <= reach + 28) {
@@ -327,7 +334,6 @@ class WeaponSystem {
       return;
     }
 
-    // 4. Check Scooping Water from River or Lake
     if (this.game.world.isNearWater(targetX, targetY, 25)) {
       if (Math.hypot(player.x - targetX, player.y - targetY) <= reach + 25) {
         this.game.inventory.addItem('dirty_water', 1);
@@ -351,6 +357,11 @@ class WeaponSystem {
     const angle = Math.atan2(mouseWorldY - player.y, mouseWorldX - player.x);
     const dmgMult = w.dmgMult || 1.0;
 
+    if (w.skill1 && typeof w.skill1.onTrigger === 'function') {
+      w.skill1.onTrigger(player, angle, w, this.game, mouseWorldX, mouseWorldY);
+      return;
+    }
+
     if (weaponKey === 'SPEAR') {
       window.audioManager.playSpearSweep();
       this.game.floatingTexts.push(new FloatingText(player.x, player.y - 25, 'QUÉT NGANG!', '#38bdf8', 13, 0.9));
@@ -365,8 +376,10 @@ class WeaponSystem {
         this.game.particles.push(new Particle(px, py, Math.cos(sweepA) * 40, Math.sin(sweepA) * 40, '#38bdf8', 5, 0.25));
       }
 
-      for (let m of this.game.monsters) {
-        if (m.isDead) continue;
+      const candidates = this._queryMonstersNear(player.x, player.y, sweepRadius);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
+        if (!m || m.isDead) continue;
         const dist = Math.hypot(m.x - player.x, m.y - player.y);
         if (dist <= sweepRadius) {
           const mAngle = Math.atan2(m.y - player.y, m.x - player.x);
@@ -388,8 +401,10 @@ class WeaponSystem {
       const stunRadius = 110 + (w.level - 1) * 15;
       this.game.particles.push(new Particle(player.x, player.y, 0, 0, '#c084fc', stunRadius, 0.45, 'ring'));
 
-      for (let m of this.game.monsters) {
-        if (m.isDead) continue;
+      const candidates = this._queryMonstersNear(player.x, player.y, stunRadius);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
+        if (!m || m.isDead) continue;
         const dist = Math.hypot(m.x - player.x, m.y - player.y);
         if (dist <= stunRadius) {
           m.takeDamage(Math.round(18 * dmgMult), this.game.particles, this.game.floatingTexts);
@@ -429,7 +444,6 @@ class WeaponSystem {
       this.game.projectiles.push(proj);
 
     } else if (weaponKey === 'GUN') {
-      // 5. Súng Plasma: Pháo Điện Từ EMP (AoE Blast + Stun 1.8s)
       window.audioManager.playBowRecoil();
       this.game.floatingTexts.push(new FloatingText(player.x, player.y - 25, '⚡ PHÁO ĐIỆN TỪ EMP!', '#38bdf8', 13, 1.0));
 
@@ -454,6 +468,11 @@ class WeaponSystem {
     player.skill2CooldownTimer = w.skill2.cooldown * (w.level >= 3 ? 0.85 : 1.0);
     const angle = Math.atan2(mouseWorldY - player.y, mouseWorldX - player.x);
     const dmgMult = w.dmgMult || 1.0;
+
+    if (w.skill2 && typeof w.skill2.onTrigger === 'function') {
+      w.skill2.onTrigger(player, angle, w, this.game, mouseWorldX, mouseWorldY);
+      return;
+    }
 
     if (weaponKey === 'SPEAR') {
       window.audioManager.playSpearVault();
@@ -492,8 +511,10 @@ class WeaponSystem {
         ));
       }
 
-      for (let m of this.game.monsters) {
-        if (m.isDead) continue;
+      const candidates = this._queryMonstersNear(player.x, player.y, whirlwindRadius);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
+        if (!m || m.isDead) continue;
         const dist = Math.hypot(m.x - player.x, m.y - player.y);
         if (dist <= whirlwindRadius) {
           const mAngle = Math.atan2(m.y - player.y, m.x - player.x);
@@ -519,8 +540,12 @@ class WeaponSystem {
         this.game.particles.push(new Particle(px, py, 0, 0, '#86efac', 5, 0.22));
       }
 
-      for (let m of this.game.monsters) {
-        if (m.isDead) continue;
+      const midX = (startX + endX) * 0.5;
+      const midY = (startY + endY) * 0.5;
+      const candidates = this._queryMonstersNear(midX, midY, dashDist * 0.65 + 40);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
+        if (!m || m.isDead) continue;
         const dist = this.distToSegment({ x: m.x, y: m.y }, { x: startX, y: startY }, { x: endX, y: endY });
         if (dist <= 32) {
           m.takeDamage(Math.round(28 * dmgMult), this.game.particles, this.game.floatingTexts);
@@ -551,7 +576,6 @@ class WeaponSystem {
       this.game.projectiles.push(proj);
 
     } else if (weaponKey === 'GUN') {
-      // 5. Súng Plasma: Xả Đạn Hủy Diệt (5-Shot Fan Spread + Recoil Dash Back)
       window.audioManager.playBowRecoil();
       this.game.floatingTexts.push(new FloatingText(player.x, player.y - 25, '🔥 XẢ ĐẠN PLASMA LIÊN THANH!', '#38bdf8', 13, 1.0));
 
@@ -577,7 +601,6 @@ class WeaponSystem {
     }
   }
 
-  // Distance from point to line segment helper
   distToSegment(p, v, w) {
     const l2 = (v.x - w.x) * (v.x - w.x) + (v.y - w.y) * (v.y - w.y);
     if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);

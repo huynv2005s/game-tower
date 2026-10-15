@@ -1,8 +1,12 @@
 // Entities: Player, Monsters/Dummies, Projectiles, Particles, Floating Combat Text
-// Optimized for 60FPS Canvas Rendering (Frustum Culling, Zero ctx.filter, Cached Gradients)
+// Refactored for Data-Driven Extensibility + High-Scale Performance (ObjectPool, SpatialGrid O(1) Queries, Cached Text Metrics)
 
 class Particle {
-  constructor(x, y, vx, vy, color, size, life, shape = 'circle', extra = null) {
+  constructor(x = 0, y = 0, vx = 0, vy = 0, color = '#ffffff', size = 3, life = 0.3, shape = 'circle', extra = null) {
+    this.reset(x, y, vx, vy, color, size, life, shape, extra);
+  }
+
+  reset(x, y, vx, vy, color, size, life, shape = 'circle', extra = null) {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -10,9 +14,10 @@ class Particle {
     this.color = color;
     this.size = size;
     this.life = life;
-    this.maxLife = life;
-    this.shape = shape;
-    this.extra = extra;
+    this.maxLife = life || 0.01;
+    this.shape = shape || 'circle';
+    this.extra = extra || null;
+    return this;
   }
 
   update(dt) {
@@ -61,15 +66,20 @@ class Particle {
 }
 
 class FloatingText {
-  constructor(x, y, text, color = '#ffffff', fontSize = 13, duration = 0.9) {
+  constructor(x = 0, y = 0, text = '', color = '#ffffff', fontSize = 13, duration = 0.9) {
+    this.reset(x, y, text, color, fontSize, duration);
+  }
+
+  reset(x, y, text, color = '#ffffff', fontSize = 13, duration = 0.9) {
     this.x = x;
     this.y = y;
     this.text = text;
     this.color = color;
     this.fontSize = fontSize;
     this.duration = duration;
-    this.maxDuration = duration;
+    this.maxDuration = duration || 0.01;
     this.vy = -35;
+    return this;
   }
 
   update(dt) {
@@ -96,7 +106,11 @@ class FloatingText {
 }
 
 class Projectile {
-  constructor(x, y, vx, vy, range, damage, type, extra = {}) {
+  constructor(x = 0, y = 0, vx = 0, vy = 0, range = 250, damage = 10, type = 'arrow', extra = {}) {
+    this.reset(x, y, vx, vy, range, damage, type, extra);
+  }
+
+  reset(x, y, vx, vy, range, damage, type, extra = {}) {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -105,10 +119,13 @@ class Projectile {
     this.startY = y;
     this.maxRange = range;
     this.damage = damage;
-    this.type = type; // 'arrow', 'net_arrow', 'recoil_blast', 'acid_spit', 'plasma_bullet', 'emp_blast', 'turret_railgun'
+    this.type = type;
     this.extra = extra || {};
-    this.radius = (type === 'emp_blast') ? 9 : 6;
+    const cfg = (window.CONSTANTS && window.CONSTANTS.PROJECTILE_TYPES) ? window.CONSTANTS.PROJECTILE_TYPES[type] : null;
+    this.cfg = cfg || null;
+    this.radius = (cfg && cfg.radius) ? cfg.radius : ((type === 'emp_blast') ? 9 : 6);
     this.isDead = false;
+    return this;
   }
 
   update(dt, world, monsters, particles, floatingTexts) {
@@ -122,39 +139,57 @@ class Projectile {
       return false;
     }
 
-    if (this.type === 'acid_spit' || this.type === 'frost_spit') {
-      // Check hit player
+    const targetGroup = (this.cfg && this.cfg.targetGroup)
+      ? this.cfg.targetGroup
+      : ((this.type === 'acid_spit' || this.type === 'frost_spit') ? 'player_and_defenses' : 'monsters');
+
+    if (targetGroup === 'player_and_defenses') {
+      // 1. Check hit player
       const p = world && world.game ? world.game.player : null;
       if (p && !p.isDead && !p.isVaulting && !p.isDashing) {
+        const hitR = this.radius + p.radius;
         const distSq = (this.x - p.x) * (this.x - p.x) + (this.y - p.y) * (this.y - p.y);
-        if (distSq <= (this.radius + p.radius) * (this.radius + p.radius)) {
+        if (distSq <= hitR * hitR) {
           this.onImpact(world, monsters, particles, floatingTexts, p);
           return false;
         }
       }
 
-      // Check hit defenses
-      if (world && world.game && world.game.buildingManager) {
-        const defs = world.game.buildingManager.defenses;
-        for (let i = 0; i < defs.length; i++) {
-          const d = defs[i];
-          const distSq = (this.x - d.x) * (this.x - d.x) + (this.y - d.y) * (this.y - d.y);
-          if (distSq <= (this.radius + 16) * (this.radius + 16)) {
-            world.game.buildingManager.damageStructure(d, this.damage);
-            this.onImpact(world, monsters, particles, floatingTexts, d);
-            return false;
-          }
+      // 2. Check hit defenses via O(1) tile / spatial lookup
+      const bm = (world && world.game) ? world.game.buildingManager : null;
+      if (bm) {
+        const hitDef = bm.getStructureAt(this.x, this.y, this.radius + 16);
+        if (hitDef) {
+          bm.damageStructure(hitDef, this.damage);
+          this.onImpact(world, monsters, particles, floatingTexts, hitDef);
+          return false;
         }
       }
     } else {
-      // Check hit monsters
-      for (let i = 0; i < monsters.length; i++) {
-        const m = monsters[i];
-        if (m.isDead) continue;
-        const distSq = (this.x - m.x) * (this.x - m.x) + (this.y - m.y) * (this.y - m.y);
-        if (distSq <= (this.radius + m.radius) * (this.radius + m.radius)) {
-          this.onImpact(world, monsters, particles, floatingTexts, m);
-          return false;
+      // Check hit monsters via O(1) SpatialGrid neighborhood
+      const game = (world && world.game) ? world.game : window.gameEngine;
+      if (game && game.monsterGrid) {
+        const nearby = game.monsterGrid.getCellNeighborhood(this.x, this.y);
+        for (let i = 0, len = nearby.length; i < len; i++) {
+          const m = nearby[i];
+          if (!m || m.isDead) continue;
+          const hitR = this.radius + m.radius;
+          const distSq = (this.x - m.x) * (this.x - m.x) + (this.y - m.y) * (this.y - m.y);
+          if (distSq <= hitR * hitR) {
+            this.onImpact(world, monsters, particles, floatingTexts, m);
+            return false;
+          }
+        }
+      } else {
+        for (let i = 0; i < monsters.length; i++) {
+          const m = monsters[i];
+          if (m.isDead) continue;
+          const hitR = this.radius + m.radius;
+          const distSq = (this.x - m.x) * (this.x - m.x) + (this.y - m.y) * (this.y - m.y);
+          if (distSq <= hitR * hitR) {
+            this.onImpact(world, monsters, particles, floatingTexts, m);
+            return false;
+          }
         }
       }
     }
@@ -162,9 +197,28 @@ class Projectile {
     return true;
   }
 
+  _queryMonstersInRadius(world, monsters, radius) {
+    const game = (world && world.game) ? world.game : window.gameEngine;
+    if (game && game.monsterGrid) {
+      return game.monsterGrid.queryRadius(this.x, this.y, radius);
+    }
+    const res = [];
+    const rSq = radius * radius;
+    for (let i = 0; i < monsters.length; i++) {
+      const m = monsters[i];
+      if (!m || m.isDead) continue;
+      const dx = m.x - this.x;
+      const dy = m.y - this.y;
+      if (dx * dx + dy * dy <= rSq) res.push(m);
+    }
+    return res;
+  }
+
   onImpact(world, monsters, particles, floatingTexts, hitTarget = null) {
     if (this.isDead) return;
     this.isDead = true;
+
+    const cfg = this.cfg;
 
     if (this.type === 'arrow' || this.type === 'plasma_bullet') {
       if (hitTarget) {
@@ -179,7 +233,6 @@ class Projectile {
         }
       }
     } else if (this.type === 'turret_railgun') {
-      // Lv.3 Railgun Tesla Shot: High impact + Chain Lightning to nearby monsters!
       if (hitTarget) {
         hitTarget.takeDamage(this.damage, particles, floatingTexts);
         hitTarget.applySlow(0.6, 2.0, floatingTexts);
@@ -189,21 +242,18 @@ class Projectile {
       const maxChains = (this.extra && this.extra.chainCount) ? this.extra.chainCount : 2;
       let chained = 0;
       const chainDamage = Math.max(8, Math.round(this.damage * 0.55));
+      const candidates = this._queryMonstersInRadius(world, monsters, 95);
 
-      for (let i = 0; i < monsters.length; i++) {
-        const m = monsters[i];
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
         if (m.isDead || m === hitTarget) continue;
-        const dist = Math.hypot(m.x - this.x, m.y - this.y);
-        if (dist <= 95) {
-          m.takeDamage(chainDamage, particles, floatingTexts);
-          m.applySlow(0.6, 1.8, floatingTexts);
-          particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 2, 0.22, 'lightning', { x2: m.x, y2: m.y }));
-          chained++;
-          if (chained >= maxChains) break;
-        }
+        m.takeDamage(chainDamage, particles, floatingTexts);
+        m.applySlow(0.6, 1.8, floatingTexts);
+        particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 2, 0.22, 'lightning', { x2: m.x, y2: m.y }));
+        chained++;
+        if (chained >= maxChains) break;
       }
     } else if (this.type === 'emp_blast') {
-      // Plasma Gun Skill 1 [Q]: EMP Overcharge AoE Stun!
       const empRadius = 95;
       window.audioManager.playStaffStun();
       particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', empRadius, 0.5, 'ring'));
@@ -213,13 +263,12 @@ class Projectile {
         floatingTexts.push(new FloatingText(this.x, this.y - 15, '⚡ XUNG ĐIỆN EMP! ⚡', '#38bdf8', 13, 1.1));
       }
 
-      for (let m of monsters) {
+      const candidates = this._queryMonstersInRadius(world, monsters, empRadius);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
         if (m.isDead) continue;
-        const dist = Math.hypot(m.x - this.x, m.y - this.y);
-        if (dist <= empRadius) {
-          m.takeDamage(this.damage, particles, floatingTexts);
-          m.applyStun(1.8, floatingTexts);
-        }
+        m.takeDamage(this.damage, particles, floatingTexts);
+        m.applyStun(1.8, floatingTexts);
       }
     } else if (this.type === 'net_arrow') {
       const rootRadius = 90;
@@ -227,39 +276,35 @@ class Projectile {
       window.audioManager.playBowNet();
       particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', rootRadius, 0.6, 'ring'));
 
-      for (let m of monsters) {
+      const candidates = this._queryMonstersInRadius(world, monsters, rootRadius);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
         if (m.isDead) continue;
-        const dist = Math.hypot(m.x - this.x, m.y - this.y);
-        if (dist <= rootRadius) {
-          m.applyRoot(2.5, floatingTexts);
-          m.takeDamage(this.damage, particles, floatingTexts);
-        }
+        m.applyRoot(2.5, floatingTexts);
+        m.takeDamage(this.damage, particles, floatingTexts);
       }
     } else if (this.type === 'recoil_blast') {
       const blastRadius = 80;
       particles.push(new Particle(this.x, this.y, 0, 0, '#f97316', blastRadius, 0.4, 'ring'));
 
-      for (let m of monsters) {
+      const candidates = this._queryMonstersInRadius(world, monsters, blastRadius);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
         if (m.isDead) continue;
-        const dist = Math.hypot(m.x - this.x, m.y - this.y);
-        if (dist <= blastRadius) {
-          m.applySlow(0.4, 3.0, floatingTexts);
-          m.takeDamage(this.damage, particles, floatingTexts);
-          const angle = Math.atan2(m.y - this.y, m.x - this.x);
-          m.applyKnockback(Math.cos(angle) * 160, Math.sin(angle) * 160, 0.25);
-        }
+        m.applySlow(0.4, 3.0, floatingTexts);
+        m.takeDamage(this.damage, particles, floatingTexts);
+        const angle = Math.atan2(m.y - this.y, m.x - this.x);
+        m.applyKnockback(Math.cos(angle) * 160, Math.sin(angle) * 160, 0.25);
       }
     } else if (this.type === 'acid_spit') {
-      if (hitTarget) {
-        if (hitTarget.takeDamage) {
-          hitTarget.takeDamage(this.damage);
-          if (hitTarget.applySlow) {
-            const sf = (this.extra && this.extra.slowFactor) ? this.extra.slowFactor : 0.72;
-            const sd = (this.extra && this.extra.slowDuration) ? this.extra.slowDuration : 1.8;
-            hitTarget.applySlow(sf, sd, 'AXIT LÀM CHẬM');
-          }
-          if (hitTarget.addInfection) hitTarget.addInfection(10, 'AXIT ĂN MÒN');
+      if (hitTarget && hitTarget.takeDamage) {
+        hitTarget.takeDamage(this.damage);
+        if (hitTarget.applySlow) {
+          const sf = (this.extra && this.extra.slowFactor) ? this.extra.slowFactor : 0.72;
+          const sd = (this.extra && this.extra.slowDuration) ? this.extra.slowDuration : 1.8;
+          hitTarget.applySlow(sf, sd, 'AXIT LÀM CHẬM');
         }
+        if (hitTarget.addInfection) hitTarget.addInfection(10, 'AXIT ĂN MÒN');
       }
       if (particles.length < 160) {
         for (let i = 0; i < 6; i++) {
@@ -270,16 +315,14 @@ class Projectile {
       }
       window.audioManager.playHit();
     } else if (this.type === 'frost_spit') {
-      if (hitTarget) {
-        if (hitTarget.takeDamage) {
-          hitTarget.takeDamage(this.damage);
-          if (hitTarget.applySlow) {
-            const sf = (this.extra && this.extra.slowFactor) ? this.extra.slowFactor : 0.50;
-            const sd = (this.extra && this.extra.slowDuration) ? this.extra.slowDuration : 3.0;
-            hitTarget.applySlow(sf, sd, 'TƠ BĂNG HÀN');
-          }
-          if (hitTarget.addInfection) hitTarget.addInfection(6, 'TƠ BĂNG HÀN');
+      if (hitTarget && hitTarget.takeDamage) {
+        hitTarget.takeDamage(this.damage);
+        if (hitTarget.applySlow) {
+          const sf = (this.extra && this.extra.slowFactor) ? this.extra.slowFactor : 0.50;
+          const sd = (this.extra && this.extra.slowDuration) ? this.extra.slowDuration : 3.0;
+          hitTarget.applySlow(sf, sd, 'TƠ BĂNG HÀN');
         }
+        if (hitTarget.addInfection) hitTarget.addInfection(6, 'TƠ BĂNG HÀN');
       }
       if (particles.length < 160) {
         particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 22, 0.3, 'ring'));
@@ -346,15 +389,36 @@ class Projectile {
       }
       let chained = 0;
       const chainDmg = Math.max(6, Math.round(this.damage * 0.5));
-      for (let i = 0; i < monsters.length; i++) {
-        const m = monsters[i];
+      const candidates = this._queryMonstersInRadius(world, monsters, 85);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
         if (m.isDead || m === hitTarget) continue;
-        if (Math.hypot(m.x - this.x, m.y - this.y) <= 85) {
-          m.takeDamage(chainDmg, particles, floatingTexts);
-          particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 2, 0.2, 'lightning', { x2: m.x, y2: m.y }));
-          chained++;
-          if (chained >= 2) break;
+        m.takeDamage(chainDmg, particles, floatingTexts);
+        particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 2, 0.2, 'lightning', { x2: m.x, y2: m.y }));
+        chained++;
+        if (chained >= 2) break;
+      }
+    } else if (cfg) {
+      // Generic Data-Driven Projectile Impact for newly registered projectile types!
+      if (cfg.aoeRadius) {
+        particles.push(new Particle(this.x, this.y, 0, 0, cfg.color || '#38bdf8', cfg.aoeRadius, 0.4, 'ring'));
+        const candidates = this._queryMonstersInRadius(world, monsters, cfg.aoeRadius);
+        for (let i = 0; i < candidates.length; i++) {
+          const m = candidates[i];
+          if (m.isDead) continue;
+          m.takeDamage(this.damage, particles, floatingTexts);
+          if (cfg.stunDuration) m.applyStun(cfg.stunDuration, floatingTexts);
+          if (cfg.rootDuration) m.applyRoot(cfg.rootDuration, floatingTexts);
+          if (cfg.slowFactor) m.applySlow(cfg.slowFactor, cfg.slowDuration || 2.0, floatingTexts);
         }
+      } else if (hitTarget && hitTarget.takeDamage) {
+        hitTarget.takeDamage(this.damage, particles, floatingTexts);
+        if (cfg.slowFactor && hitTarget.applySlow) hitTarget.applySlow(cfg.slowFactor, cfg.slowDuration || 2.0, floatingTexts);
+        if (cfg.stunDuration && hitTarget.applyStun) hitTarget.applyStun(cfg.stunDuration, floatingTexts);
+        if (cfg.infectionGain && hitTarget.addInfection) hitTarget.addInfection(cfg.infectionGain, cfg.slowLabel || 'ĐẠN QUÁI');
+      }
+      if (particles.length < 160) {
+        particles.push(new Particle(this.x, this.y, 0, 0, cfg.color || '#38bdf8', 14, 0.22, 'ring'));
       }
     }
   }
@@ -447,6 +511,17 @@ class Projectile {
       ctx.beginPath();
       ctx.arc(1, 0, 3.2, 0, Math.PI * 2);
       ctx.fill();
+    } else {
+      // Data-driven fallback projectile rendering
+      const col = (this.cfg && this.cfg.color) ? this.cfg.color : '#38bdf8';
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(1, 0, this.radius * 0.45, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
   }
@@ -460,6 +535,7 @@ class Monster {
     const cfg = (CONSTANTS.MONSTER_SPECIES && CONSTANTS.MONSTER_SPECIES[species]) ? CONSTANTS.MONSTER_SPECIES[species] : {
       name: 'Xenomorph Crawler', maxHp: 50, speed: 75, damage: 10, radius: 16
     };
+    this.cfg = cfg;
 
     this.name = customName || cfg.name || 'Quái Vật';
     this.maxHp = customHp || cfg.maxHp || 50;
@@ -467,9 +543,9 @@ class Monster {
     this.radius = cfg.radius || 16;
     this.speed = (species === 'dummy') ? 0 : (cfg.speed || 75);
     this.damage = cfg.damage || 10;
-    this.isKamikaze = !!cfg.isKamikaze;
-    this.isRanged = !!cfg.isRanged;
-    this.isBoss = !!cfg.isBoss;
+    this.isKamikaze = !!cfg.isKamikaze || cfg.aiType === 'kamikaze';
+    this.isRanged = !!cfg.isRanged || cfg.aiType === 'ranged';
+    this.isBoss = !!cfg.isBoss || cfg.aiType === 'boss';
     this.attackRange = cfg.range || (this.isRanged ? 190 : 26);
     this.slowPlayerFactor = cfg.slowPlayerFactor || (species === 'frost_spitter' ? 0.50 : 0.72);
     this.slowPlayerDuration = cfg.slowPlayerDuration || (species === 'frost_spitter' ? 3.0 : 1.8);
@@ -504,6 +580,10 @@ class Monster {
     this.anchorX = this.x;
     this.anchorY = this.y;
     this.anchorTimer = Math.random() * 0.3;
+
+    // Throttled Defense Structure Target Cache (eliminates per-frame defense scans)
+    this.cachedDefenseTarget = null;
+    this.targetScanTimer = Math.random() * 0.15;
 
     this.hitFlashTimer = 0;
     this.attackCooldown = 0;
@@ -545,7 +625,9 @@ class Monster {
       }
 
       if (Math.random() < (isBloodMoon ? 0.65 : 0.35)) {
-        const extraItem = (this.species === 'exploder') ? 'sulfur_dust' : (this.species === 'frost_spitter' ? 'quartz_crystal' : 'iron_ore');
+        const extraItem = (this.cfg && this.cfg.extraLootItem)
+          ? this.cfg.extraLootItem
+          : ((this.species === 'exploder') ? 'sulfur_dust' : (this.species === 'frost_spitter' ? 'quartz_crystal' : 'iron_ore'));
         game.inventory.addItem(extraItem, 1 * mult);
         const def = CONSTANTS.ITEM_TYPES[extraItem];
         if (def) bonusText += ` & +${1 * mult} ${def.name}`;
@@ -572,7 +654,9 @@ class Monster {
 
     // Blood / Alien acid splatter (capped for performance)
     if (particles.length < 160) {
-      const bloodColor = (this.species === 'spitter') ? '#84cc16' : (this.species === 'frost_spitter' ? '#38bdf8' : (this.species === 'exploder' ? '#ea580c' : '#a855f7'));
+      const bloodColor = (this.cfg && this.cfg.bloodColor)
+        ? this.cfg.bloodColor
+        : ((this.species === 'spitter') ? '#84cc16' : (this.species === 'frost_spitter' ? '#38bdf8' : (this.species === 'exploder' ? '#ea580c' : '#a855f7')));
       for (let i = 0; i < 4; i++) {
         const a = Math.random() * Math.PI * 2;
         const s = 30 + Math.random() * 50;
@@ -595,6 +679,9 @@ class Monster {
           }
         }
       }
+      if (window.EventBus) {
+        window.EventBus.emit('monster:killed', this);
+      }
     }
   }
 
@@ -603,7 +690,7 @@ class Monster {
     this.isDead = true;
     window.audioManager.playBowRecoil();
 
-    const blastRadius = 55;
+    const blastRadius = (this.cfg && this.cfg.blastRadius) ? this.cfg.blastRadius : 55;
     particles.push(new Particle(this.x, this.y, 0, 0, '#ef4444', blastRadius, 0.45, 'ring'));
     particles.push(new Particle(this.x, this.y, 0, 0, '#f97316', blastRadius * 0.7, 0.32, 'ring'));
 
@@ -623,15 +710,23 @@ class Monster {
       const distP = Math.hypot(player.x - this.x, player.y - this.y);
       if (distP <= blastRadius) {
         player.takeDamage(this.damage);
-        player.addInfection(18, 'VỤ NỔ CẢM TỬ');
+        player.addInfection((this.cfg && this.cfg.infectionGain) ? this.cfg.infectionGain : 18, 'VỤ NỔ CẢM TỬ');
       }
     }
 
     if (world && world.game && world.game.buildingManager) {
-      for (let d of world.game.buildingManager.defenses) {
-        const distD = Math.hypot(d.x - this.x, d.y - this.y);
-        if (distD <= blastRadius + 16) {
-          world.game.buildingManager.damageStructure(d, this.damage, this);
+      const bm = world.game.buildingManager;
+      if (bm.defenseGrid) {
+        const nearDefs = bm.defenseGrid.queryRadius(this.x, this.y, blastRadius + 16);
+        for (let i = 0; i < nearDefs.length; i++) {
+          bm.damageStructure(nearDefs[i], this.damage, this);
+        }
+      } else {
+        for (let d of bm.defenses) {
+          const distD = Math.hypot(d.x - this.x, d.y - this.y);
+          if (distD <= blastRadius + 16) {
+            bm.damageStructure(d, this.damage, this);
+          }
         }
       }
     }
@@ -698,18 +793,20 @@ class Monster {
       this.y = directNy;
       moved = true;
     } else {
-      // Test steering whisker angles biased by locked steerDir so monster walks around corners without jittering
-      const offsets = [0.42, 0.82, 1.22, 1.58, 2.02, 2.45];
-      const dirs = [this.steerDir, -this.steerDir];
+      const offsets = Monster._STEER_OFFSETS;
+      const d0 = this.steerDir;
+      const d1 = -d0;
 
-      for (let dIdx = 0; dIdx < dirs.length && !moved; dIdx++) {
-        const dir = dirs[dIdx];
+      for (let dIdx = 0; dIdx < 2 && !moved; dIdx++) {
+        const dir = dIdx === 0 ? d0 : d1;
         for (let i = 0; i < offsets.length; i++) {
           const testAngle = desiredAngle + offsets[i] * dir;
-          const nx = this.x + Math.cos(testAngle) * stepDist;
-          const ny = this.y + Math.sin(testAngle) * stepDist;
-          const lx = this.x + Math.cos(testAngle) * lookDist;
-          const ly = this.y + Math.sin(testAngle) * lookDist;
+          const cosA = Math.cos(testAngle);
+          const sinA = Math.sin(testAngle);
+          const nx = this.x + cosA * stepDist;
+          const ny = this.y + sinA * stepDist;
+          const lx = this.x + cosA * lookDist;
+          const ly = this.y + sinA * lookDist;
 
           if (!world.isColliding(nx, ny, checkRadius) && !world.isColliding(lx, ly, checkRadius * 0.8)) {
             this.x = nx;
@@ -736,7 +833,6 @@ class Monster {
         this.x += moveX;
         moved = true;
       } else {
-        // Blocked in X: apply strong perpendicular slide in Y so it doesn't stall at 90-degree wall faces
         const slideY = (Math.abs(moveY) > stepDist * 0.45) ? moveY : (stepDist * 0.85 * this.steerDir);
         if (!world.isColliding(this.x, this.y + slideY, checkRadius)) {
           this.y += slideY;
@@ -745,12 +841,11 @@ class Monster {
       }
 
       if (canY && !canX) {
-        // Already slid in Y above if needed, or apply normal moveY
+        // Already slid in Y above if needed
       } else if (canY) {
         this.y += moveY;
         moved = true;
       } else if (!moved) {
-        // Blocked in Y: apply strong perpendicular slide in X
         const slideX = (Math.abs(moveX) > stepDist * 0.45) ? moveX : (stepDist * 0.85 * this.steerDir);
         if (!world.isColliding(this.x + slideX, this.y, checkRadius)) {
           this.x += slideX;
@@ -774,7 +869,6 @@ class Monster {
       this.anchorTimer = 0;
 
       if (progressDist < 7) {
-        // If blocked by an adjacent player defense structure, attack it immediately
         if (world.game && world.game.buildingManager) {
           const adjDef = world.game.buildingManager.getStructureAt(this.x, this.y, this.radius + 26);
           if (adjDef && adjDef.blocksMovement) {
@@ -782,7 +876,6 @@ class Monster {
           }
         }
 
-        // Flip steering direction and scan 8 compass directions for an open escape lane
         this.steerDir *= -1;
         this.steerLockTimer = 0.75;
         let bestEscape = desiredAngle + Math.PI * 0.6 * this.steerDir;
@@ -802,14 +895,13 @@ class Monster {
       }
     }
 
-    // 6. Lightweight Soft Separation so monsters don't stack into a single clump at corners
-    if (world.game && world.game.monsters) {
-      const list = world.game.monsters;
-      const len = list.length;
-      const step = Math.max(1, Math.floor(len / 14));
-      const startIdx = Math.floor(this.pulseTimer * 3) % step;
-      for (let i = startIdx; i < len; i += step) {
-        const other = list[i];
+    // 6. O(1) SpatialGrid Soft Separation so monsters don't stack into a single clump
+    const game = world.game;
+    if (game && game.monsterGrid) {
+      const cellMonsters = game.monsterGrid.getCellNeighborhood(this.x, this.y);
+      const count = Math.min(cellMonsters.length, 10);
+      for (let i = 0; i < count; i++) {
+        const other = cellMonsters[i];
         if (!other || other === this || other.isDead || other.species === 'dummy') continue;
         const dx = this.x - other.x;
         const dy = this.y - other.y;
@@ -858,7 +950,7 @@ class Monster {
     if (this.attackCooldown > 0) this.attackCooldown -= dt;
     if (this.species === 'dummy') return;
 
-    // Target Selection: Player or Nearest Blocking Defensive Structure
+    // Target Selection: Player or Nearest Blocking Defensive Structure (Throttled + SpatialGrid O(1))
     let target = null;
     let targetDist = Infinity;
     let isStructureTarget = false;
@@ -868,24 +960,24 @@ class Monster {
       targetDist = Math.hypot(player.x - this.x, player.y - this.y);
     }
 
-    // Find the CLOSEST blocking defense structure that intercepts the monster
+    this.targetScanTimer -= dt;
     if (world && world.game && world.game.buildingManager) {
-      const defs = world.game.buildingManager.defenses;
-      let bestDef = null;
-      let bestDefDist = Infinity;
-      for (let i = 0; i < defs.length; i++) {
-        const d = defs[i];
-        if (!d.blocksMovement) continue;
-        const distD = Math.hypot(d.x - this.x, d.y - this.y);
-        if (distD < bestDefDist && (distD < 52 || distD < targetDist * 0.65)) {
-          bestDef = d;
-          bestDefDist = distD;
-        }
+      const bm = world.game.buildingManager;
+      if (this.targetScanTimer <= 0 || (this.cachedDefenseTarget && this.cachedDefenseTarget.hp <= 0)) {
+        this.targetScanTimer = 0.16;
+        const maxDefSearch = Math.max(64, Math.min(320, targetDist * 0.65));
+        this.cachedDefenseTarget = bm.findClosestBlockingDefense
+          ? bm.findClosestBlockingDefense(this.x, this.y, maxDefSearch)
+          : null;
       }
-      if (bestDef) {
-        target = bestDef;
-        targetDist = bestDefDist;
-        isStructureTarget = true;
+      const bestDef = this.cachedDefenseTarget;
+      if (bestDef && bestDef.hp > 0 && bestDef.blocksMovement) {
+        const distD = Math.hypot(bestDef.x - this.x, bestDef.y - this.y);
+        if (distD < 52 || distD < targetDist * 0.65) {
+          target = bestDef;
+          targetDist = distD;
+          isStructureTarget = true;
+        }
       }
     }
 
@@ -901,19 +993,20 @@ class Monster {
       return;
     }
 
-    // 2. RANGED ATTACKERS AI (Acid Spitter & Frost-Web Slowing Spitter)
+    // 2. RANGED ATTACKERS AI (Data-Driven Projectile Config)
     if (this.isRanged) {
       if (targetDist <= this.attackRange && this.attackCooldown <= 0) {
-        this.attackCooldown = (this.species === 'frost_spitter') ? 1.55 : 1.8;
+        const pCfg = (this.cfg && this.cfg.projectile) ? this.cfg.projectile : null;
+        this.attackCooldown = (pCfg && pCfg.cooldown) ? pCfg.cooldown : ((this.species === 'frost_spitter') ? 1.55 : 1.8);
         const angle = Math.atan2(target.y - this.y, target.x - this.x);
-        const spitSpeed = (this.species === 'frost_spitter') ? 295 : 260;
+        const spitSpeed = (pCfg && pCfg.speed) ? pCfg.speed : ((this.species === 'frost_spitter') ? 295 : 260);
         const vx = Math.cos(angle) * spitSpeed;
         const vy = Math.sin(angle) * spitSpeed;
-        const projType = (this.species === 'frost_spitter') ? 'frost_spit' : 'acid_spit';
+        const projType = (pCfg && pCfg.type) ? pCfg.type : ((this.species === 'frost_spitter') ? 'frost_spit' : 'acid_spit');
         if (world.game && world.game.projectiles) {
           world.game.projectiles.push(new Projectile(
             this.x, this.y, vx, vy,
-            this.attackRange + 45,
+            this.attackRange + ((pCfg && pCfg.extraRange) ? pCfg.extraRange : 45),
             this.damage,
             projType,
             { slowFactor: this.slowPlayerFactor, slowDuration: this.slowPlayerDuration }
@@ -926,9 +1019,9 @@ class Monster {
       return;
     }
 
-    // 3. MELEE ATTACKERS (Crawler & Titan Behemoth)
+    // 3. MELEE ATTACKERS (Crawler, Titan Behemoth & Custom Melee Species)
     if (targetDist <= (this.radius + (isStructureTarget ? 18 : 15)) && this.attackCooldown <= 0) {
-      this.attackCooldown = this.isBoss ? 1.4 : 1.1;
+      this.attackCooldown = (this.cfg && this.cfg.attackCooldown) ? this.cfg.attackCooldown : (this.isBoss ? 1.4 : 1.1);
 
       if (isStructureTarget) {
         world.game.buildingManager.damageStructure(target, this.damage, this);
@@ -938,7 +1031,8 @@ class Monster {
       } else {
         if (!player.isVaulting && !player.isDashing) {
           player.takeDamage(this.damage);
-          player.addInfection(this.isBoss ? 20 : 12, this.name);
+          const infGain = (this.cfg && this.cfg.infectionGain) ? this.cfg.infectionGain : (this.isBoss ? 20 : 12);
+          player.addInfection(infGain, this.name);
           window.audioManager.playHit();
         }
       }
@@ -971,7 +1065,7 @@ class Monster {
       ctx.stroke();
     }
 
-    // Kamikaze Exploder Pulsing Blast Warning Ring (Uses cached sprite instead of per-frame createRadialGradient!)
+    // Kamikaze Exploder Pulsing Blast Warning Ring
     if (this.isKamikaze) {
       const kamGlow = window.pixelArt.get('fx_kamikaze_glow');
       if (kamGlow) {
@@ -990,17 +1084,9 @@ class Monster {
       ctx.fill();
     }
 
-    // 2. Draw Realistic Creature Sprite with Organic Scuttle / Breathing Animation
-    let spriteName = 'monster_crawler';
-    let sprSize = 48;
-    if (this.species === 'dummy') spriteName = 'monster_dummy';
-    else if (this.species === 'exploder') spriteName = 'monster_exploder';
-    else if (this.species === 'spitter') spriteName = 'monster_spitter';
-    else if (this.species === 'frost_spitter') spriteName = 'monster_frost_spitter';
-    else if (this.species === 'behemoth') {
-      spriteName = 'monster_behemoth';
-      sprSize = 68;
-    }
+    // 2. Data-Driven Creature Sprite with Organic Scuttle / Breathing Animation
+    const spriteName = (this.cfg && this.cfg.sprite) ? this.cfg.sprite : `monster_${this.species}`;
+    const sprSize = (this.cfg && this.cfg.spriteSize) ? this.cfg.spriteSize : (this.isBoss ? 68 : 48);
 
     const sprite = window.pixelArt.get(spriteName);
     if (sprite) {
@@ -1017,7 +1103,6 @@ class Monster {
 
       ctx.drawImage(sprite, -sprSize / 2, -sprSize / 2, sprSize, sprSize);
 
-      // Fast GPU-friendly Hit Flash Overlay (Replaces slow ctx.filter = 'brightness(2.4)')
       if (this.hitFlashTimer > 0) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
         ctx.beginPath();
@@ -1059,7 +1144,7 @@ class Monster {
       ctx.restore();
     }
 
-    // 5. High-Contrast Framed Health Bar & Species Label
+    // 5. High-Contrast Framed Health Bar & Cached Species Label
     const barWidth = this.isBoss ? 56 : 36;
     const barHeight = this.isBoss ? 6 : 5;
     const barY = sy - (this.isBoss ? 40 : 28);
@@ -1068,13 +1153,8 @@ class Monster {
     ctx.fillStyle = 'rgba(9, 13, 22, 0.9)';
     ctx.fillRect(sx - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
 
-    let hpColor = '#ef4444';
-    let speciesTag = '🕷 Xenomorph';
-    if (this.species === 'dummy') { hpColor = '#f59e0b'; speciesTag = '🎯 Bù Nhìn Tập Luyện'; }
-    else if (this.species === 'behemoth') { hpColor = '#c084fc'; speciesTag = '👑 TITAN BEHEMOTH'; }
-    else if (this.species === 'exploder') { hpColor = '#f97316'; speciesTag = '💥 Cảm Tử Nổ'; }
-    else if (this.species === 'spitter') { hpColor = '#84cc16'; speciesTag = '🧪 Phun Axit'; }
-    else if (this.species === 'frost_spitter') { hpColor = '#38bdf8'; speciesTag = '❄️ Xạ Thủ Băng Hàn (Làm Chậm)'; }
+    const hpColor = (this.cfg && this.cfg.hpColor) ? this.cfg.hpColor : '#ef4444';
+    const speciesTag = (this.cfg && this.cfg.tag) ? this.cfg.tag : `👾 ${this.name}`;
 
     ctx.fillStyle = hpColor;
     ctx.fillRect(sx - barWidth / 2, barY, barWidth * hpPercent, barHeight);
@@ -1082,13 +1162,20 @@ class Monster {
     ctx.fillRect(sx - barWidth / 2, barY, barWidth * hpPercent, 1.5);
 
     const game = window.gameEngine;
-    const distMouse = (game && game.mouse) ? Math.hypot(game.mouse.worldX - this.x, game.mouse.worldY - this.y) : 9999;
-    if (this.isBoss || this.species === 'dummy' || this.hp < this.maxHp || distMouse <= 38) {
+    const distMouseSq = (game && game.mouse)
+      ? ((game.mouse.worldX - this.x) * (game.mouse.worldX - this.x) + (game.mouse.worldY - this.y) * (game.mouse.worldY - this.y))
+      : 9999999;
+
+    if (this.isBoss || this.species === 'dummy' || this.hp < this.maxHp || distMouseSq <= 1444) {
       ctx.save();
       ctx.font = 'bold 10px "Segoe UI", Tahoma, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(9, 13, 22, 0.85)';
-      const tw = ctx.measureText(speciesTag).width + 10;
+      let tw = Monster._tagWidthCache[speciesTag];
+      if (!tw) {
+        tw = ctx.measureText(speciesTag).width + 10;
+        Monster._tagWidthCache[speciesTag] = tw;
+      }
       ctx.fillRect(sx - tw / 2, barY - 16, tw, 13);
       ctx.fillStyle = '#f8fafc';
       ctx.fillText(speciesTag, sx, barY - 6.5);
@@ -1096,6 +1183,9 @@ class Monster {
     }
   }
 }
+
+Monster._STEER_OFFSETS = [0.42, 0.82, 1.22, 1.58, 2.02, 2.45];
+Monster._tagWidthCache = Object.create(null);
 
 class Player {
   constructor(x, y) {
@@ -1439,7 +1529,6 @@ class Player {
     ctx.ellipse(groundX, groundY, 15 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Draw Frost-Web Slow Aura around Player when slowed
     if (this.slowTimer > 0) {
       ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
       ctx.beginPath();
@@ -1517,7 +1606,9 @@ class Player {
     ctx.translate(sx, sy + 3);
     ctx.rotate(this.aimAngle);
 
-    if (weaponConfig.id === 'spear') {
+    if (weaponConfig.holdOffset) {
+      ctx.drawImage(sprite, weaponConfig.holdOffset.x, weaponConfig.holdOffset.y);
+    } else if (weaponConfig.id === 'spear') {
       ctx.drawImage(sprite, 8, -16);
     } else if (weaponConfig.id === 'staff') {
       ctx.drawImage(sprite, 6, -16);
@@ -1527,6 +1618,8 @@ class Player {
       ctx.drawImage(sprite, 6, -16);
     } else if (weaponConfig.id === 'gun') {
       ctx.drawImage(sprite, 4, -15);
+    } else {
+      ctx.drawImage(sprite, 6, -15);
     }
     ctx.restore();
   }

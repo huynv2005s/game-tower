@@ -4025,15 +4025,120 @@ class PixelArt {
     }
   }
 
+  generateFallbackSprite(name) {
+    if (!name || typeof name !== 'string') return null;
+
+    // 1. Item Icon Fallback: icon_<itemId>
+    if (name.startsWith('icon_')) {
+      const id = name.slice(5);
+      const itemDef = (window.CONSTANTS && window.CONSTANTS.ITEM_TYPES) ? window.CONSTANTS.ITEM_TYPES[id] : null;
+      const color = (itemDef && itemDef.color) ? itemDef.color : '#38bdf8';
+      const { canvas, ctx } = this.createCanvas(32, 32);
+
+      // Glowing sci-fi hex/crystal badge
+      const g = ctx.createRadialGradient(16, 15, 2, 16, 16, 12);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.45, color);
+      g.addColorStop(1, 'rgba(15, 23, 42, 0.9)');
+      ctx.fillStyle = g;
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(16, 4);
+      ctx.lineTo(26, 10);
+      ctx.lineTo(26, 22);
+      ctx.lineTo(16, 28);
+      ctx.lineTo(6, 22);
+      ctx.lineTo(6, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      ctx.beginPath();
+      ctx.arc(13, 12, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      this.cache[name] = canvas;
+      return canvas;
+    }
+
+    // 2. Monster Sprite Fallback: monster_<speciesId>
+    if (name.startsWith('monster_')) {
+      const speciesId = name.slice(8);
+      const mCfg = (window.CONSTANTS && window.CONSTANTS.MONSTER_SPECIES) ? window.CONSTANTS.MONSTER_SPECIES[speciesId] : null;
+      const color = (mCfg && (mCfg.hpColor || mCfg.bloodColor)) ? (mCfg.hpColor || mCfg.bloodColor) : '#a855f7';
+      const size = (mCfg && mCfg.spriteSize) ? mCfg.spriteSize : 48;
+      const { canvas, ctx } = this.createCanvas(size, size);
+      const cx = size / 2;
+      const cy = size / 2;
+      const r = size * 0.32;
+
+      // Legs / Mandibles
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(cx - r * 0.6, cy + i * 6);
+        ctx.lineTo(cx - r * 1.35, cy + i * 10);
+        ctx.moveTo(cx + r * 0.6, cy + i * 6);
+        ctx.lineTo(cx + r * 1.35, cy + i * 10);
+        ctx.stroke();
+      }
+
+      // Carapace Body
+      const g = ctx.createRadialGradient(cx, cy - 2, 2, cx, cy, r);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.35, color);
+      g.addColorStop(1, '#0f172a');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Glowing Alien Eyes
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(cx - 4, cy - 3, 2.2, 0, Math.PI * 2);
+      ctx.arc(cx + 4, cy - 3, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      this.cache[name] = canvas;
+      return canvas;
+    }
+
+    // 3. Defense Structure Fallback: def_<type>
+    if (name.startsWith('def_')) {
+      const { canvas, ctx } = this.createCanvas(32, 32);
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.fillRect(4, 4, 24, 24);
+      ctx.strokeRect(4, 4, 24, 24);
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(16, 16, 6, 0, Math.PI * 2);
+      ctx.fill();
+      this.cache[name] = canvas;
+      return canvas;
+    }
+
+    return null;
+  }
+
   get(name) {
-    return this.cache[name];
+    if (this.cache[name]) return this.cache[name];
+    return this.generateFallbackSprite(name);
   }
 
   getDataURL(name) {
     if (this.dataUrlCache[name]) {
       return this.dataUrlCache[name];
     }
-    const c = this.cache[name];
+    const c = this.get(name);
     if (!c) return '';
     const url = c.toDataURL();
     this.dataUrlCache[name] = url;

@@ -202,20 +202,24 @@ class DayNightSystem {
       }
     }
 
-    // EMP Storm Periodic Lightning Strikes on Monsters
+    // EMP Storm Periodic Lightning Strikes on Monsters (O(1) SpatialGrid lookup)
     if (this.currentWeather === 'EMP_STORM' && this.game && this.game.monsters && this.game.player) {
       this.empLightningTimer -= dt;
       if (this.empLightningTimer <= 0) {
         this.empLightningTimer = 3.2 + Math.random() * 1.5;
         const p = this.game.player;
         let struckMonster = null;
-        let bestDist = 420;
-        for (let m of this.game.monsters) {
-          if (m.isDead || m.species === 'dummy') continue;
-          const d = Math.hypot(m.x - p.x, m.y - p.y);
-          if (d <= bestDist) {
-            bestDist = d;
-            struckMonster = m;
+        if (this.game.monsterGrid) {
+          struckMonster = this.game.monsterGrid.findClosest(p.x, p.y, 420, m => m.species !== 'dummy');
+        } else {
+          let bestDist = 420;
+          for (let m of this.game.monsters) {
+            if (m.isDead || m.species === 'dummy') continue;
+            const d = Math.hypot(m.x - p.x, m.y - p.y);
+            if (d <= bestDist) {
+              bestDist = d;
+              struckMonster = m;
+            }
           }
         }
         if (struckMonster) {
@@ -347,32 +351,45 @@ class DayNightSystem {
     ctx.drawImage(this.lightCanvas, 0, 0, lw, lh, 0, 0, w, h);
   }
 
+  // Data-driven wave monster species picker (automatically includes any species registered in CONSTANTS.MONSTER_SPECIES)
   pickWaveMonsterSpecies(index, eggCount, isBloodMoon) {
-    const rand = Math.random();
-    if (isBloodMoon) {
-      if (index % 25 === 0) return 'behemoth';
-      if (rand < 0.25) return 'frost_spitter';
-      if (rand < 0.48) return 'spitter';
-      if (rand < 0.72) return 'exploder';
-      return 'crawler';
+    const speciesMap = (CONSTANTS && CONSTANTS.MONSTER_SPECIES) ? CONSTANTS.MONSTER_SPECIES : null;
+    if (speciesMap) {
+      // Check Boss cadence first
+      if (isBloodMoon && index % 25 === 0 && speciesMap.behemoth) return 'behemoth';
+      if (!isBloodMoon && index === 0 && (this.dayCount >= 3 || (this.dayCount >= 2 && eggCount >= 5)) && speciesMap.behemoth) {
+        return 'behemoth';
+      }
+
+      // Build weighted pool from all eligible non-boss species
+      let totalWeight = 0;
+      const eligible = [];
+      for (const key in speciesMap) {
+        if (key === 'dummy') continue;
+        const cfg = speciesMap[key];
+        if (!cfg || cfg.isBoss) continue;
+        const sp = cfg.spawn || {};
+        const minDay = sp.minDay !== undefined ? sp.minDay : 1;
+        const minEggs = sp.minEggs !== undefined ? sp.minEggs : 99;
+        if (!isBloodMoon && this.dayCount < minDay && eggCount < minEggs) continue;
+        const w = isBloodMoon ? (sp.bloodMoonWeight || sp.weight || 20) : (sp.weight || 20);
+        if (w > 0) {
+          eligible.push({ key, weight: w });
+          totalWeight += w;
+        }
+      }
+
+      if (totalWeight > 0) {
+        let roll = Math.random() * totalWeight;
+        for (let i = 0; i < eligible.length; i++) {
+          roll -= eligible[i].weight;
+          if (roll <= 0) return eligible[i].key;
+        }
+        return eligible[eligible.length - 1].key;
+      }
     }
 
-    if (this.dayCount >= 3 || (this.dayCount >= 2 && eggCount >= 5)) {
-      if (index === 0) return 'behemoth';
-      if (rand < 0.24) return 'frost_spitter';
-      if (rand < 0.46) return 'spitter';
-      if (rand < 0.70) return 'exploder';
-      return 'crawler';
-    } else if (this.dayCount >= 2 || eggCount >= 3) {
-      if (rand < 0.24) return 'frost_spitter';
-      if (rand < 0.45) return 'spitter';
-      if (rand < 0.70) return 'exploder';
-      return 'crawler';
-    } else {
-      if (rand < 0.25) return 'frost_spitter';
-      if (eggCount >= 4 && rand < 0.45) return 'exploder';
-      return 'crawler';
-    }
+    return 'crawler';
   }
 
   triggerNightWave() {

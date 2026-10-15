@@ -241,15 +241,17 @@ class InventorySystem {
     return true;
   }
 
-  // One-click cleanup of corrupted/toxic items (blighted_herb, blighted_berry, dirty_water)
+  // One-click cleanup of corrupted/toxic items (reads def.isJunk from CONSTANTS.ITEM_TYPES)
   deleteJunkItems() {
     this.normalizeSlots();
-    const junkIds = new Set(['blighted_herb', 'blighted_berry', 'dirty_water']);
     let removedCount = 0;
 
     for (let i = 0; i < this.slotCount; i++) {
       const s = this.slots[i];
-      if (s && junkIds.has(s.id)) {
+      if (!s) continue;
+      const def = CONSTANTS.ITEM_TYPES[s.id];
+      const isJunk = (def && def.isJunk) || s.id === 'blighted_herb' || s.id === 'blighted_berry' || s.id === 'dirty_water';
+      if (isJunk) {
         removedCount += s.count;
         this.slots[i] = null;
         if (this.selectedSlotIndex === i) this.selectedSlotIndex = null;
@@ -361,8 +363,7 @@ class InventorySystem {
   matchesFilter(itemId, def) {
     if (!def || this.activeFilter === 'all') return true;
     if (this.activeFilter === 'usable') {
-      return def.category === 'consumable' || def.category === 'seed' ||
-             itemId === 'snow_lotus' || itemId === 'silver_moss' || itemId === 'egg_fluid';
+      return def.category === 'consumable' || def.category === 'seed' || !!def.usableInFilter || !!(def.useEffect && !def.useEffect.deleteSelf);
     }
     if (this.activeFilter === 'combat') {
       return def.category === 'armor' || def.category === 'weapon' || def.category === 'egg' || def.category === 'upgrade';
@@ -508,16 +509,14 @@ class InventorySystem {
 
   getSlotActionLabel(itemId, def) {
     if (!def) return 'DÙNG';
+    if (def.actionLabel) return def.actionLabel;
     if (def.category === 'egg' || itemId === 'monster_egg') return 'ẤP LAB';
     if (def.category === 'armor') return 'MẶC';
     if (def.category === 'weapon') return 'CẦM';
     if (def.category === 'defense') return 'XÂY';
     if (def.category === 'seed') return 'CẤY';
     if (def.category === 'upgrade') return 'NÂNG';
-    if (def.category === 'consumable') return 'DÙNG';
-    if (itemId === 'titanium_alloy' || itemId === 'plasma_core') return 'NÂNG';
-    if (itemId === 'snow_lotus' || itemId === 'silver_moss' || itemId === 'egg_fluid') return 'DÙNG';
-    if (itemId === 'blighted_herb') return 'HỦY';
+    if (def.category === 'consumable' || def.useEffect) return 'DÙNG';
     return 'CHẾ';
   }
 
@@ -551,7 +550,6 @@ class InventorySystem {
       return;
     }
 
-    // 1. If Quick Trash Mode is ON -> Delete entire stack immediately!
     if (this.trashMode) {
       this.deleteSlotItem(slotIndex, item.count);
       return;
@@ -561,9 +559,6 @@ class InventorySystem {
     const isAlreadySelected = (this.selectedSlotIndex === slotIndex);
     this.selectSlot(slotIndex);
 
-    // 2. If user taps the already-selected slot again, or if it's a direct-use item on second tap, execute action!
-    // For consumables/armor/weapons/defense/seeds/eggs: if already selected, trigger immediately;
-    // on first tap, select it and show the big Use & Delete buttons so the player can safely delete or use!
     if (isAlreadySelected) {
       this.useSlotItem(slotIndex);
     } else if (def) {
@@ -584,6 +579,16 @@ class InventorySystem {
     const p = this.game.player;
     this.selectedSlotIndex = slotIndex;
 
+    // 0. Custom callback hook if registered via GameRegistry.registerItem({ onUse(player, game, inv, slotIndex) })
+    if (typeof def.onUse === 'function') {
+      const consumed = def.onUse(p, this.game, this, slotIndex);
+      if (consumed !== false) {
+        this.removeItem(slotIndex, 1);
+      }
+      if (window.EventBus) window.EventBus.emit('item:used', { itemId, def });
+      return;
+    }
+
     // 1. Armor -> Equip
     if (def.category === 'armor') {
       this.equipArmorFromSlot(slotIndex);
@@ -599,114 +604,50 @@ class InventorySystem {
       return;
     }
 
-    // 3. Consumables & Usable Herbs
-    if (itemId === 'antidote_lesser') {
-      p.infection = Math.max(0, p.infection - 25);
-      p.hp = Math.min(p.maxHp, p.hp + 10);
-      if (window.audioManager) window.audioManager.playEquip();
-      const msg = '💉 ĐÃ DÙNG HUYẾT THANH SƠ CẤP: -25% ĐỘC TỐ & +10 HP!';
-      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 25, msg, '#22c55e', 13, 1.2));
-      this.showFeedback(msg, '#22c55e');
-      this.removeItem(slotIndex, 1);
-      return;
-    }
+    // 3. Data-Driven Use Effect (Consumables, Herbs, Bio-Stimulants, Corrupted Items)
+    if (def.useEffect) {
+      const fx = def.useEffect;
+      if (fx.deleteSelf) {
+        this.deleteSlotItem(slotIndex, 1);
+        return;
+      }
 
-    if (itemId === 'antidote_pure') {
-      p.infection = Math.max(0, p.infection - 60);
-      p.hp = Math.min(p.maxHp, p.hp + 25);
-      p.immunityTimer = CONSTANTS.DAY_DURATION_SEC;
-      if (window.audioManager) window.audioManager.playEquip();
-      const msg = '★ ĐÃ DÙNG KHÁNG THỂ TINH KHIẾT: -60% ĐỘC, +25 HP & MIỄN NHIỄM 1 NGÀY! ★';
-      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 30, msg, '#38bdf8', 13, 2.0));
-      this.showFeedback(msg, '#38bdf8');
-      this.removeItem(slotIndex, 1);
-      return;
-    }
+      if (fx.cleanse) {
+        p.infection = Math.max(0, p.infection - fx.cleanse);
+      }
+      if (fx.heal) {
+        p.hp = Math.min(p.maxHp, p.hp + fx.heal);
+      }
+      if (fx.immunityDuration) {
+        p.immunityTimer = Math.max(p.immunityTimer || 0, fx.immunityDuration);
+      }
+      if (fx.speedBoost) {
+        p.speedBoostMultiplier = fx.speedBoost.multiplier || 1.3;
+        p.speedBoostTimer = Math.max(p.speedBoostTimer || 0, fx.speedBoost.duration || 8.0);
+      }
+      if (fx.addInfection) {
+        p.addInfection(fx.addInfection, fx.infectionSource || def.name);
+      }
 
-    if (itemId === 'pure_water') {
-      p.infection = Math.max(0, p.infection - 15);
-      p.hp = Math.min(p.maxHp, p.hp + 15);
-      if (window.audioManager) window.audioManager.playEquip();
-      const msg = '💧 ĐÃ UỐNG NƯỚC TINH KHIẾT: +15 HP & -15% ĐỘC TỐ!';
-      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 20, msg, '#38bdf8', 12, 1.0));
-      this.showFeedback(msg, '#38bdf8');
-      this.removeItem(slotIndex, 1);
-      return;
-    }
+      if (window.audioManager) {
+        if (fx.sound === 'hit') window.audioManager.playHit();
+        else window.audioManager.playEquip();
+      }
 
-    if (itemId === 'dirty_water') {
-      p.hp = Math.min(p.maxHp, p.hp + 5);
-      p.addInfection(20, 'NƯỚC Ô NHIỄM');
-      if (window.audioManager) window.audioManager.playEquip();
-      const msg = '☣ ĐÃ UỐNG NƯỚC Ô NHIỄM: +5 HP NHƯNG TĂNG +20% ĐỘC TỐ!';
-      this.showFeedback(msg, '#facc15');
+      const msg = fx.message || `✨ ĐÃ SỬ DỤNG: ${def.name}!`;
+      const col = fx.color || '#22c55e';
+      if (!fx.addInfection || fx.speedBoost) {
+        this.game.floatingTexts.push(new FloatingText(p.x, p.y - 25, msg, col, 12, fx.duration || 1.2));
+      }
+      this.showFeedback(msg, col);
       this.removeItem(slotIndex, 1);
-      return;
-    }
-
-    if (itemId === 'wild_berry') {
-      p.hp = Math.min(p.maxHp, p.hp + 18);
-      if (window.audioManager) window.audioManager.playEquip();
-      const msg = '🍓 ĐÃ ĂN QUẢ MỌNG SẠCH: +18 HP!';
-      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 20, msg, '#22c55e', 12, 1.0));
-      this.showFeedback(msg, '#22c55e');
-      this.removeItem(slotIndex, 1);
-      return;
-    }
-
-    if (itemId === 'blighted_berry') {
-      p.hp = Math.min(p.maxHp, p.hp + 5);
-      p.addInfection(35, 'QUẢ ĐỘT BIẾN NHIỄM ĐỘC');
-      if (window.audioManager) window.audioManager.playHit();
-      const msg = '☣ ĐÃ ĂN QUẢ ĐỘT BIẾN: +5 HP NHƯNG NHIỄM +35% ĐỘC TỐ!';
-      this.showFeedback(msg, '#ef4444');
-      this.removeItem(slotIndex, 1);
-      return;
-    }
-
-    if (itemId === 'snow_lotus') {
-      p.hp = Math.min(p.maxHp, p.hp + 12);
-      p.infection = Math.max(0, p.infection - 12);
-      if (window.audioManager) window.audioManager.playEquip();
-      const msg = '🪷 ĐÃ DÙNG TUYẾT LIÊN TƯƠI: +12 HP & -12% ĐỘC TỐ!';
-      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 22, msg, '#e879f9', 12, 1.1));
-      this.showFeedback(msg, '#e879f9');
-      this.removeItem(slotIndex, 1);
-      return;
-    }
-
-    if (itemId === 'silver_moss') {
-      p.hp = Math.min(p.maxHp, p.hp + 15);
-      p.infection = Math.max(0, p.infection - 8);
-      if (window.audioManager) window.audioManager.playEquip();
-      const msg = '🌿 ĐÃ DÙNG RÊU BẠC ĐỈNH NÚI: +15 HP & -8% ĐỘC TỐ!';
-      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 22, msg, '#4ade80', 12, 1.1));
-      this.showFeedback(msg, '#4ade80');
-      this.removeItem(slotIndex, 1);
-      return;
-    }
-
-    if (itemId === 'egg_fluid') {
-      p.hp = Math.min(p.maxHp, p.hp + 20);
-      p.speedBoostMultiplier = 1.3;
-      p.speedBoostTimer = Math.max(p.speedBoostTimer || 0, 8.0);
-      p.addInfection(15, 'DỊCH TRỨNG NGOẠI LAI');
-      if (window.audioManager) window.audioManager.playEquip();
-      const msg = '🧪 ĐÃ HẤP THỤ DỊCH TUYẾN TRỨNG: +20 HP, +30% TỐC CHẠY (8s), +15% ĐỘC TỐ!';
-      this.game.floatingTexts.push(new FloatingText(p.x, p.y - 25, msg, '#c084fc', 12, 1.4));
-      this.showFeedback(msg, '#c084fc');
-      this.removeItem(slotIndex, 1);
-      return;
-    }
-
-    if (itemId === 'blighted_herb') {
-      this.deleteSlotItem(slotIndex, 1);
+      if (window.EventBus) window.EventBus.emit('item:used', { itemId, def });
       return;
     }
 
     // 4. Backpack Upgrade
     if (def.category === 'upgrade' || itemId === 'backpack_upgraded') {
-      if (this.expandCapacity(4)) {
+      if (this.expandCapacity(def.expandSlots || 4)) {
         this.removeItem(slotIndex, 1);
       }
       return;
@@ -753,21 +694,19 @@ class InventorySystem {
       return;
     }
 
-    // 7. Upgrade & Crafting Materials -> Open corresponding Station Tab
+    // 7. Upgrade & Crafting Materials -> Open corresponding Station Tab (Data-Driven via def.craftStation)
     if (def.category === 'resource') {
       if (window.labSystem) {
         this.toggleUI();
-        if (itemId === 'iron_ore') {
-          window.labSystem.open('furnace');
+        const station = def.craftStation || 'lab';
+        window.labSystem.open(station);
+        if (station === 'furnace') {
           this.showFeedback(`🔥 ĐÃ MỞ LÒ NUNG ĐỂ LUYỆN HỢP KIM TITAN TỪ ${def.name.toUpperCase()}!`, '#f97316');
-        } else if (itemId === 'titanium_alloy' || itemId === 'plasma_core' || itemId === 'tech_scrap') {
-          window.labSystem.open('workshop');
+        } else if (station === 'workshop') {
           this.showFeedback(`⚙ ĐÃ MỞ XƯỞNG THỦ THÀNH & SÚNG ĐỂ NÂNG CẤP BẰNG ${def.name.toUpperCase()}!`, '#38bdf8');
-        } else if (itemId === 'wood' || itemId === 'stone' || itemId === 'alien_chitin') {
-          window.labSystem.open('workbench');
+        } else if (station === 'workbench') {
           this.showFeedback(`🔨 ĐÃ MỞ BÀN CHẾ TẠO ĐỂ SỬ DỤNG ${def.name.toUpperCase()}!`, '#38bdf8');
         } else {
-          window.labSystem.open('lab');
           this.showFeedback(`🧬 ĐÃ MỞ PHÒNG LAB ĐỂ BÀO CHẾ BẰNG ${def.name.toUpperCase()}!`, '#22c55e');
         }
       }

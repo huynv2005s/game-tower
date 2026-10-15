@@ -474,15 +474,21 @@ class MobileController {
     const weaponRange = w ? w.range : 68;
     const searchRange = Math.max(220, weaponRange + 20);
 
-    // 1. Prioritize closest hostile monster in range (or dummy in range)
+    // 1. Prioritize closest hostile monster in range (O(1) SpatialGrid query!)
     let closestMonster = null;
-    let minDist = searchRange;
+    const maxDummyDist = Math.max(95, weaponRange + 25);
 
-    if (this.game.monsters) {
+    if (this.game.monsterGrid) {
+      closestMonster = this.game.monsterGrid.findClosest(
+        p.x, p.y, searchRange,
+        m => m.species !== 'dummy' || Math.hypot(m.x - p.x, m.y - p.y) <= maxDummyDist
+      );
+    } else if (this.game.monsters) {
+      let minDist = searchRange;
       for (let m of this.game.monsters) {
         if (m.isDead) continue;
         const d = Math.hypot(m.x - p.x, m.y - p.y);
-        const maxAcquireDist = (m.species === 'dummy') ? Math.max(95, weaponRange + 25) : searchRange;
+        const maxAcquireDist = (m.species === 'dummy') ? maxDummyDist : searchRange;
         if (d <= maxAcquireDist && d < minDist) {
           minDist = d;
           closestMonster = m;
@@ -497,20 +503,15 @@ class MobileController {
       return { x: closestMonster.x, y: closestMonster.y };
     }
 
-    // 2. Check closest harvestable resource (Ore, Herb, Alien Egg, Tech Debris) or Berry Bush near player
+    // 2. Check closest harvestable resource (O(1) tile window lookup!) or Berry Bush near player
     let closestResource = null;
     let minResDist = Math.max(75, Math.min(weaponRange + 22, 160));
 
     if (this.game.world) {
-      if (this.game.world.harvestables) {
-        for (let h of this.game.world.harvestables) {
-          if (h.isDestroyed) continue;
-          const d = Math.hypot(h.x - p.x, h.y - p.y);
-          if (d < minResDist) {
-            minResDist = d;
-            closestResource = h;
-          }
-        }
+      const h = this.game.world.getHarvestableAt(p.x, p.y, minResDist);
+      if (h) {
+        closestResource = h;
+        minResDist = Math.hypot(h.x - p.x, h.y - p.y);
       }
       if (this.game.world.wildFlora) {
         for (let f of this.game.world.wildFlora) {
@@ -548,7 +549,6 @@ class MobileController {
   handleAttack() {
     if (!this.game || !this.game.player || !this.game.weapons) return;
 
-    // If in Build Mode, pressing Attack places or upgrades the structure in front of the player!
     if (this.game.buildingManager && this.game.buildingManager.buildMode) {
       const p = this.game.player;
       const buildX = p.x + Math.cos(p.aimAngle) * 40;
@@ -591,21 +591,22 @@ class MobileController {
 
   handleSwitchWeapon() {
     if (!this.game || !this.game.weapons) return;
-    const weapons = ['SPEAR', 'STAFF', 'DAGGER', 'BOW', 'GUN'];
+    const weapons = (CONSTANTS && CONSTANTS.WEAPONS) ? Object.keys(CONSTANTS.WEAPONS) : ['SPEAR', 'STAFF', 'DAGGER', 'BOW', 'GUN'];
     const currentIdx = weapons.indexOf(this.game.player.activeWeapon);
     const nextIdx = (currentIdx + 1) % weapons.length;
-    this.game.weapons.switchWeapon(weapons[nextIdx]);
+    const nextKey = weapons[nextIdx];
+    this.game.weapons.switchWeapon(nextKey);
 
     const emojis = { SPEAR: '🗡', STAFF: '🪄', DAGGER: '🔪', BOW: '🏹', GUN: '🔫' };
+    const wCfg = CONSTANTS.WEAPONS ? CONSTANTS.WEAPONS[nextKey] : null;
     const switchBtn = document.getElementById('btn-touch-switch');
     if (switchBtn) {
-      switchBtn.innerText = emojis[weapons[nextIdx]] || '🗡';
+      switchBtn.innerText = (wCfg && wCfg.emoji) ? wCfg.emoji : (emojis[nextKey] || '🗡');
     }
   }
 
   handleInteract() {
     if (!this.game) return;
-    // Emulate KeyF
     const p = this.game.player;
     const nearEgg = this.game.world.getAlienEggNear(p.x, p.y, 65);
     if (nearEgg) {
@@ -636,18 +637,13 @@ class MobileController {
       this.game.floatingTexts.push(new FloatingText(p.x, p.y - 20, '+1 NƯỚC AO SÔNG Ô NHIỄM', '#65a30d', 12, 1.0));
       return;
     }
-    // Check if near a placed defense structure to quick upgrade!
     if (this.game.buildingManager) {
-      const pCol = Math.floor(p.x / CONSTANTS.TILE_SIZE);
-      const pRow = Math.floor(p.y / CONSTANTS.TILE_SIZE);
-      for (let d of this.game.buildingManager.defenses) {
-        if (Math.hypot(d.col - pCol, d.row - pRow) <= 2.2) {
-          this.game.buildingManager.upgradeStructure(d);
-          return;
-        }
+      const nearDef = this.game.buildingManager.getStructureAt(p.x, p.y, 70);
+      if (nearDef) {
+        this.game.buildingManager.upgradeStructure(nearDef);
+        return;
       }
     }
-    // If not near structure or water, open Bio-Lab/Crafting menu as convenient mobile shortcut
     if (this.game.lab) {
       this.game.lab.open('workbench');
     }

@@ -33,11 +33,19 @@ class GameEngine {
     };
 
     this.world = new WorldMap();
+    this.world.game = this;
     this.player = null;
     this.monsters = [];
     this.projectiles = [];
     this.particles = [];
     this.floatingTexts = [];
+
+    // High-Performance 128px Spatial Hash Grid for O(1) Monster Queries
+    this.monsterGrid = new SpatialGrid(
+      CONSTANTS.WORLD_COLS * CONSTANTS.TILE_SIZE,
+      CONSTANTS.WORLD_ROWS * CONSTANTS.TILE_SIZE,
+      128
+    );
 
     this.weapons = new WeaponSystem(this);
     this.inventory = new InventorySystem(this);
@@ -52,7 +60,6 @@ class GameEngine {
     // Phase 3: Tower Defense Building Manager
     this.buildingManager = new BuildingManager(this);
     window.buildingManager = this.buildingManager;
-    this.world.game = this;
 
     // Mobile Controller & Save Manager
     this.saveManager = new SaveManager(this);
@@ -572,7 +579,12 @@ class GameEngine {
       return; // Pause combat and environment while menu is active
     }
 
-    // Continuous fire while holding mouse down with ranged weapon (Bow / Plasma Gun)
+    // Rebuild 128px SpatialGrid once per frame for O(1) broadphase queries across Weapons, Pets, Drones, Projectiles & Monsters
+    if (this.monsterGrid) {
+      this.monsterGrid.insertAll(this.monsters);
+    }
+
+    // Continuous fire while holding mouse down with ranged weapon (Dagger / Plasma Gun)
     if (this.mouse.isDown && this.player && !this.player.isDead && (!this.buildingManager || !this.buildingManager.buildMode)) {
       if (this.player.activeWeapon === 'GUN' || this.player.activeWeapon === 'DAGGER') {
         this.weapons.performBasicAttack(this.player, this.mouse.worldX, this.mouse.worldY);
@@ -607,46 +619,41 @@ class GameEngine {
     // Clamp camera within world boundaries
     this.clampCamera();
 
-    // Update Monsters
-    for (let i = this.monsters.length - 1; i >= 0; i--) {
-      const m = this.monsters[i];
+    // Update Monsters using single-pass O(N) compaction (zero splice overhead)
+    updateAndCompact(this.monsters, (m) => {
       m.update(dt, this.player, this.world);
-      // Clean up dead monsters after fade
-      if (m.isDead && m.hp <= -50) {
-        this.monsters.splice(i, 1);
-      }
+      return !(m.isDead && m.hp <= -50);
+    });
+
+    // Refresh SpatialGrid after monster movement so Projectiles & Defense Turrets/Traps query exact positions
+    if (this.monsterGrid) {
+      this.monsterGrid.insertAll(this.monsters);
     }
 
-    // Update Projectiles
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const proj = this.projectiles[i];
-      const alive = proj.update(dt, this.world, this.monsters, this.particles, this.floatingTexts);
-      if (!alive) {
-        this.projectiles.splice(i, 1);
-      }
-    }
+    // Update Projectiles using single-pass O(N) compaction
+    updateAndCompact(this.projectiles, (proj) => {
+      return proj.update(dt, this.world, this.monsters, this.particles, this.floatingTexts);
+    });
 
     // Cap particle count to prevent lag spikes during massive explosions
     if (this.particles.length > 180) {
-      this.particles.splice(0, this.particles.length - 180);
+      const drop = this.particles.length - 180;
+      this.particles.copyWithin(0, drop);
+      this.particles.length = 180;
     }
 
-    // Update Particles
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const alive = this.particles[i].update(dt);
-      if (!alive) this.particles.splice(i, 1);
-    }
+    // Update Particles using single-pass O(N) compaction
+    updateAndCompact(this.particles, (p) => p.update(dt));
 
     // Cap floating texts to prevent lag spikes
     if (this.floatingTexts.length > 45) {
-      this.floatingTexts.splice(0, this.floatingTexts.length - 45);
+      const drop = this.floatingTexts.length - 45;
+      this.floatingTexts.copyWithin(0, drop);
+      this.floatingTexts.length = 45;
     }
 
-    // Update Floating Combat Texts
-    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
-      const alive = this.floatingTexts[i].update(dt);
-      if (!alive) this.floatingTexts.splice(i, 1);
-    }
+    // Update Floating Combat Texts using single-pass O(N) compaction
+    updateAndCompact(this.floatingTexts, (ft) => ft.update(dt));
 
     // Phase 3 & 5: Update Building Manager (Defenses, Turrets, Mortars, Placement/Upgrade Hover)
     if (this.buildingManager) {
@@ -1220,21 +1227,18 @@ class GameEngine {
     if (!this.minimapBgCanvas) this.buildMinimapCache();
     mctx.drawImage(this.minimapBgCanvas, 0, 0);
 
-    // 2. Draw Resource Nodes & Unhatched Alien Eggs on Minimap
+    // 2. Draw Resource Nodes & Unhatched Alien Eggs on Minimap (Data-Driven via CONSTANTS.RESOURCE_NODES)
+    const nodeDefs = CONSTANTS.RESOURCE_NODES || {};
     for (let h of this.world.resourceNodes) {
       if (h.isDestroyed) continue;
+      const cfg = nodeDefs[h.type];
+      if (cfg && !cfg.minimapColor) continue;
       const ex = (h.x / this.world.width) * mw;
       const ey = (h.y / this.world.height) * mh;
-      if (h.type === 'alien_egg') {
-        mctx.fillStyle = '#e879f9';
-        mctx.fillRect(ex - 1, ey - 1, 2.2, 2.2);
-      } else if (h.type === 'sulfur_ore' || h.type === 'tech_debris') {
-        mctx.fillStyle = '#facc15';
-        mctx.fillRect(ex - 0.8, ey - 0.8, 1.6, 1.6);
-      } else if (h.type === 'quartz_ore' || h.type === 'plasma_node' || h.type === 'titanium_ore') {
-        mctx.fillStyle = '#38bdf8';
-        mctx.fillRect(ex - 0.8, ey - 0.8, 1.6, 1.6);
-      }
+      const mCol = (cfg && cfg.minimapColor) || (h.type === 'alien_egg' ? '#e879f9' : '#38bdf8');
+      const mSz = (cfg && cfg.minimapSize) || (h.type === 'alien_egg' ? 2.2 : 1.6);
+      mctx.fillStyle = mCol;
+      mctx.fillRect(ex - mSz * 0.5, ey - mSz * 0.5, mSz, mSz);
     }
 
     // 3. Draw Placed Defenses (color-coded by upgrade level)
@@ -1366,20 +1370,15 @@ class GameEngine {
       ctx.fillRect(fx - 1.5, fy - 1.5, 3, 3);
     }
 
-    // 2. Draw Resource Nodes (Sulfur, Quartz, Titanium, Herbs, Tech Debris, Plasma, Alien Eggs)
+    // 2. Draw Resource Nodes (Data-Driven via CONSTANTS.RESOURCE_NODES)
+    const nodeDefs = CONSTANTS.RESOURCE_NODES || {};
     for (let h of this.world.resourceNodes) {
       if (h.isDestroyed) continue;
       const rx = (h.x / this.world.width) * mw;
       const ry = (h.y / this.world.height) * mh;
-      let col = '#facc15';
-      let rSize = 3.5;
-      if (h.type === 'sulfur_ore') col = '#facc15';
-      else if (h.type === 'quartz_ore') col = '#38bdf8';
-      else if (h.type === 'titanium_ore') col = '#f8fafc';
-      else if (h.type === 'snow_lotus' || h.type === 'silver_moss') col = '#4ade80';
-      else if (h.type === 'tech_debris') col = '#fb923c';
-      else if (h.type === 'plasma_node') col = '#22d3ee';
-      else if (h.type === 'alien_egg') { col = '#f43f5e'; rSize = 4.2; }
+      const cfg = nodeDefs[h.type];
+      const col = (cfg && cfg.tacticalColor) || '#facc15';
+      const rSize = (cfg && cfg.tacticalSize) || 3.5;
 
       ctx.fillStyle = col;
       ctx.beginPath();

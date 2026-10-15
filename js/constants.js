@@ -1,11 +1,19 @@
-// Game Constants & Configuration
-// Alien Apocalypse: Survival + Adventure + Tower Defense + Upgrade System (Phase 1 - 5)
+// Game Constants & Data-Driven Configuration Registry
+// Alien Apocalypse: Survival + Adventure + Tower Defense + Companion Pet + Drone AI
+// ===================================================================================
+// HƯỚNG DẪN CẬP NHẬT NHANH (HOW TO ADD NEW CONTENT EASILY):
+// 1. Thêm Quái Vật Mới: Thêm trực tiếp vào CONSTANTS.MONSTER_SPECIES (hoặc gọi GameRegistry.registerMonster)
+// 2. Thêm Item / Thuốc / Giáp Mới: Thêm vào CONSTANTS.ITEM_TYPES (khai báo useEffect hoặc stats)
+// 3. Thêm Đạn Mới: Thêm vào CONSTANTS.PROJECTILE_TYPES
+// 4. Thêm Công Trình Thủ Thành Mới: Thêm vào CONSTANTS.DEFENSE
+// 5. Thêm Mỏ Tài Nguyên Mới: Thêm vào CONSTANTS.RESOURCE_NODES
+// ===================================================================================
 
 const CONSTANTS = {
   TILE_SIZE: 32,
   WORLD_COLS: 100,
   WORLD_ROWS: 80,
-  
+
   // Biome Boundary Rows
   BIOME_MOUNTAIN_END: 26,  // Rows 0 - 26
   BIOME_PLAINS_END: 60,    // Rows 27 - 60
@@ -45,6 +53,137 @@ const CONSTANTS = {
     PLASMA_NODE: 26
   },
 
+  // World Resource Node Definitions (Data-Driven Visuals, Drops & Minimap Colors)
+  RESOURCE_NODES: {
+    sulfur_ore: {
+      type: 'sulfur_ore',
+      tileId: 4,
+      groundTile: 2,
+      name: 'Quặng Lưu Huỳnh',
+      tag: 'Quặng Lưu Huỳnh',
+      icon: '🟡',
+      sprite: 'obj_sulfur_ore',
+      w: 44, h: 44,
+      color: '#facc15',
+      minimapColor: '#facc15',
+      dropItemId: 'sulfur_dust',
+      dropCount: 3,
+      hp: 20
+    },
+    quartz_ore: {
+      type: 'quartz_ore',
+      tileId: 5,
+      groundTile: 2,
+      name: 'Quặng Thạch Anh',
+      tag: 'Tinh Thể Thạch Anh',
+      icon: '💎',
+      sprite: 'obj_quartz_ore',
+      w: 44, h: 44,
+      color: '#38bdf8',
+      minimapColor: '#38bdf8',
+      dropItemId: 'quartz_crystal',
+      dropCount: 2,
+      hp: 20
+    },
+    titanium_ore: {
+      type: 'titanium_ore',
+      tileId: 9,
+      groundTile: 2,
+      name: 'Quặng Sắt Titan',
+      tag: 'Quặng Sắt Titan',
+      icon: '🔩',
+      sprite: 'obj_titanium_ore',
+      w: 44, h: 44,
+      color: '#e2e8f0',
+      minimapColor: '#f8fafc',
+      dropItemId: 'iron_ore',
+      dropCount: 2,
+      hp: 25
+    },
+    snow_lotus: {
+      type: 'snow_lotus',
+      tileId: 6,
+      groundTile: 1,
+      name: 'Tuyết Liên Núi Cao',
+      tag: 'Tuyết Liên Núi Cao',
+      icon: '🪷',
+      sprite: 'obj_snow_lotus',
+      w: 44, h: 44,
+      color: '#e879f9',
+      minimapColor: '#4ade80',
+      dropItemId: 'snow_lotus',
+      dropCount: 1,
+      hp: 20
+    },
+    silver_moss: {
+      type: 'silver_moss',
+      tileId: 7,
+      groundTile: 2,
+      name: 'Rêu Bạc Đỉnh Núi',
+      tag: 'Rêu Bạc Đỉnh Núi',
+      icon: '🌿',
+      sprite: 'obj_silver_moss',
+      w: 44, h: 44,
+      color: '#4ade80',
+      minimapColor: '#4ade80',
+      dropItemId: 'silver_moss',
+      dropCount: 2,
+      hp: 20
+    },
+    alien_egg: {
+      type: 'alien_egg',
+      tileId: 8,
+      groundTile: 2,
+      name: 'Trứng Quái Vật Ngoài Hành Tinh',
+      tag: 'Ổ Trứng Quái Vật ([F] Nhặt Ấp / Đánh)',
+      icon: '🥚',
+      sprite: 'obj_alien_egg',
+      w: 48, h: 48,
+      color: '#f43f5e',
+      minimapColor: '#e879f9',
+      tacticalColor: '#f43f5e',
+      dropItemId: 'egg_fluid',
+      dropCount: 1,
+      hp: 45,
+      bonusDrops: [
+        { id: 'alien_chitin', count: 1 },
+        { id: 'monster_egg', count: 1 }
+      ]
+    },
+    tech_debris: {
+      type: 'tech_debris',
+      tileId: 24,
+      groundTile: 20,
+      name: 'Mảnh Vỡ Phi Thuyền',
+      tag: 'Mảnh Vỡ Phi Thuyền',
+      icon: '🛸',
+      sprite: 'obj_tech_debris',
+      w: 48, h: 44,
+      color: '#fb923c',
+      minimapColor: '#facc15',
+      tacticalColor: '#fb923c',
+      dropItemId: 'tech_scrap',
+      dropCount: 2,
+      hp: 20
+    },
+    plasma_node: {
+      type: 'plasma_node',
+      tileId: 26,
+      groundTile: 20,
+      name: 'Trụ Năng Lượng Plasma',
+      tag: 'Trụ Năng Lượng Plasma',
+      icon: '⚡',
+      sprite: 'obj_plasma_node',
+      w: 44, h: 44,
+      color: '#22d3ee',
+      minimapColor: '#38bdf8',
+      tacticalColor: '#22d3ee',
+      dropItemId: 'plasma_core',
+      dropCount: 1,
+      hp: 30
+    }
+  },
+
   // Armor Slots
   ARMOR_SLOTS: {
     HELMET: 'helmet',
@@ -64,7 +203,7 @@ const CONSTANTS = {
   DAY_RATIO: 0.65,       // 65% daytime, 35% nighttime
   BLOOD_MOON_INTERVAL_DAYS: 15, // Trăng Máu xuất hiện mỗi 15 ngày (Ngày 15, 30, 45...)
   BLOOD_MOON_MULTIPLIER: 10,    // Quái vật đông gấp 10 lần bình thường vào đêm Trăng Máu
-  
+
   // Player Base Stats
   PLAYER_BASE: {
     MAX_HP: 100,
@@ -232,99 +371,343 @@ const CONSTANTS = {
     }
   },
 
-  // Item Registry
+  // Declarative Projectile Registry (Easy to add new projectile types!)
+  PROJECTILE_TYPES: {
+    arrow: {
+      id: 'arrow',
+      targetGroup: 'monster',
+      radius: 6,
+      renderStyle: 'arrow',
+      color: '#ffb74d',
+      secondaryColor: '#38bdf8',
+      sparkCount: 4
+    },
+    plasma_bullet: {
+      id: 'plasma_bullet',
+      targetGroup: 'monster',
+      radius: 6,
+      renderStyle: 'plasma',
+      color: '#38bdf8',
+      secondaryColor: '#ffffff',
+      sparkCount: 4
+    },
+    turret_railgun: {
+      id: 'turret_railgun',
+      targetGroup: 'monster',
+      radius: 7,
+      renderStyle: 'railgun',
+      color: '#facc15',
+      secondaryColor: '#38bdf8',
+      slowFactor: 0.6,
+      slowDuration: 2.0,
+      ringRadius: 24,
+      ringColor: '#facc15',
+      chainCount: 2,
+      chainRange: 95,
+      chainDamageMult: 0.55,
+      chainColor: '#38bdf8'
+    },
+    emp_blast: {
+      id: 'emp_blast',
+      targetGroup: 'monster',
+      radius: 9,
+      renderStyle: 'emp_orb',
+      color: '#38bdf8',
+      secondaryColor: '#facc15',
+      aoeRadius: 95,
+      stunDuration: 1.8,
+      soundOnImpact: 'playStaffStun',
+      impactText: '⚡ XUNG ĐIỆN EMP! ⚡',
+      impactTextColor: '#38bdf8'
+    },
+    net_arrow: {
+      id: 'net_arrow',
+      targetGroup: 'monster',
+      radius: 6,
+      renderStyle: 'net',
+      color: '#06b6d4',
+      secondaryColor: '#ffffff',
+      aoeRadius: 90,
+      rootDuration: 2.5,
+      soundOnImpact: 'playBowNet',
+      impactText: 'NET EXPAND!',
+      impactTextColor: '#38bdf8'
+    },
+    recoil_blast: {
+      id: 'recoil_blast',
+      targetGroup: 'monster',
+      radius: 7,
+      renderStyle: 'fire_orb',
+      color: '#ef4444',
+      secondaryColor: '#fde047',
+      aoeRadius: 80,
+      slowFactor: 0.4,
+      slowDuration: 3.0,
+      knockbackForce: 160
+    },
+    acid_spit: {
+      id: 'acid_spit',
+      targetGroup: 'player',
+      radius: 6,
+      renderStyle: 'acid_orb',
+      color: '#84cc16',
+      secondaryColor: '#bef264',
+      slowFactor: 0.72,
+      slowDuration: 1.8,
+      slowSourceText: 'AXIT LÀM CHẬM',
+      infectionAmount: 10,
+      infectionSourceText: 'AXIT ĂN MÒN',
+      sparkCount: 6
+    },
+    frost_spit: {
+      id: 'frost_spit',
+      targetGroup: 'player',
+      radius: 6,
+      renderStyle: 'frost_shard',
+      color: '#06b6d4',
+      secondaryColor: '#e0f2fe',
+      slowFactor: 0.50,
+      slowDuration: 3.0,
+      slowSourceText: 'TƠ BĂNG HÀN',
+      infectionAmount: 6,
+      infectionSourceText: 'TƠ BĂNG HÀN',
+      ringRadius: 22,
+      ringColor: '#38bdf8',
+      sparkCount: 7
+    },
+    pet_arrow: {
+      id: 'pet_arrow',
+      targetGroup: 'monster',
+      radius: 6,
+      renderStyle: 'arrow',
+      color: '#ffb74d',
+      secondaryColor: '#38bdf8',
+      slowFactor: 0.7,
+      slowDuration: 1.5,
+      sparkCount: 4
+    },
+    pet_bio_shot: {
+      id: 'pet_bio_shot',
+      targetGroup: 'monster',
+      radius: 6,
+      renderStyle: 'bio_orb',
+      color: '#4ade80',
+      secondaryColor: '#ffffff',
+      healPlayer: 2,
+      ringRadius: 14,
+      ringColor: '#4ade80'
+    },
+    pet_cleanse_shot: {
+      id: 'pet_cleanse_shot',
+      targetGroup: 'monster',
+      radius: 6,
+      renderStyle: 'bio_orb',
+      color: '#c084fc',
+      secondaryColor: '#ffffff',
+      slowFactor: 0.7,
+      slowDuration: 2.0,
+      cleansePlayer: 1.5,
+      ringRadius: 14,
+      ringColor: '#c084fc'
+    },
+    pet_frost_bolt: {
+      id: 'pet_frost_bolt',
+      targetGroup: 'monster',
+      radius: 6,
+      renderStyle: 'frost_bolt',
+      color: '#38bdf8',
+      secondaryColor: '#e0f2fe',
+      slowFactor: 0.45,
+      slowDuration: 2.5,
+      stunChance: 0.35,
+      stunDuration: 1.2,
+      ringRadius: 18,
+      ringColor: '#38bdf8'
+    },
+    pet_plasma_bolt: {
+      id: 'pet_plasma_bolt',
+      targetGroup: 'monster',
+      radius: 6,
+      renderStyle: 'pet_plasma',
+      color: '#facc15',
+      secondaryColor: '#38bdf8',
+      ringRadius: 18,
+      ringColor: '#facc15',
+      chainCount: 2,
+      chainRange: 85,
+      chainDamageMult: 0.5,
+      chainColor: '#38bdf8'
+    }
+  },
+
+  // Item Registry (Data-Driven with Declarative useEffect, craftStation, actionLabel & isJunk)
   ITEM_TYPES: {
     // Weapons
-    spear: { name: 'Giáo Cận Chiến', category: 'weapon', weaponKey: 'SPEAR', icon: 'spear', maxStack: 1, desc: 'Vũ khí cán dài có khả năng quét ngang và nhảy vọt.' },
-    staff: { name: 'Gậy Chấn Động', category: 'weapon', weaponKey: 'STAFF', icon: 'staff', maxStack: 1, desc: 'Gậy phát ra sóng xung kích làm choáng và đẩy lùi.' },
-    dagger: { name: 'Dao Găm Đột Kích', category: 'weapon', weaponKey: 'DAGGER', icon: 'dagger', maxStack: 1, desc: 'Dao găm siêu bén, hỗ trợ bom khói tàng hình.' },
-    bow: { name: 'Cung Thợ Săn', category: 'weapon', weaponKey: 'BOW', icon: 'bow', maxStack: 1, desc: 'Cung bắn tên lưới trói chân và đạn giật lùi.' },
-    plasma_gun: { name: 'Súng Trường Plasma', category: 'weapon', weaponKey: 'GUN', icon: 'gun', maxStack: 1, desc: 'Súng năng lượng bắn liên thanh tốc độ cao [Phím G / Số 5].' },
+    spear: { name: 'Giáo Cận Chiến', category: 'weapon', weaponKey: 'SPEAR', icon: 'spear', maxStack: 1, actionLabel: 'CẦM', desc: 'Vũ khí cán dài có khả năng quét ngang và nhảy vọt.' },
+    staff: { name: 'Gậy Chấn Động', category: 'weapon', weaponKey: 'STAFF', icon: 'staff', maxStack: 1, actionLabel: 'CẦM', desc: 'Gậy phát ra sóng xung kích làm choáng và đẩy lùi.' },
+    dagger: { name: 'Dao Găm Đột Kích', category: 'weapon', weaponKey: 'DAGGER', icon: 'dagger', maxStack: 1, actionLabel: 'CẦM', desc: 'Dao găm siêu bén, hỗ trợ bom khói tàng hình.' },
+    bow: { name: 'Cung Thợ Săn', category: 'weapon', weaponKey: 'BOW', icon: 'bow', maxStack: 1, actionLabel: 'CẦM', desc: 'Cung bắn tên lưới trói chân và đạn giật lùi.' },
+    plasma_gun: { name: 'Súng Trường Plasma', category: 'weapon', weaponKey: 'GUN', icon: 'gun', maxStack: 1, actionLabel: 'CẦM', desc: 'Súng năng lượng bắn liên thanh tốc độ cao [Phím G / Số 5].' },
 
     // Armors
-    mask_gas: { 
-      name: 'Mũ Lọc Khí Sinh Học', category: 'armor', slot: 'helmet', icon: 'helmet', maxStack: 1,
+    mask_gas: {
+      name: 'Mũ Lọc Khí Sinh Học', category: 'armor', slot: 'helmet', icon: 'helmet', maxStack: 1, actionLabel: 'MẶC',
       stats: { hp: 15, armor: 2, toxinResist: 15 },
       desc: 'Mũ phòng độc chuyên dụng giúp giảm độc tố từ khí ô nhiễm môi trường.'
     },
-    vest_survival: { 
-      name: 'Áo Giáp Dã Chiến', category: 'armor', slot: 'chestplate', icon: 'chestplate', maxStack: 1,
+    vest_survival: {
+      name: 'Áo Giáp Dã Chiến', category: 'armor', slot: 'chestplate', icon: 'chestplate', maxStack: 1, actionLabel: 'MẶC',
       stats: { hp: 35, armor: 6, toxinResist: 5 },
       desc: 'Áo giáp gia cố sợi Kevlar và vảy sinh vật ngoài hành tinh.'
     },
     vest_titanium: {
-      name: 'Giáp Chiến Đấu Titan-Plasma', category: 'armor', slot: 'chestplate', icon: 'chestplate', maxStack: 1,
+      name: 'Giáp Chiến Đấu Titan-Plasma', category: 'armor', slot: 'chestplate', icon: 'chestplate', maxStack: 1, actionLabel: 'MẶC',
       stats: { hp: 75, armor: 12, toxinResist: 20, speedBonus: 15 },
       desc: 'Giáp cơ giới hạng nặng đúc từ Hợp Kim Titan và Giáp Xác Ngoại Lai (+75 HP, +12 Giáp, +20% Kháng Độc).'
     },
-    pants_hazard: { 
-      name: 'Quần Chống Độc', category: 'armor', slot: 'leggings', icon: 'leggings', maxStack: 1,
+    pants_hazard: {
+      name: 'Quần Chống Độc', category: 'armor', slot: 'leggings', icon: 'leggings', maxStack: 1, actionLabel: 'MẶC',
       stats: { hp: 20, armor: 4, toxinResist: 10 },
       desc: 'Quần vải sợi tổng hợp cách ly với gai độc và đầm lầy.'
     },
-    boots_scout: { 
-      name: 'Giày Thám Hiểm', category: 'armor', slot: 'boots', icon: 'boots', maxStack: 1,
+    boots_scout: {
+      name: 'Giày Thám Hiểm', category: 'armor', slot: 'boots', icon: 'boots', maxStack: 1, actionLabel: 'MẶC',
       stats: { hp: 10, speedBonus: 35, toxinResist: 5 },
       desc: 'Đế giày trợ lực giúp di chuyển nhanh nhẹn trên mọi địa hình.'
     },
-    gloves_miner: { 
-      name: 'Găng Tay Khai Khoáng', category: 'armor', slot: 'gloves', icon: 'gloves', maxStack: 1,
+    gloves_miner: {
+      name: 'Găng Tay Khai Khoáng', category: 'armor', slot: 'gloves', icon: 'gloves', maxStack: 1, actionLabel: 'MẶC',
       stats: { hp: 10, armor: 2, toxinResist: 5 },
       desc: 'Bảo vệ đôi bàn tay khi hái thảo dược núi cao và đập vỡ trứng quái.'
     },
 
-    // Resources & Materials
-    snow_lotus: { id: 'snow_lotus', name: 'Tuyết Liên Núi Cao', category: 'resource', icon: 'lotus', maxStack: 99, desc: 'Thảo dược núi tuyết: Dùng trực tiếp (+12 HP, -12% Độc Tố) hoặc chế Huyết Thanh.' },
-    sulfur_dust: { id: 'sulfur_dust', name: 'Bột Lưu Huỳnh', category: 'resource', icon: 'sulfur', maxStack: 99, desc: 'Chất khử trùng mạnh: Click để mở Phòng Lab chế Huyết Thanh hoặc nâng cấp Súng Cối.' },
-    quartz_crystal: { id: 'quartz_crystal', name: 'Tinh Thể Thạch Anh', category: 'resource', icon: 'quartz', maxStack: 99, desc: 'Khoáng sản tinh khiết: Dùng chế Kháng Thể, Lõi Plasma hoặc nâng cấp Súng Tháp Canh.' },
-    silver_moss: { id: 'silver_moss', name: 'Rêu Bạc Đỉnh Núi', category: 'resource', icon: 'moss', maxStack: 99, desc: 'Rêu bạc núi cao: Dùng trực tiếp (+15 HP, -8% Độc Tố) hoặc chế Kháng Thể Tinh Khiết.' },
-    egg_fluid: { id: 'egg_fluid', name: 'Dịch Tuyến Trứng Ngoại Lai', category: 'resource', icon: 'egg_fluid', maxStack: 99, desc: 'Dịch trứng quái: Dùng trực tiếp (+20 HP, +30% Tốc chạy 8s, +15% Độc) hoặc chế Lõi Plasma.' },
-    pure_water: { id: 'pure_water', name: 'Nước Tinh Khiết', category: 'consumable', icon: 'pure_water', maxStack: 99, desc: 'Nước ngọt đã qua đun sôi lọc sạch: +15 HP, -15% Độc Tố.' },
-    dirty_water: { id: 'dirty_water', name: 'Nước Ao Sông Ô Nhiễm', category: 'consumable', icon: 'dirty_water', maxStack: 99, desc: 'Nước chưa qua lọc: +5 HP nhưng làm tăng +20% Độc Tố!' },
-    wood: { id: 'wood', name: 'Gỗ Cây Biến Dị', category: 'resource', icon: 'wood', maxStack: 99, desc: 'Vật liệu cơ bản: Click để mở Bàn Chế Tạo / Lò Nung gia công vật phẩm.' },
-    stone: { id: 'stone', name: 'Đá Núi Cứng', category: 'resource', icon: 'stone', maxStack: 99, desc: 'Vật liệu xây dựng: Click để mở Bàn Chế Tạo / Lò Nung đúc tường và nung quặng.' },
-    tech_scrap: { id: 'tech_scrap', name: 'Mảnh Vỡ Công Nghệ', category: 'resource', icon: 'tech_scrap', maxStack: 99, desc: 'Linh kiện vi mạch: Click để mở Xưởng Thủ Thành lắp và nâng cấp Tháp Canh, Súng Cối.' },
-
-    // Phase 5: New Upgrade Materials (Nguyên liệu nâng cấp Tường & Súng)
-    iron_ore: { id: 'iron_ore', name: 'Quặng Sắt Titan', category: 'resource', icon: 'iron_ore', maxStack: 99, desc: 'Quặng kim loại nặng khai thác trên Núi Đá: Nung tại Lò Nung để tạo Hợp Kim Titan.' },
-    titanium_alloy: { id: 'titanium_alloy', name: 'Hợp Kim Titan', category: 'resource', icon: 'titanium_alloy', maxStack: 99, desc: 'Vật liệu siêu bền dùng để NÂNG CẤP Tường Chắn, Súng Tháp Canh, Súng Cối và Vũ Khí!' },
-    alien_chitin: { id: 'alien_chitin', name: 'Giáp Xác Ngoại Lai', category: 'resource', icon: 'alien_chitin', maxStack: 99, desc: 'Vỏ giáp cứng thu được khi tiêu diệt Quái Vật: Dùng nâng cấp Tường Chắn, Giáp và Vũ Khí.' },
-    plasma_core: { id: 'plasma_core', name: 'Lõi Năng Lượng Plasma', category: 'resource', icon: 'plasma_core', maxStack: 99, desc: 'Lõi năng lượng cao cấp (thu ở Bờ Biển hoặc chế tại Lab/Xưởng): Nâng cấp Tường & Súng lên Cấp 3!' },
-
-    // Phase 2: Wild Flora & Mutant Harvests
-    wild_berry: { name: 'Quả Mọng Tự Nhiên Sạch', category: 'consumable', icon: 'berry_clean', maxStack: 99, desc: 'Quả rừng thu hoạch trong ngày còn tươi sạch: +18 HP, 0% Độc Tố.' },
-    blighted_berry: { name: 'Quả Mọng Đột Biến Nhiễm Khuẩn', category: 'consumable', icon: 'berry_blighted', maxStack: 99, desc: 'Quả rừng bị qua đêm ngoài tự nhiên đã nhiễm độc: +5 HP nhưng TĂNG MẠNH +35% ĐỘC TỐ!' },
-    blighted_herb: { name: 'Thảo Dược Bị Thối Rữa', category: 'resource', icon: 'blighted_herb', maxStack: 99, desc: 'Cây cỏ ngoài tự nhiên qua đêm bị khí độc phá hủy, không thể chế thuốc.' },
-
-    // Phase 2: Antidotes (Thuốc Giải Ký Sinh)
-    antidote_lesser: { 
-      name: 'Huyết Thanh Sơ Cấp', category: 'consumable', icon: 'antidote_lesser', maxStack: 99, 
-      desc: 'Huyết thanh giải độc cơ bản chế từ Tuyết Liên, Lưu Huỳnh và Nước sạch: GIẢM NGAY 25% ĐỘC TỐ.' 
+    // Resources & Usable Herbs
+    snow_lotus: {
+      id: 'snow_lotus', name: 'Tuyết Liên Núi Cao', category: 'resource', icon: 'lotus', maxStack: 99, actionLabel: 'DÙNG',
+      usableInFilter: true,
+      useEffect: { heal: 12, cleanse: 12, message: '🪷 ĐÃ DÙNG TUYẾT LIÊN TƯƠI: +12 HP & -12% ĐỘC TỐ!', color: '#e879f9' },
+      desc: 'Thảo dược núi tuyết: Dùng trực tiếp (+12 HP, -12% Độc Tố) hoặc chế Huyết Thanh.'
     },
-    antidote_pure: { 
-      name: 'Thuốc Kháng Thể Tinh Khiết', category: 'consumable', icon: 'antidote_pure', maxStack: 99, 
-      desc: 'Kháng thể tinh chế đặc biệt: GIẢM NGAY 60% ĐỘC TỐ + MIỄN NHIỄM ĐỘC TỐ TRONG 1 NGÀY!' 
+    sulfur_dust: {
+      id: 'sulfur_dust', name: 'Bột Lưu Huỳnh', category: 'resource', icon: 'sulfur', maxStack: 99, actionLabel: 'CHẾ', craftStation: 'lab',
+      desc: 'Chất khử trùng mạnh: Click để mở Phòng Lab chế Huyết Thanh hoặc nâng cấp Súng Cối.'
+    },
+    quartz_crystal: {
+      id: 'quartz_crystal', name: 'Tinh Thể Thạch Anh', category: 'resource', icon: 'quartz', maxStack: 99, actionLabel: 'CHẾ', craftStation: 'lab',
+      desc: 'Khoáng sản tinh khiết: Dùng chế Kháng Thể, Lõi Plasma hoặc nâng cấp Súng Tháp Canh.'
+    },
+    silver_moss: {
+      id: 'silver_moss', name: 'Rêu Bạc Đỉnh Núi', category: 'resource', icon: 'moss', maxStack: 99, actionLabel: 'DÙNG',
+      usableInFilter: true,
+      useEffect: { heal: 15, cleanse: 8, message: '🌿 ĐÃ DÙNG RÊU BẠC ĐỈNH NÚI: +15 HP & -8% ĐỘC TỐ!', color: '#4ade80' },
+      desc: 'Rêu bạc núi cao: Dùng trực tiếp (+15 HP, -8% Độc Tố) hoặc chế Kháng Thể Tinh Khiết.'
+    },
+    egg_fluid: {
+      id: 'egg_fluid', name: 'Dịch Tuyến Trứng Ngoại Lai', category: 'resource', icon: 'egg_fluid', maxStack: 99, actionLabel: 'DÙNG',
+      usableInFilter: true,
+      useEffect: {
+        heal: 20,
+        speedBoost: { mult: 1.3, duration: 8.0 },
+        addInfection: 15,
+        infectionSource: 'DỊCH TRỨNG NGOẠI LAI',
+        message: '🧪 ĐÃ HẤP THỤ DỊCH TUYẾN TRỨNG: +20 HP, +30% TỐC CHẠY (8s), +15% ĐỘC TỐ!',
+        color: '#c084fc'
+      },
+      desc: 'Dịch trứng quái: Dùng trực tiếp (+20 HP, +30% Tốc chạy 8s, +15% Độc) hoặc chế Lõi Plasma.'
+    },
+    pure_water: {
+      id: 'pure_water', name: 'Nước Tinh Khiết', category: 'consumable', icon: 'pure_water', maxStack: 99, actionLabel: 'DÙNG',
+      useEffect: { heal: 15, cleanse: 15, message: '💧 ĐÃ UỐNG NƯỚC TINH KHIẾT: +15 HP & -15% ĐỘC TỐ!', color: '#38bdf8' },
+      desc: 'Nước ngọt đã qua đun sôi lọc sạch: +15 HP, -15% Độc Tố.'
+    },
+    dirty_water: {
+      id: 'dirty_water', name: 'Nước Ao Sông Ô Nhiễm', category: 'consumable', icon: 'dirty_water', maxStack: 99, actionLabel: 'DÙNG',
+      isJunk: true,
+      useEffect: { heal: 5, addInfection: 20, infectionSource: 'NƯỚC Ô NHIỄM', message: '☣ ĐÃ UỐNG NƯỚC Ô NHIỄM: +5 HP NHƯNG TĂNG +20% ĐỘC TỐ!', color: '#facc15', showFloat: false },
+      desc: 'Nước chưa qua lọc: +5 HP nhưng làm tăng +20% Độc Tố!'
+    },
+    wood: {
+      id: 'wood', name: 'Gỗ Cây Biến Dị', category: 'resource', icon: 'wood', maxStack: 99, actionLabel: 'CHẾ', craftStation: 'workbench',
+      desc: 'Vật liệu cơ bản: Click để mở Bàn Chế Tạo / Lò Nung gia công vật phẩm.'
+    },
+    stone: {
+      id: 'stone', name: 'Đá Núi Cứng', category: 'resource', icon: 'stone', maxStack: 99, actionLabel: 'CHẾ', craftStation: 'workbench',
+      desc: 'Vật liệu xây dựng: Click để mở Bàn Chế Tạo / Lò Nung đúc tường và nung quặng.'
+    },
+    tech_scrap: {
+      id: 'tech_scrap', name: 'Mảnh Vỡ Công Nghệ', category: 'resource', icon: 'tech_scrap', maxStack: 99, actionLabel: 'CHẾ', craftStation: 'workshop',
+      desc: 'Linh kiện vi mạch: Click để mở Xưởng Thủ Thành lắp và nâng cấp Tháp Canh, Súng Cối.'
     },
 
-    // Phase 2 & 7: Seeds for Bio-Lab Hydroponics & Expanded Greenhouse
-    seed_snow_lotus: { name: 'Mầm Cấy Tuyết Liên', category: 'seed', targetCrop: 'snow_lotus', icon: 'seed_lotus', maxStack: 99, desc: 'Mô tế bào dùng cấy nuôi trong Phòng Lab cách ly, thu hoạch Tuyết Liên sạch 100% (+12 HP, -12% Độc).' },
-    seed_silver_moss: { name: 'Bào Tử Rêu Bạc', category: 'seed', targetCrop: 'silver_moss', icon: 'seed_moss', maxStack: 99, desc: 'Bào tử rêu sạch dùng nhân giống trong lồng sinh học Phòng Lab (+15 HP, -8% Độc).' },
-    seed_wild_berry: { name: 'Hạt Giống Quả Mọng Ngọt', category: 'seed', targetCrop: 'wild_berry', icon: 'seed_berry', maxStack: 99, desc: 'Hạt giống quả mọng tinh tuyển trồng trong Phòng Lab, thu hoạch Quả Mọng Sạch (+18 HP, 0% Độc) không bao giờ nhiễm độc!' },
-    seed_quartz_bloom: { name: 'Mầm Thảo Dược Tinh Thể', category: 'seed', targetCrop: 'quartz_crystal', icon: 'seed_quartz', maxStack: 99, desc: 'Mầm sinh khoáng lai tạo trong Phòng Lab, thu hoạch Tinh Thể Thạch Anh dùng chế Kháng Thể & Lõi Plasma!' },
+    // Upgrade Materials
+    iron_ore: {
+      id: 'iron_ore', name: 'Quặng Sắt Titan', category: 'resource', icon: 'iron_ore', maxStack: 99, actionLabel: 'CHẾ', craftStation: 'furnace',
+      desc: 'Quặng kim loại nặng khai thác trên Núi Đá: Nung tại Lò Nung để tạo Hợp Kim Titan.'
+    },
+    titanium_alloy: {
+      id: 'titanium_alloy', name: 'Hợp Kim Titan', category: 'resource', icon: 'titanium_alloy', maxStack: 99, actionLabel: 'NÂNG', craftStation: 'workshop',
+      desc: 'Vật liệu siêu bền dùng để NÂNG CẤP Tường Chắn, Súng Tháp Canh, Súng Cối và Vũ Khí!'
+    },
+    alien_chitin: {
+      id: 'alien_chitin', name: 'Giáp Xác Ngoại Lai', category: 'resource', icon: 'alien_chitin', maxStack: 99, actionLabel: 'CHẾ', craftStation: 'workbench',
+      desc: 'Vỏ giáp cứng thu được khi tiêu diệt Quái Vật: Dùng nâng cấp Tường Chắn, Giáp và Vũ Khí.'
+    },
+    plasma_core: {
+      id: 'plasma_core', name: 'Lõi Năng Lượng Plasma', category: 'resource', icon: 'plasma_core', maxStack: 99, actionLabel: 'NÂNG', craftStation: 'workshop',
+      desc: 'Lõi năng lượng cao cấp (thu ở Bờ Biển hoặc chế tại Lab/Xưởng): Nâng cấp Tường & Súng lên Cấp 3!'
+    },
 
-    // Phase 3: Defensive Structures & Upgrades
-    defense_wall: { name: 'Tường Chắn Phòng Thủ', category: 'defense', structType: 'wall', icon: 'defense_wall', maxStack: 99, desc: 'Tường bê tông gia cố (250-1000 HP), chặn đường quái, có thể nâng cấp lên Cấp 3!' },
-    defense_trap: { name: 'Bẫy Gai Sinh Học', category: 'defense', structType: 'trap', icon: 'defense_trap', maxStack: 99, desc: 'Đặt dưới đất làm chậm và gây sát thương, có thể nâng cấp lên Bẫy Xung Điện Cấp 3!' },
-    defense_turret: { name: 'Tháp Canh Tự Động', category: 'defense', structType: 'turret', icon: 'defense_turret', maxStack: 99, desc: 'Súng tháp tự động bắn tỉa 360°, nâng cấp lên Gatling Laser (Cấp 2) & Pháo Railgun Tesla (Cấp 3)!' },
-    defense_mortar: { name: 'Súng Cối Hạng Nặng', category: 'defense', structType: 'mortar', icon: 'defense_mortar', maxStack: 99, desc: 'Pháo cối tầm xa nổ AoE diện rộng, nâng cấp lên Pháo Nhiệt Hạch (Cấp 2) & Siêu Pháo Hạt Nhân (Cấp 3)!' },
-    backpack_upgraded: { name: 'Balo Nâng Cấp Dã Chiến', category: 'upgrade', icon: 'backpack', maxStack: 1, desc: 'Mở rộng sức chứa kho đồ sinh tồn lên tối đa 99 ô chứa (Max Stack 99)!' },
+    // Wild Flora & Mutant Harvests
+    wild_berry: {
+      name: 'Quả Mọng Tự Nhiên Sạch', category: 'consumable', icon: 'berry_clean', maxStack: 99, actionLabel: 'DÙNG',
+      useEffect: { heal: 18, message: '🍓 ĐÃ ĂN QUẢ MỌNG SẠCH: +18 HP!', color: '#22c55e' },
+      desc: 'Quả rừng thu hoạch trong ngày còn tươi sạch: +18 HP, 0% Độc Tố.'
+    },
+    blighted_berry: {
+      name: 'Quả Mọng Đột Biến Nhiễm Khuẩn', category: 'consumable', icon: 'berry_blighted', maxStack: 99, actionLabel: 'DÙNG',
+      isJunk: true,
+      useEffect: { heal: 5, addInfection: 35, infectionSource: 'QUẢ ĐỘT BIẾN NHIỄM ĐỘC', sound: 'hit', message: '☣ ĐÃ ĂN QUẢ ĐỘT BIẾN: +5 HP NHƯNG NHIỄM +35% ĐỘC TỐ!', color: '#ef4444', showFloat: false },
+      desc: 'Quả rừng bị qua đêm ngoài tự nhiên đã nhiễm độc: +5 HP nhưng TĂNG MẠNH +35% ĐỘC TỐ!'
+    },
+    blighted_herb: {
+      name: 'Thảo Dược Bị Thối Rữa', category: 'resource', icon: 'blighted_herb', maxStack: 99, actionLabel: 'HỦY',
+      isJunk: true,
+      useEffect: { deleteSelf: true },
+      desc: 'Cây cỏ ngoài tự nhiên qua đêm bị khí độc phá hủy, không thể chế thuốc.'
+    },
 
-    // Phase 6: Monster Egg for Bio-Lab Pet Incubation
+    // Antidotes (Thuốc Giải Ký Sinh)
+    antidote_lesser: {
+      name: 'Huyết Thanh Sơ Cấp', category: 'consumable', icon: 'antidote_lesser', maxStack: 99, actionLabel: 'DÙNG',
+      useEffect: { heal: 10, cleanse: 25, message: '💉 ĐÃ DÙNG HUYẾT THANH SƠ CẤP: -25% ĐỘC TỐ & +10 HP!', color: '#22c55e' },
+      desc: 'Huyết thanh giải độc cơ bản chế từ Tuyết Liên, Lưu Huỳnh và Nước sạch: GIẢM NGAY 25% ĐỘC TỐ.'
+    },
+    antidote_pure: {
+      name: 'Thuốc Kháng Thể Tinh Khiết', category: 'consumable', icon: 'antidote_pure', maxStack: 99, actionLabel: 'DÙNG',
+      useEffect: { heal: 25, cleanse: 60, immunityDuration: 120, message: '★ ĐÃ DÙNG KHÁNG THỂ TINH KHIẾT: -60% ĐỘC, +25 HP & MIỄN NHIỄM 1 NGÀY! ★', color: '#38bdf8' },
+      desc: 'Kháng thể tinh chế đặc biệt: GIẢM NGAY 60% ĐỘC TỐ + MIỄN NHIỄM ĐỘC TỐ TRONG 1 NGÀY!'
+    },
+
+    // Seeds for Bio-Lab Hydroponics & Expanded Greenhouse
+    seed_snow_lotus: { name: 'Mầm Cấy Tuyết Liên', category: 'seed', targetCrop: 'snow_lotus', icon: 'seed_lotus', maxStack: 99, actionLabel: 'CẤY', desc: 'Mô tế bào dùng cấy nuôi trong Phòng Lab cách ly, thu hoạch Tuyết Liên sạch 100% (+12 HP, -12% Độc).' },
+    seed_silver_moss: { name: 'Bào Tử Rêu Bạc', category: 'seed', targetCrop: 'silver_moss', icon: 'seed_moss', maxStack: 99, actionLabel: 'CẤY', desc: 'Bào tử rêu sạch dùng nhân giống trong lồng sinh học Phòng Lab (+15 HP, -8% Độc).' },
+    seed_wild_berry: { name: 'Hạt Giống Quả Mọng Ngọt', category: 'seed', targetCrop: 'wild_berry', icon: 'seed_berry', maxStack: 99, actionLabel: 'CẤY', desc: 'Hạt giống quả mọng tinh tuyển trồng trong Phòng Lab, thu hoạch Quả Mọng Sạch (+18 HP, 0% Độc) không bao giờ nhiễm độc!' },
+    seed_quartz_bloom: { name: 'Mầm Thảo Dược Tinh Thể', category: 'seed', targetCrop: 'quartz_crystal', icon: 'seed_quartz', maxStack: 99, actionLabel: 'CẤY', desc: 'Mầm sinh khoáng lai tạo trong Phòng Lab, thu hoạch Tinh Thể Thạch Anh dùng chế Kháng Thể & Lõi Plasma!' },
+
+    // Defensive Structures & Upgrades
+    defense_wall: { name: 'Tường Chắn Phòng Thủ', category: 'defense', structType: 'wall', icon: 'defense_wall', maxStack: 99, actionLabel: 'XÂY', desc: 'Tường bê tông gia cố (250-1000 HP), chặn đường quái, có thể nâng cấp lên Cấp 3!' },
+    defense_trap: { name: 'Bẫy Gai Sinh Học', category: 'defense', structType: 'trap', icon: 'defense_trap', maxStack: 99, actionLabel: 'XÂY', desc: 'Đặt dưới đất làm chậm và gây sát thương, có thể nâng cấp lên Bẫy Xung Điện Cấp 3!' },
+    defense_turret: { name: 'Tháp Canh Tự Động', category: 'defense', structType: 'turret', icon: 'defense_turret', maxStack: 99, actionLabel: 'XÂY', desc: 'Súng tháp tự động bắn tỉa 360°, nâng cấp lên Gatling Laser (Cấp 2) & Pháo Railgun Tesla (Cấp 3)!' },
+    defense_mortar: { name: 'Súng Cối Hạng Nặng', category: 'defense', structType: 'mortar', icon: 'defense_mortar', maxStack: 99, actionLabel: 'XÂY', desc: 'Pháo cối tầm xa nổ AoE diện rộng, nâng cấp lên Pháo Nhiệt Hạch (Cấp 2) & Siêu Pháo Hạt Nhân (Cấp 3)!' },
+    backpack_upgraded: { name: 'Balo Nâng Cấp Dã Chiến', category: 'upgrade', icon: 'backpack', maxStack: 1, actionLabel: 'NÂNG', desc: 'Mở rộng sức chứa kho đồ sinh tồn lên tối đa 99 ô chứa (Max Stack 99)!' },
+
+    // Monster Egg for Bio-Lab Pet Incubation
     monster_egg: {
       name: 'Trứng Quái Vật Nguyên Vẹn',
       category: 'egg',
       icon: 'monster_egg',
       maxStack: 99,
+      actionLabel: 'ẤP LAB',
       desc: 'Trứng quái vật nhặt từ ổ trứng trên núi hoặc rơi từ quái. CHỈ ẤP ĐƯỢC TRONG PHÒNG LAB để nở ra Pet ngẫu nhiên (Tối đa mang theo 1 Pet)!'
     }
   },
@@ -565,6 +948,7 @@ const CONSTANTS = {
   DEFENSE: {
     wall: {
       name: 'Tường Chắn',
+      behavior: 'wall',
       maxHp: 250,
       size: 32,
       blocksMovement: true,
@@ -610,6 +994,7 @@ const CONSTANTS = {
     },
     trap: {
       name: 'Bẫy Gai',
+      behavior: 'trap',
       maxHp: 60,
       size: 32,
       damage: 22,
@@ -662,6 +1047,7 @@ const CONSTANTS = {
     },
     turret: {
       name: 'Tháp Canh',
+      behavior: 'turret',
       maxHp: 160,
       size: 32,
       range: 175,
@@ -716,6 +1102,7 @@ const CONSTANTS = {
     },
     mortar: {
       name: 'Súng Cối',
+      behavior: 'mortar',
       maxHp: 140,
       size: 32,
       minRange: 80,
@@ -775,16 +1162,130 @@ const CONSTANTS = {
     }
   },
 
-  // Monster Species
+  // Monster Species (100% Data-Driven: Stats, AI Type, Visuals, Projectiles, Spawn Rules & Loot)
   MONSTER_SPECIES: {
-    crawler: { name: 'Xenomorph Crawler', maxHp: 50, speed: 75, damage: 10, radius: 16, desc: 'Quái vật cơ bản bò nhanh nhẹn' },
-    exploder: { name: 'Quái Cảm Tử (Kamikaze)', maxHp: 40, speed: 110, damage: 45, radius: 15, isKamikaze: true, desc: 'Lao nhanh phát nổ phá tan tường chắn' },
-    spitter: { name: 'Quái Phun Axit', maxHp: 65, speed: 55, damage: 14, range: 190, radius: 17, isRanged: true, slowPlayerFactor: 0.72, slowPlayerDuration: 1.8, desc: 'Bắn đạn axit ăn mòn và làm chậm nhẹ từ xa' },
-    frost_spitter: { name: 'Quái Xạ Thủ Băng Hàn', maxHp: 75, speed: 62, damage: 12, range: 245, radius: 17, isRanged: true, slowPlayerFactor: 0.50, slowPlayerDuration: 3.0, desc: 'Bắn đạn tơ băng kết tinh từ xa làm chậm 50% tốc độ di chuyển của nhân vật' },
-    behemoth: { name: 'Quái Khổng Lồ (Behemoth)', maxHp: 280, speed: 45, damage: 32, radius: 26, isBoss: true, desc: 'Quái khổng lồ phá hủy mọi công trình' }
+    dummy: {
+      id: 'dummy',
+      name: 'Bù Nhìn Thử Vũ Khí',
+      tag: '🎯 Bù Nhìn Tập Luyện',
+      maxHp: 150,
+      speed: 0,
+      damage: 0,
+      radius: 16,
+      aiType: 'dummy',
+      sprite: 'monster_dummy',
+      spriteSize: 48,
+      hpColor: '#f59e0b',
+      bloodColor: '#a855f7',
+      desc: 'Bù nhìn tập luyện thử sát thương và kỹ năng vũ khí'
+    },
+    crawler: {
+      id: 'crawler',
+      name: 'Xenomorph Crawler',
+      tag: '🕷 Xenomorph',
+      maxHp: 50,
+      speed: 75,
+      damage: 10,
+      radius: 16,
+      aiType: 'melee',
+      attackCooldown: 1.1,
+      infectionOnHit: 12,
+      sprite: 'monster_crawler',
+      spriteSize: 48,
+      hpColor: '#ef4444',
+      bloodColor: '#a855f7',
+      extraLootItem: 'iron_ore',
+      spawn: { minDay: 1, weight: 30, bloodMoonWeight: 28, minEggs: 0 },
+      desc: 'Quái vật cơ bản bò nhanh nhẹn'
+    },
+    exploder: {
+      id: 'exploder',
+      name: 'Quái Cảm Tử (Kamikaze)',
+      tag: '💥 Cảm Tử Nổ',
+      maxHp: 40,
+      speed: 110,
+      damage: 45,
+      radius: 15,
+      aiType: 'kamikaze',
+      isKamikaze: true,
+      blastRadius: 55,
+      infectionOnHit: 18,
+      sprite: 'monster_exploder',
+      spriteSize: 48,
+      hpColor: '#f97316',
+      bloodColor: '#ea580c',
+      extraLootItem: 'sulfur_dust',
+      spawn: { minDay: 2, weight: 24, bloodMoonWeight: 24, minEggs: 3 },
+      desc: 'Lao nhanh phát nổ phá tan tường chắn'
+    },
+    spitter: {
+      id: 'spitter',
+      name: 'Quái Phun Axit',
+      tag: '🧪 Phun Axit',
+      maxHp: 65,
+      speed: 55,
+      damage: 14,
+      range: 190,
+      radius: 17,
+      aiType: 'ranged',
+      isRanged: true,
+      attackCooldown: 1.8,
+      slowPlayerFactor: 0.72,
+      slowPlayerDuration: 1.8,
+      projectile: { type: 'acid_spit', speed: 260, rangeBonus: 45 },
+      sprite: 'monster_spitter',
+      spriteSize: 48,
+      hpColor: '#84cc16',
+      bloodColor: '#84cc16',
+      extraLootItem: 'iron_ore',
+      spawn: { minDay: 2, weight: 22, bloodMoonWeight: 23, minEggs: 3 },
+      desc: 'Bắn đạn axit ăn mòn và làm chậm nhẹ từ xa'
+    },
+    frost_spitter: {
+      id: 'frost_spitter',
+      name: 'Quái Xạ Thủ Băng Hàn',
+      tag: '❄️ Xạ Thủ Băng Hàn (Làm Chậm)',
+      maxHp: 75,
+      speed: 62,
+      damage: 12,
+      range: 245,
+      radius: 17,
+      aiType: 'ranged',
+      isRanged: true,
+      attackCooldown: 1.55,
+      slowPlayerFactor: 0.50,
+      slowPlayerDuration: 3.0,
+      projectile: { type: 'frost_spit', speed: 295, rangeBonus: 45 },
+      sprite: 'monster_frost_spitter',
+      spriteSize: 48,
+      hpColor: '#38bdf8',
+      bloodColor: '#38bdf8',
+      extraLootItem: 'quartz_crystal',
+      spawn: { minDay: 1, weight: 24, bloodMoonWeight: 25, minEggs: 0 },
+      desc: 'Bắn đạn tơ băng kết tinh từ xa làm chậm 50% tốc độ di chuyển của nhân vật'
+    },
+    behemoth: {
+      id: 'behemoth',
+      name: 'Quái Khổng Lồ (Behemoth)',
+      tag: '👑 TITAN BEHEMOTH',
+      maxHp: 280,
+      speed: 45,
+      damage: 32,
+      radius: 26,
+      aiType: 'melee',
+      isBoss: true,
+      attackCooldown: 1.4,
+      infectionOnHit: 20,
+      sprite: 'monster_behemoth',
+      spriteSize: 68,
+      hpColor: '#c084fc',
+      bloodColor: '#a855f7',
+      spawn: { minDay: 3, weight: 0, bloodMoonWeight: 0, isWaveBoss: true },
+      desc: 'Quái khổng lồ phá hủy mọi công trình'
+    }
   },
 
-  // Phase 6: Companion Pet System (Incubated ONLY inside Bio-Lab, Max 1 Active Pet)
+  // Companion Pet System (Incubated ONLY inside Bio-Lab, Max 1 Active Pet)
   MAX_ACTIVE_PETS: 1,
   PET_INCUBATION_TIME: 10, // seconds in Bio-Lab Incubator
 
@@ -878,7 +1379,7 @@ const CONSTANTS = {
     }
   },
 
-  // Phase 7: Bio-Lab & Hydroponics Expansion Upgrade System (Lv.1 -> Lv.4 MAX)
+  // Bio-Lab & Hydroponics Expansion Upgrade System (Lv.1 -> Lv.4 MAX)
   BIOLAB_TIERS: {
     1: {
       level: 1,

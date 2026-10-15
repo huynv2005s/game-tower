@@ -396,15 +396,119 @@ cd android
 
 ---
 
-## 7. GỢI Ý ĐỊNH HƯỚNG CHO CÁC PHASE TIẾP THEO (ROADMAP)
+### 🚀 PHASE 9: KIẾN TRÚC DATA-DRIVEN (`GameRegistry`) & TỐI ƯU HÓA HIỆU NĂNG QUY MÔ LỚN (`SpatialGrid` $O(1)$)
 
-Nếu người dùng yêu cầu tiếp tục phát triển Phase 6 hoặc Endgame:
-1. **Nhiệm vụ Sửa Chữa Tàu Không Gian Thoát Hiểm (Escape Spaceship Quest):**
-   * Bãi biển chứa mảnh xác tàu vũ trụ rơi (`tech_debris`).
-   * Yêu cầu thu thập đủ linh kiện liên biome (Nhiên liệu lưu huỳnh từ Núi, Lõi Năng Lượng Plasma từ Bờ biển, Dung dịch kháng thể tinh khiết từ Bio-Lab) để sửa chữa phi thuyền và bấm nút phóng thoát hiểm (Điều kiện Thắng Game).
-2. **Trận Chiến Trùm Cuối (Alien Queen Mega-Boss):**
-   * Lối vào hang động bí mật trên đỉnh núi đá.
-   * Trùm Chúa Tể Alien có 3 giai đoạn biến hình: Phun mưa axit diện rộng, đẻ trứng liên tục và triệu hồi đàn quái Behemoth hộ vệ.
-3. **Mở Rộng Thú Cưng / Drone Hỗ Trợ (Support Companion):**
-   * Chế tạo Robot Drone theo chân người chơi tự động nhặt tài nguyên và bắn đạn hỗ trợ phòng thủ.
+1. **Tối Ưu Hóa Hiệu Năng Khi Hàng Trăm Quái Vật & Công Trình Xuất Hiện Cùng Lúc ([js/registry.js](file:///c:/Go/demo/js/registry.js), [js/game.js](file:///c:/Go/demo/js/game.js), [js/buildings.js](file:///c:/Go/demo/js/buildings.js), [js/entities.js](file:///c:/Go/demo/js/entities.js), [js/world.js](file:///c:/Go/demo/js/world.js)):**
+   * **Spatial Hash Grid 128px (`SpatialGrid` - $O(1)$ Broadphase Queries):**
+     * Thay thế toàn bộ các vòng lặp lồng nhau $O(N \times M)$ giữa Quái vật $\leftrightarrow$ Quái vật (đẩy tách nhau), Đạn $\leftrightarrow$ Quái vật, Tháp canh / Súng cối / Bẫy gai $\leftrightarrow$ Quái vật, Vũ khí / Kỹ năng AoE $\leftrightarrow$ Quái vật, Pet / Drone $\leftrightarrow$ Quái vật, và Smart Auto-Aim Mobile bằng lưới băm không gian `game.monsterGrid` (`SpatialGrid` ô `128x128px`).
+     * Thay vì duyệt hàng trăm quái vật trên toàn bản đồ, mọi truy vấn (`queryRadius`, `findClosest`, `getCellNeighborhood`) chỉ kiểm tra các ô lưới xung quanh mục tiêu trong thời gian $O(1)$.
+   * **Bản Đồ Ô Công Trình Tức Thì (`BuildingManager.tileMap` & `defenseGrid` - $O(1)$ Tile Lookup):**
+     * Lưu trữ mọi công trình phòng thủ trong `Map` khóa số nguyên `(row << 8) | col` và `defenseGrid`.
+     * Kiểm tra va chạm tường chắn (`isBlocking`), tìm công trình tại ô (`getDefenseAtTile`, `getStructureAt`) và tìm tường chắn gần nhất cho quái vật (`findClosestBlockingDefense` kèm bộ nhớ đệm mục tiêu `targetScanTimer`) đạt tốc độ $O(1)$ bất kể người chơi xây bao nhiêu trăm bức tường và tháp canh.
+   * **Bản Đồ Ô Tài Nguyên (`WorldMap.harvestableTileMap` - $O(1)$ Resource Lookup):**
+     * Tra cứu tài nguyên thu hoạch và ổ trứng bằng `harvestableTileMap` thay vì duyệt tuần tự mảng `resourceNodes` + `wildFlora`.
+   * **Nén Mảng Đơn Luồng (`updateAndCompact` - $O(N)$ Zero-Splice Compaction):**
+     * Loại bỏ hoàn toàn `Array.splice(i, 1)` trong vòng lặp `update(dt)` của `monsters`, `projectiles`, `particles`, `floatingTexts` và `mortarShells`, giúp xóa bỏ hiện tượng dịch chuyển bộ nhớ $O(N^2)$ và giảm thiểu Garbage Collection (GC) pause.
+   * **Bộ Nhớ Đệm Độ Rộng Chữ (`_tagWidthCache` & `_badgeWidthCache`):**
+     * Lưu cache kết quả `ctx.measureText(label).width` cho nhãn tên quái vật và tài nguyên, loại bỏ hàng trăm lệnh đo font CPU mỗi khung hình.
+
+2. **Kiến Trúc Data-Driven & Tự Động Tạo Sprite Dự Phòng ([js/registry.js](file:///c:/Go/demo/js/registry.js), [js/constants.js](file:///c:/Go/demo/js/constants.js), [js/pixelart.js](file:///c:/Go/demo/js/pixelart.js), [js/inventory.js](file:///c:/Go/demo/js/inventory.js)):**
+   * **Một Nguồn Dữ Liệu Duy Nhất (`Single Source of Truth`):**
+     * Toàn bộ thuộc tính của Quái vật (`MONSTER_SPECIES`), Vật phẩm (`ITEM_TYPES`), Đạn (`PROJECTILE_TYPES`), Mỏ tài nguyên (`RESOURCE_NODES`), Vũ khí (`WEAPONS`), Công trình (`DEFENSE_STRUCTURES`), Pet (`PET_SPECIES`) và Công thức chế tạo (`RECIPES`) đều được điều khiển hoàn toàn bằng dữ liệu trong [js/constants.js](file:///c:/Go/demo/js/constants.js) hoặc đăng ký động qua `window.GameRegistry` trong [js/registry.js](file:///c:/Go/demo/js/registry.js).
+   * **Tự Động Vẽ Sprite Dự Phòng (`pixelArt.generateFallbackSprite`):**
+     * Nếu bạn thêm một Quái vật, Vật phẩm hay Công trình mới mà chưa kịp vẽ hàm pixel art riêng trong `pixelart.js`, hệ thống `window.pixelArt.get(name)` sẽ **tự động sinh ra Sprite Pixel Art sắc nét theo màu sắc & biểu tượng của đối tượng đó** và lưu cache ngay lập tức!
+
+---
+
+## 7. HƯỚNG DẪN THÊM NHANH QUÁI VẬT, ITEM, VŨ KHÍ & CÔNG TRÌNH MỚI (DATA-DRIVEN GUIDE)
+
+Bạn có thể thêm trực tiếp vào [js/constants.js](file:///c:/Go/demo/js/constants.js) hoặc gọi `GameRegistry` ở bất kỳ đâu mà **không cần sửa lại logic trong các file hệ thống**:
+
+### 👾 1. Thêm Quái Vật Mới (`GameRegistry.registerMonster`)
+```javascript
+GameRegistry.registerMonster('void_stalker', {
+  name: 'Bóng Ma Hư Không',
+  hp: 210,
+  speed: 95,
+  damage: 24,
+  infection: 14,
+  size: 16,
+  color: '#a855f7',
+  hpColor: '#c084fc',
+  bloodColor: '#d8b4fe',
+  aiType: 'ranged',          // 'melee' | 'ranged' | 'kamikaze' | 'tank'
+  preferredDist: 210,
+  shootCooldown: 1.6,
+  projectile: 'frost_web',   // Hoặc loại đạn mới đăng ký qua registerProjectile
+  extraLootItem: 'plasma_core',
+  extraLootChance: 0.35,
+  spawn: { minDay: 2, weight: 0.18, bossEveryDays: 0 } // Tự động xuất hiện trong đợt quái ban đêm!
+});
+```
+
+### 🎒 2. Thêm Vật Phẩm / Trang Bị / Thuốc Mới (`GameRegistry.registerItem`)
+```javascript
+GameRegistry.registerItem('nano_serum', {
+  name: 'Huyết Thanh Nano Siêu Cấp',
+  category: 'medicine',      // 'resource' | 'herb' | 'medicine' | 'seed' | 'consumable' | 'armor' | 'defense'
+  actionLabel: '⚡ TIÊM NANO',
+  usableInFilter: true,
+  desc: 'Hồi 80 HP, xóa 80% Độc tố và miễn nhiễm độc 90 giây.',
+  useEffect: {
+    healHp: 80,
+    reduceInfection: 80,
+    immunitySeconds: 90,
+    sound: 'antidote',
+    floatText: '+80 HP | -80% ĐỘC | 🛡 MIỄN ĐỘC 90S',
+    floatColor: '#38bdf8'
+  }
+});
+```
+
+### 🔫 3. Thêm Vũ Khí Mới Hoặc Tùy Biến Kỹ Năng (`GameRegistry.registerWeapon`)
+```javascript
+GameRegistry.registerWeapon('RAILBLADE', {
+  id: 'railblade',
+  name: 'Kiếm Từ Trường',
+  damage: 30,
+  range: 75,
+  cooldown: 0.32,
+  knockback: 65,
+  color: '#22d3ee',
+  skill1: {
+    id: 'rail_slash',
+    name: 'Trảm Điện Từ',
+    cooldown: 4.5,
+    damage: 55,
+    onTrigger: (weaponSys, player, targetX, targetY, stats) => {
+      // Tùy biến hiệu ứng kỹ năng 1
+    }
+  },
+  skill2: {
+    id: 'rail_dash',
+    name: 'Lướt Sét',
+    cooldown: 7.0,
+    damage: 45
+  }
+});
+```
+
+### 🏰 4. Thêm Công Trình Thủ Thành Mới (`GameRegistry.registerDefense`)
+```javascript
+GameRegistry.registerDefense('tesla_coil', {
+  name: 'Tháp Sét Từ Trường',
+  hp: 240,
+  blocking: true,
+  range: 210,
+  damage: 35,
+  fireRate: 0.6,
+  color: '#38bdf8',
+  tiers: [
+    { level: 1, name: 'Tháp Sét Cấp 1', hp: 240, range: 210, damage: 35, fireRate: 0.6 },
+    { level: 2, name: 'Tháp Sét Cấp 2', hp: 480, range: 250, damage: 55, fireRate: 0.45, upgradeCost: { titanium_alloy: 2, plasma_core: 1 } },
+    { level: 3, name: 'Tháp Sét Cấp 3', hp: 850, range: 300, damage: 90, fireRate: 0.32, chainCount: 3, upgradeCost: { titanium_alloy: 3, plasma_core: 2 } }
+  ]
+});
+```
+
 

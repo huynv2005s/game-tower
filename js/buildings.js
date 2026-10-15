@@ -1,8 +1,12 @@
 // Defensive Structures & Tower Defense Building & Upgrade System
-// Handles Walls, Spike Traps, Watchtowers (Turrets), and Heavy Mortars (Levels 1 -> 3)
+// Refactored for Data-Driven Extensibility + O(1) Tile Hash Map & SpatialGrid Queries
 
 class MortarShell {
-  constructor(startX, startY, targetX, targetY, damage = 55, aoeRadius = 65, level = 1, stunDuration = 0) {
+  constructor(startX = 0, startY = 0, targetX = 0, targetY = 0, damage = 55, aoeRadius = 65, level = 1, stunDuration = 0) {
+    this.reset(startX, startY, targetX, targetY, damage, aoeRadius, level, stunDuration);
+  }
+
+  reset(startX, startY, targetX, targetY, damage = 55, aoeRadius = 65, level = 1, stunDuration = 0) {
     this.startX = startX;
     this.startY = startY;
     this.targetX = targetX;
@@ -18,6 +22,7 @@ class MortarShell {
     this.x = startX;
     this.y = startY;
     this.height = 0;
+    return this;
   }
 
   update(dt, monsters, particles, floatingTexts) {
@@ -74,9 +79,15 @@ class MortarShell {
       floatingTexts.push(new FloatingText(this.targetX, this.targetY - 20, boomLabel, ringCol2, 13, 1.1));
     }
 
-    // Deal AoE Damage, Stun & Knockback to all monsters in blast radius
-    for (let m of monsters) {
-      if (m.isDead) continue;
+    // O(1) SpatialGrid query for AoE blast damage
+    const game = window.gameEngine;
+    const candidates = (game && game.monsterGrid)
+      ? game.monsterGrid.queryRadius(this.targetX, this.targetY, this.aoeRadius)
+      : monsters;
+
+    for (let i = 0; i < candidates.length; i++) {
+      const m = candidates[i];
+      if (!m || m.isDead) continue;
       const dist = Math.hypot(m.x - this.targetX, m.y - this.targetY);
       if (dist <= this.aoeRadius) {
         m.takeDamage(this.damage, particles, floatingTexts);
@@ -119,10 +130,69 @@ class MortarShell {
 class BuildingManager {
   constructor(game) {
     this.game = game;
-    this.defenses = []; // Placed player defenses: Wall, Trap, Turret, Mortar
+    this.defenses = []; // Placed player defenses: Wall, Trap, Turret, Mortar, or custom registered defenses
     this.mortarShells = [];
     this.buildMode = null; // 'wall', 'trap', 'turret', 'mortar', 'upgrade', or null
     this.hoverTile = { col: 0, row: 0, x: 0, y: 0 };
+
+    // High-Performance O(1) Spatial Indices
+    this.tileMap = new Map(); // integer key: (row << 8) | col -> defense object
+    this._indexedCount = 0;
+    const mapW = (CONSTANTS.MAP_WIDTH_TILES || 110) * (CONSTANTS.TILE_SIZE || 32);
+    const mapH = (CONSTANTS.MAP_HEIGHT_TILES || 110) * (CONSTANTS.TILE_SIZE || 32);
+    this.defenseGrid = window.SpatialGrid ? new window.SpatialGrid(mapW, mapH, 128) : null;
+  }
+
+  _tileKey(col, row) {
+    return (row << 8) | col;
+  }
+
+  // Ensures O(1) tileMap & SpatialGrid stay synchronized even if saveManager replaces this.defenses
+  ensureSpatialSync() {
+    if (this._indexedCount !== this.defenses.length) {
+      this.rebuildSpatialIndex();
+    }
+  }
+
+  rebuildSpatialIndex() {
+    this.tileMap.clear();
+    if (this.defenseGrid) this.defenseGrid.clear();
+
+    const tileSize = CONSTANTS.TILE_SIZE || 32;
+    for (let i = 0; i < this.defenses.length; i++) {
+      const d = this.defenses[i];
+      if (!d) continue;
+      if (d.col === undefined || d.row === undefined) {
+        d.col = Math.floor(d.x / tileSize);
+        d.row = Math.floor(d.y / tileSize);
+      }
+      this.tileMap.set(this._tileKey(d.col, d.row), d);
+      if (this.defenseGrid) {
+        this.defenseGrid.insert(d);
+      }
+    }
+    this._indexedCount = this.defenses.length;
+  }
+
+  findClosestBlockingDefense(x, y, maxDist = 250) {
+    this.ensureSpatialSync();
+    if (this.defenseGrid) {
+      return this.defenseGrid.findClosest(x, y, maxDist, d => d && d.blocksMovement && d.hp > 0);
+    }
+    let bestDef = null;
+    let bestDistSq = maxDist * maxDist;
+    for (let i = 0; i < this.defenses.length; i++) {
+      const d = this.defenses[i];
+      if (!d || !d.blocksMovement || d.hp <= 0) continue;
+      const dx = d.x - x;
+      const dy = d.y - y;
+      const dSq = dx * dx + dy * dy;
+      if (dSq < bestDistSq) {
+        bestDistSq = dSq;
+        bestDef = d;
+      }
+    }
+    return bestDef;
   }
 
   getTierConfig(type, level = 1) {
@@ -193,12 +263,21 @@ class BuildingManager {
     };
   }
 
+  // O(1) Tile Lookup
   getDefenseAtTile(col, row) {
+    this.ensureSpatialSync();
+    const direct = this.tileMap.get(this._tileKey(col, row));
+    if (direct) return direct;
+
+    // Check 3x3 neighbor tiles if slightly offset
     const tx = col * CONSTANTS.TILE_SIZE + CONSTANTS.TILE_SIZE / 2;
     const ty = row * CONSTANTS.TILE_SIZE + CONSTANTS.TILE_SIZE / 2;
-    for (let d of this.defenses) {
-      if ((d.col === col && d.row === row) || Math.hypot(d.x - tx, d.y - ty) < 24) {
-        return d;
+    for (let r = row - 1; r <= row + 1; r++) {
+      for (let c = col - 1; c <= col + 1; c++) {
+        const d = this.tileMap.get(this._tileKey(c, r));
+        if (d && Math.hypot(d.x - tx, d.y - ty) < 24) {
+          return d;
+        }
       }
     }
     return null;
@@ -219,15 +298,13 @@ class BuildingManager {
       return false;
     }
 
+    // O(1) check against existing defenses
+    if (this.getDefenseAtTile(col, row)) {
+      return false;
+    }
+
     const tx = col * CONSTANTS.TILE_SIZE + CONSTANTS.TILE_SIZE / 2;
     const ty = row * CONSTANTS.TILE_SIZE + CONSTANTS.TILE_SIZE / 2;
-
-    // Check collision with existing defenses
-    for (let d of this.defenses) {
-      if (Math.hypot(d.x - tx, d.y - ty) < 26) {
-        return false;
-      }
-    }
 
     // Check collision with central base structures
     for (let s of this.game.world.structures) {
@@ -284,7 +361,6 @@ class BuildingManager {
     if (!baseCfg || !baseCfg.tiers) return false;
 
     if (currentLevel >= 3) {
-      // Already Max Level 3 -> Check if damaged or trap depleted, offer quick repair!
       const tier3 = baseCfg.tiers[3];
       const maxUses = tier3.maxUses || 45;
       if (struct.hp < struct.maxHp || (struct.type === 'trap' && struct.usesLeft < maxUses)) {
@@ -317,20 +393,17 @@ class BuildingManager {
       return false;
     }
 
-    // Consume upgrade materials
     this.consumeCost(nextTier.cost);
 
-    // Apply Upgrade
     struct.level = nextLevel;
     struct.name = nextTier.name;
     struct.maxHp = nextTier.maxHp;
-    struct.hp = nextTier.maxHp; // Full heal on upgrade!
+    struct.hp = nextTier.maxHp;
     if (nextTier.maxUses) {
       struct.usesLeft = nextTier.maxUses;
       struct.maxUses = nextTier.maxUses;
     }
 
-    // Audio & Celebration Visuals
     window.audioManager.playEquip();
     const burstColor = nextLevel >= 3 ? '#facc15' : '#38bdf8';
     this.game.particles.push(new Particle(struct.x, struct.y, 0, 0, burstColor, 34, 0.45, 'ring'));
@@ -354,30 +427,32 @@ class BuildingManager {
       this.game.lab.switchTab(this.game.lab.currentTab);
     }
 
+    if (window.EventBus) {
+      window.EventBus.emit('building:upgraded', struct);
+    }
+
     return true;
   }
 
-  // Upgrade structure under mouse cursor OR closest to player (KeyR / Mobile Upgrade Button)
   upgradeNearestOrHovered() {
     if (!this.game || !this.game.player) return false;
     const p = this.game.player;
     const mx = this.game.mouse ? this.game.mouse.worldX : -9999;
     const my = this.game.mouse ? this.game.mouse.worldY : -9999;
 
-    // 1. Check structure directly under mouse cursor
     const hovered = this.getStructureAt(mx, my, 26);
     if (hovered) {
       return this.upgradeStructure(hovered);
     }
 
-    // 2. Otherwise find closest upgradeable/damaged structure near player (within 110px)
     let bestStruct = null;
     let bestScore = Infinity;
 
-    for (let d of this.defenses) {
+    const nearList = this.defenseGrid ? this.defenseGrid.queryRadius(p.x, p.y, 110) : this.defenses;
+    for (let i = 0; i < nearList.length; i++) {
+      const d = nearList[i];
       const dist = Math.hypot(d.x - p.x, d.y - p.y);
       if (dist <= 110) {
-        // Prioritize structures that are not yet Lv.3, or damaged
         const priorityOffset = (d.level || 1) < 3 ? 0 : 500;
         if (dist + priorityOffset < bestScore) {
           bestScore = dist + priorityOffset;
@@ -394,7 +469,6 @@ class BuildingManager {
     return false;
   }
 
-  // Upgrade one placed structure of a specific type from the Workshop Menu
   upgradeOneByType(structType) {
     const candidates = this.defenses.filter(d => d.type === structType && (d.level || 1) < 3);
     if (candidates.length === 0) {
@@ -405,7 +479,6 @@ class BuildingManager {
       if (this.game && this.game.saveManager) this.game.saveManager.showSaveToast(msg);
       return false;
     }
-    // Sort by lowest level first, then closest to player
     const p = this.game.player;
     candidates.sort((a, b) => {
       const lvDiff = (a.level || 1) - (b.level || 1);
@@ -416,7 +489,6 @@ class BuildingManager {
   }
 
   placeStructure(col, row, structType) {
-    // Handle 'upgrade' tool mode
     if (structType === 'upgrade') {
       const existing = this.getDefenseAtTile(col, row);
       if (existing) {
@@ -430,7 +502,6 @@ class BuildingManager {
       }
     }
 
-    // Smart UX: If clicking on an existing structure at this tile while in build mode, upgrade it!
     const existingAtTile = this.getDefenseAtTile(col, row);
     if (existingAtTile) {
       return this.upgradeStructure(existingAtTile);
@@ -452,7 +523,6 @@ class BuildingManager {
       return false;
     }
 
-    // Deduct 1 item from inventory
     const slotIdx = this.game.inventory.slots.findIndex(s => s && s.id === itemId);
     if (slotIdx !== -1) {
       this.game.inventory.removeItem(slotIdx, 1);
@@ -482,13 +552,19 @@ class BuildingManager {
     };
 
     this.defenses.push(newDef);
+    this.tileMap.set(this._tileKey(col, row), newDef);
+    if (this.defenseGrid) this.defenseGrid.insert(newDef);
+    this._indexedCount = this.defenses.length;
 
-    // Audio & Particles
     window.audioManager.playEquip();
     for (let i = 0; i < 6; i++) {
       this.game.particles.push(new Particle(x, y, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60, '#38bdf8', 3, 0.25));
     }
     this.game.floatingTexts.push(new FloatingText(x, y - 20, `ĐÃ XÂY: ${newDef.name}!`, '#22c55e', 12, 1.0));
+
+    if (window.EventBus) {
+      window.EventBus.emit('building:placed', newDef);
+    }
 
     const remainingCount = this.game.inventory.getItemCount(itemId);
     if (remainingCount <= 0) {
@@ -496,6 +572,16 @@ class BuildingManager {
     }
 
     return true;
+  }
+
+  _removeDefense(struct) {
+    if (!struct) return;
+    this.tileMap.delete(this._tileKey(struct.col, struct.row));
+    const idx = this.defenses.indexOf(struct);
+    if (idx !== -1) {
+      this.defenses.splice(idx, 1);
+    }
+    this.rebuildSpatialIndex();
   }
 
   damageStructure(struct, damage, attackerMonster = null) {
@@ -506,7 +592,6 @@ class BuildingManager {
     struct.hp -= effectiveDamage;
     window.audioManager.playHit();
 
-    // Thorns reflection on Lv.2 & Lv.3 Walls when attacked by melee monsters
     if (attackerMonster && !attackerMonster.isDead && tierCfg && tierCfg.thorns > 0) {
       attackerMonster.takeDamage(tierCfg.thorns, this.game.particles, this.game.floatingTexts);
       if ((struct.level || 1) >= 3) {
@@ -514,7 +599,6 @@ class BuildingManager {
       }
     }
 
-    // Rubble particles
     if (this.game.particles.length < 160) {
       for (let i = 0; i < 3; i++) {
         this.game.particles.push(new Particle(struct.x, struct.y, (Math.random() - 0.5) * 50, (Math.random() - 0.5) * 50, '#64748b', 3, 0.2));
@@ -523,75 +607,105 @@ class BuildingManager {
 
     if (struct.hp <= 0) {
       this.game.floatingTexts.push(new FloatingText(struct.x, struct.y - 15, `${struct.name} BỊ PHÁ HỦY!`, '#ef4444', 12, 1.2));
-      const idx = this.defenses.indexOf(struct);
-      if (idx !== -1) this.defenses.splice(idx, 1);
-      return true; // destroyed
+      this._removeDefense(struct);
+      return true;
     }
     return false;
   }
 
-  // Check collision for Player or Monsters
+  // O(1) 3x3 Tile Hash Check for Player & Monster Collision (replaces O(N) full defense scan!)
   isBlocking(x, y, radius = 12) {
+    this.ensureSpatialSync();
+    const tileSize = CONSTANTS.TILE_SIZE || 32;
+    const centerCol = Math.floor(x / tileSize);
+    const centerRow = Math.floor(y / tileSize);
     const maxDist = 16 + radius;
     const maxDistSq = maxDist * maxDist;
-    for (let i = 0; i < this.defenses.length; i++) {
-      const d = this.defenses[i];
-      if (d.blocksMovement) {
-        const dx = d.x - x;
-        const dy = d.y - y;
-        if (dx * dx + dy * dy <= maxDistSq) {
-          return true;
+
+    for (let r = centerRow - 1; r <= centerRow + 1; r++) {
+      const rowBits = r << 8;
+      for (let c = centerCol - 1; c <= centerCol + 1; c++) {
+        const d = this.tileMap.get(rowBits | c);
+        if (d && d.blocksMovement) {
+          const dx = d.x - x;
+          const dy = d.y - y;
+          if (dx * dx + dy * dy <= maxDistSq) {
+            return true;
+          }
         }
       }
     }
     return false;
   }
 
-  // Find structure near point
+  // O(1) 3x3 Tile Hash Check to find defense structure near point
   getStructureAt(x, y, radius = 18) {
+    this.ensureSpatialSync();
+    const tileSize = CONSTANTS.TILE_SIZE || 32;
+    const centerCol = Math.floor(x / tileSize);
+    const centerRow = Math.floor(y / tileSize);
     const rSq = radius * radius;
-    for (let i = 0; i < this.defenses.length; i++) {
-      const d = this.defenses[i];
-      const dx = d.x - x;
-      const dy = d.y - y;
-      if (dx * dx + dy * dy <= rSq) {
-        return d;
+    const span = Math.max(1, Math.ceil(radius / tileSize));
+
+    for (let r = centerRow - span; r <= centerRow + span; r++) {
+      const rowBits = r << 8;
+      for (let c = centerCol - span; c <= centerCol + span; c++) {
+        const d = this.tileMap.get(rowBits | c);
+        if (d) {
+          const dx = d.x - x;
+          const dy = d.y - y;
+          if (dx * dx + dy * dy <= rSq) {
+            return d;
+          }
+        }
       }
     }
     return null;
   }
 
   update(dt, monsters, particles, floatingTexts, projectiles) {
-    // 1. Update Mortar Shells in flight
-    for (let i = this.mortarShells.length - 1; i >= 0; i--) {
-      const shell = this.mortarShells[i];
-      const alive = shell.update(dt, monsters, particles, floatingTexts);
-      if (!alive) this.mortarShells.splice(i, 1);
+    this.ensureSpatialSync();
+
+    // 1. Update Mortar Shells in flight using O(N) in-place compaction
+    if (window.updateAndCompact) {
+      window.updateAndCompact(this.mortarShells, shell => shell.update(dt, monsters, particles, floatingTexts));
+    } else {
+      for (let i = this.mortarShells.length - 1; i >= 0; i--) {
+        if (!this.mortarShells[i].update(dt, monsters, particles, floatingTexts)) {
+          this.mortarShells.splice(i, 1);
+        }
+      }
     }
+
+    const monsterGrid = this.game ? this.game.monsterGrid : null;
 
     // 2. Update Defensive Structures Logic
     for (let i = this.defenses.length - 1; i >= 0; i--) {
       const d = this.defenses[i];
+      if (!d) continue;
       const lv = d.level || 1;
       const tierCfg = this.getTierConfig(d.type, lv);
+      if (!tierCfg) continue;
 
       if (d.cooldown > 0) d.cooldown -= dt;
 
       // Passive Regeneration for Upgraded Walls (Lv.2 & Lv.3)
-      if (tierCfg && tierCfg.regen > 0 && d.hp < d.maxHp) {
+      if (tierCfg.regen > 0 && d.hp < d.maxHp) {
         d.hp = Math.min(d.maxHp, d.hp + tierCfg.regen * dt);
       }
 
       // ----------------------------------------------------
-      // SPIKE TRAP (Lv.1 Bio-Spikes -> Lv.2 Titanium Saw -> Lv.3 Tesla Grid)
+      // SPIKE TRAP (O(1) SpatialGrid cell neighborhood check)
       // ----------------------------------------------------
       if (d.type === 'trap') {
         if (d.cooldown <= 0) {
-          for (let m of monsters) {
-            if (m.isDead) continue;
+          const nearby = monsterGrid ? monsterGrid.getCellNeighborhood(d.x, d.y) : monsters;
+          for (let j = 0; j < nearby.length; j++) {
+            const m = nearby[j];
+            if (!m || m.isDead) continue;
             const dx = m.x - d.x;
             const dy = m.y - d.y;
-            if (dx * dx + dy * dy <= 20 * 20) {
+            if (dx * dx + dy * dy <= 400) {
               d.cooldown = lv >= 3 ? 0.65 : 0.8;
               m.takeDamage(tierCfg.damage, particles, floatingTexts);
               m.applySlow(tierCfg.slowFactor, tierCfg.slowDuration, floatingTexts);
@@ -607,7 +721,7 @@ class BuildingManager {
               d.usesLeft--;
               if (d.usesLeft <= 0) {
                 floatingTexts.push(new FloatingText(d.x, d.y - 15, `${d.name} ĐÃ MÒN HỎNG!`, '#94a3b8', 11, 1.0));
-                this.defenses.splice(i, 1);
+                this._removeDefense(d);
               }
               break;
             }
@@ -616,21 +730,25 @@ class BuildingManager {
       }
 
       // ----------------------------------------------------
-      // WATCHTOWER / TURRET (Lv.1 Plasma -> Lv.2 Gatling Laser -> Lv.3 Railgun Tesla)
+      // WATCHTOWER / TURRET (O(1) SpatialGrid closest target acquisition)
       // ----------------------------------------------------
       else if (d.type === 'turret') {
         if (d.cooldown <= 0) {
           let closestM = null;
-          let minDistSq = tierCfg.range * tierCfg.range;
-
-          for (let m of monsters) {
-            if (m.isDead) continue;
-            const dx = m.x - d.x;
-            const dy = m.y - d.y;
-            const dSq = dx * dx + dy * dy;
-            if (dSq <= minDistSq) {
-              minDistSq = dSq;
-              closestM = m;
+          if (monsterGrid) {
+            closestM = monsterGrid.findClosest(d.x, d.y, tierCfg.range);
+          } else {
+            let minDistSq = tierCfg.range * tierCfg.range;
+            for (let j = 0; j < monsters.length; j++) {
+              const m = monsters[j];
+              if (m.isDead) continue;
+              const dx = m.x - d.x;
+              const dy = m.y - d.y;
+              const dSq = dx * dx + dy * dy;
+              if (dSq <= minDistSq) {
+                minDistSq = dSq;
+                closestM = m;
+              }
             }
           }
 
@@ -645,11 +763,9 @@ class BuildingManager {
             const turretDmg = isEmp ? Math.round(tierCfg.damage * 1.25) : tierCfg.damage;
 
             if (lv >= 3) {
-              // Lv.3 Railgun Tesla Bolt (chains lightning on hit!)
               projectiles.push(new Projectile(d.x, d.y, vx, vy, tierCfg.range, turretDmg, 'turret_railgun', { chainCount: 2 }));
               particles.push(new Particle(d.x + Math.cos(d.aimAngle) * 16, d.y + Math.sin(d.aimAngle) * 16, 0, 0, '#facc15', 7, 0.14));
             } else if (lv === 2) {
-              // Lv.2 Twin Gatling Laser Bolts
               const perpX = -Math.sin(d.aimAngle) * 4;
               const perpY = Math.cos(d.aimAngle) * 4;
               const halfDmg = Math.ceil(turretDmg * 0.55);
@@ -657,7 +773,6 @@ class BuildingManager {
               projectiles.push(new Projectile(d.x - perpX, d.y - perpY, vx, vy, tierCfg.range, halfDmg, 'plasma_bullet', { color: '#38bdf8' }));
               particles.push(new Particle(d.x + Math.cos(d.aimAngle) * 16, d.y + Math.sin(d.aimAngle) * 16, 0, 0, '#e879f9', 6, 0.12));
             } else {
-              // Lv.1 Standard Turret Bolt
               projectiles.push(new Projectile(d.x, d.y, vx, vy, tierCfg.range, turretDmg, 'arrow'));
               particles.push(new Particle(d.x + Math.cos(d.aimAngle) * 16, d.y + Math.sin(d.aimAngle) * 16, 0, 0, '#38bdf8', 5, 0.12));
             }
@@ -667,15 +782,17 @@ class BuildingManager {
       }
 
       // ----------------------------------------------------
-      // HEAVY MORTAR (Lv.1 Artillery -> Lv.2 Napalm -> Lv.3 Orbital Mini-Nuke)
+      // HEAVY MORTAR (O(1) SpatialGrid target query)
       // ----------------------------------------------------
       else if (d.type === 'mortar') {
         if (d.cooldown <= 0) {
           let targetM = null;
           let maxDist = tierCfg.minRange;
+          const candidates = monsterGrid ? monsterGrid.queryRadius(d.x, d.y, tierCfg.range) : monsters;
 
-          for (let m of monsters) {
-            if (m.isDead) continue;
+          for (let j = 0; j < candidates.length; j++) {
+            const m = candidates[j];
+            if (!m || m.isDead) continue;
             const dist = Math.hypot(m.x - d.x, m.y - d.y);
             if (dist >= tierCfg.minRange && dist <= tierCfg.range && dist >= maxDist) {
               maxDist = dist;
@@ -721,7 +838,6 @@ class BuildingManager {
       const sy = cy - 16;
       const lv = d.level || 1;
 
-      // Ground shadow for standing defenses
       if (d.type !== 'trap') {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
         ctx.beginPath();
@@ -729,7 +845,6 @@ class BuildingManager {
         ctx.fill();
       }
 
-      // Level 2 / Level 3 Ground Aura Ring
       if (lv >= 2) {
         ctx.strokeStyle = lv >= 3 ? 'rgba(250, 204, 21, 0.55)' : 'rgba(56, 189, 248, 0.45)';
         ctx.lineWidth = 1.5;
@@ -759,7 +874,6 @@ class BuildingManager {
         }
       }
 
-      // Draw Level Star Badge on corner of upgraded structures
       if (lv >= 2) {
         ctx.fillStyle = 'rgba(9, 13, 22, 0.85)';
         ctx.fillRect(cx + 3, cy - 16, lv >= 3 ? 15 : 11, 10);
@@ -769,7 +883,6 @@ class BuildingManager {
         ctx.fillText(lv >= 3 ? '★★' : '★', cx + (lv >= 3 ? 10.5 : 8.5), cy - 8.5);
       }
 
-      // Draw HP Bar if damaged
       if (d.hp < d.maxHp && d.type !== 'trap') {
         const barW = 28;
         const barH = 4;
@@ -780,11 +893,10 @@ class BuildingManager {
         ctx.fillRect(cx - barW / 2, cy - 22, barW * pct, barH);
       }
 
-      // Hover info badge & Upgrade prompt on defense structures
-      const distMouse = Math.hypot(mouseWorldX - d.x, mouseWorldY - d.y);
-      const distPlayer = player ? Math.hypot(player.x - d.x, player.y - d.y) : 9999;
+      const distMouseSq = (mouseWorldX - d.x) * (mouseWorldX - d.x) + (mouseWorldY - d.y) * (mouseWorldY - d.y);
+      const distPlayerSq = player ? ((player.x - d.x) * (player.x - d.x) + (player.y - d.y) * (player.y - d.y)) : 9999999;
 
-      if ((distMouse <= 24 || (this.buildMode === 'upgrade' && distPlayer <= 120)) && this.game && this.game.world) {
+      if ((distMouseSq <= 576 || (this.buildMode === 'upgrade' && distPlayerSq <= 14400)) && this.game && this.game.world) {
         const baseCfg = CONSTANTS.DEFENSE[d.type];
         const nextTier = (baseCfg && baseCfg.tiers && lv < 3) ? baseCfg.tiers[lv + 1] : null;
         const maxUses = d.maxUses || 12;
@@ -792,7 +904,7 @@ class BuildingManager {
           ? `⚙ ${d.name} (${d.usesLeft}/${maxUses})`
           : `🛡 ${d.name} (${Math.round(d.hp)}/${d.maxHp} HP)`;
 
-        if (nextTier && distMouse <= 24) {
+        if (nextTier && distMouseSq <= 576) {
           const canUp = this.canAffordCost(nextTier.cost);
           const costShort = nextTier.cost.map(c => `${c.count} ${c.name}`).join(', ');
           this.game.world.drawObjectBadge(
@@ -808,8 +920,8 @@ class BuildingManager {
     }
 
     // 2. Render Mortar Shells in Flight
-    for (let shell of this.mortarShells) {
-      shell.render(ctx, camera);
+    for (let i = 0; i < this.mortarShells.length; i++) {
+      this.mortarShells[i].render(ctx, camera);
     }
 
     // 3. Render Build Mode / Upgrade Mode Preview Ghost
@@ -821,7 +933,6 @@ class BuildingManager {
       ctx.save();
 
       if (this.buildMode === 'upgrade' || existingAtHover) {
-        // Highlight upgrade target tile
         const canUp = existingAtHover && ((existingAtHover.level || 1) < 3 || existingAtHover.hp < existingAtHover.maxHp);
         ctx.strokeStyle = existingAtHover ? (canUp ? '#facc15' : '#38bdf8') : 'rgba(148, 163, 184, 0.5)';
         ctx.lineWidth = 2.5;
@@ -849,15 +960,11 @@ class BuildingManager {
         ctx.lineWidth = 2;
         ctx.strokeRect(gx, gy, 32, 32);
 
-        if (this.buildMode === 'turret') {
+        const defCfg = CONSTANTS.DEFENSE[this.buildMode];
+        if (defCfg && defCfg.range) {
           ctx.beginPath();
-          ctx.arc(this.hoverTile.x - camera.x, this.hoverTile.y - camera.y, CONSTANTS.DEFENSE.turret.range, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-          ctx.stroke();
-        } else if (this.buildMode === 'mortar') {
-          ctx.beginPath();
-          ctx.arc(this.hoverTile.x - camera.x, this.hoverTile.y - camera.y, CONSTANTS.DEFENSE.mortar.range, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+          ctx.arc(this.hoverTile.x - camera.x, this.hoverTile.y - camera.y, defCfg.range, 0, Math.PI * 2);
+          ctx.strokeStyle = this.buildMode === 'mortar' ? 'rgba(239, 68, 68, 0.45)' : 'rgba(56, 189, 248, 0.45)';
           ctx.stroke();
         }
       }
