@@ -137,6 +137,7 @@
         <button id="btn-workbench" class="hud-icon-btn" onclick="window.labSystem.open('workbench')" title="Bàn Chế Tạo Vũ Khí & Trang Bị">🔨</button>
         <button id="btn-workshop" class="hud-icon-btn" onclick="window.labSystem.open('workshop')" title="Xưởng Thủ Thành & Nâng Cấp Súng">⚙️</button>
         <button id="btn-save-game" class="hud-icon-btn" onclick="window.saveManager.saveGame(false)" title="Lưu Game Ngay [Phím K]">💾</button>
+        <button id="btn-new-game" class="hud-icon-btn new-game-hud-btn" onclick="window.saveManager.openResetConfirmModal()" title="Chơi Lại Từ Đầu (Tạo Thế Giới Mới Ngày 1)">🔄</button>
         <button id="btn-toggle-touch" class="hud-icon-btn" onclick="window.mobileController.toggleControls()" title="Bật / Tắt Phím Ảo Cảm Ứng">📱</button>
         <button id="btn-sound" class="hud-icon-btn" onclick="window.audioManager.toggleMute()" title="Bật / Tắt Âm Thanh [Phím M]">🔊</button>
         <button id="btn-help" class="hud-icon-btn" onclick="toggleHelpModal()" title="Hướng Dẫn Chơi & Phím Tắt [Phím H]">❓</button>
@@ -537,9 +538,42 @@
         Độc tố ký sinh trong cơ thể đã đạt mức tử vong 100%! Bạn đã không còn là con người.
       </div>
       <div id="gameover-days">Số ngày sống sót: 1 ngày</div>
-      <button class="respawn-btn tactical-respawn" onclick="window.gameEngine.respawnPlayer()">
-        ♻ HỒI SINH TẠI PHÒNG LAB CÁCH LY
-      </button>
+      <div class="gameover-actions-row">
+        <button class="respawn-btn tactical-respawn" onclick="window.gameEngine.respawnPlayer()">
+          ♻ HỒI SINH TẠI PHÒNG LAB CÁCH LY
+        </button>
+        <button class="respawn-btn new-game-gameover-btn" onclick="window.saveManager.openResetConfirmModal()">
+          🔄 CHƠI LẠI TỪ ĐẦU (NGÀY 1)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW GAME / RESET CONFIRMATION MODAL -->
+  <div id="reset-game-modal" class="modal-backdrop">
+    <div class="modal-window reset-confirm-window">
+      <div class="modal-header">
+        <div class="modal-title" style="color: #f87171;">🔄 XÁC NHẬN CHƠI LẠI TỪ ĐẦU (NGÀY 1)</div>
+        <button class="close-btn" onclick="window.saveManager.closeResetConfirmModal()">✕</button>
+      </div>
+      <div class="reset-confirm-body">
+        <div class="reset-warning-banner">
+          ⚠️ Toàn bộ tiến trình hiện tại sẽ được xóa và tạo lại thế giới mới từ <strong>Ngày 1 (08:00 Bình Minh)</strong>!
+        </div>
+        <ul class="reset-checklist">
+          <li>🌍 <strong>Tái tạo Bản Đồ 3 Vùng:</strong> Phục hồi toàn bộ Mỏ Quặng, Thảo Dược, Quả Rừng &amp; Ổ Trứng Ngoại Lai mới.</li>
+          <li>🧬 <strong>Đặt lại Nhân Vật &amp; Căn Cứ:</strong> 100/100 HP, 0% Độc tố, Vũ khí Lv.1, Phòng Lab Lv.1 &amp; xóa công trình cũ.</li>
+          <li>🎒 <strong>Gói Hành Trang Tân Thủ:</strong> Cấp lại đầy đủ nguyên liệu khởi đầu, 2 Trứng Quái Vật để ấp Pet &amp; Hạt giống sạch.</li>
+        </ul>
+        <div class="reset-confirm-actions">
+          <button type="button" class="reset-btn-confirm" onclick="window.saveManager.resetNewGame()">
+            ✅ ĐỒNG Ý — BẮT ĐẦU VÁN MỚI
+          </button>
+          <button type="button" class="reset-btn-cancel" onclick="window.saveManager.closeResetConfirmModal()">
+            ✖ HỦY BỎ (TIẾP TỤC CHƠI)
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

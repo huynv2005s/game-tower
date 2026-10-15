@@ -2595,6 +2595,125 @@ body.mobile-controls-active #quick-defense-bar.mobile-open {
   }
 }
 
+/* =========================================
+   NEW GAME / RESET GAME CONFIRMATION MODAL
+   ========================================= */
+.new-game-hud-btn {
+  border-color: rgba(248, 113, 113, 0.55) !important;
+}
 
+.new-game-hud-btn:hover {
+  border-color: #f87171 !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.55) !important;
+}
 
+.gameover-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 4px;
+}
 
+.respawn-btn.new-game-gameover-btn {
+  background: linear-gradient(90deg, #b91c1c, #ef4444);
+  color: #ffffff;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 12px 20px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.8px;
+  box-shadow: 0 0 22px rgba(239, 68, 68, 0.55);
+  transition: all 0.2s ease;
+}
+
+.respawn-btn.new-game-gameover-btn:hover {
+  background: linear-gradient(90deg, #dc2626, #f87171);
+  transform: translateY(-2px);
+  box-shadow: 0 0 32px rgba(239, 68, 68, 0.85);
+}
+
+.reset-confirm-window {
+  width: min(500px, 92vw) !important;
+  border: 2px solid #ef4444 !important;
+  box-shadow: 0 0 45px rgba(239, 68, 68, 0.55) !important;
+}
+
+.reset-confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 2px;
+}
+
+.reset-warning-banner {
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  border-radius: 6px;
+  padding: 11px 14px;
+  color: #fecaca;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.reset-checklist {
+  list-style: none;
+  padding: 10px 14px;
+  margin: 0;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.reset-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.reset-btn-confirm {
+  flex: 1;
+  min-width: 190px;
+  background: linear-gradient(90deg, #dc2626, #ef4444);
+  color: #ffffff;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 11px 16px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.5);
+  transition: all 0.18s ease;
+}
+
+.reset-btn-confirm:hover {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+  transform: translateY(-1px);
+}
+
+.reset-btn-cancel {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 11px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.reset-btn-cancel:hover {
+  background: #334155;
+  border-color: #94a3b8;
+}

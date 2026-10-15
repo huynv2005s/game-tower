@@ -63,8 +63,8 @@ class SaveManager {
             usesLeft: d.usesLeft || 12,
             maxUses: d.maxUses || 12
           })) : [],
-        harvestables: (this.game.world && this.game.world.harvestables) ?
-          this.game.world.harvestables.map(h => ({
+        harvestables: (this.game.world && (this.game.world.resourceNodes || this.game.world.harvestables)) ?
+          (this.game.world.resourceNodes || this.game.world.harvestables).map(h => ({
             col: h.col,
             row: h.row,
             type: h.type,
@@ -216,7 +216,7 @@ class SaveManager {
         }
       }
 
-      // 5. Restore Defenses (with Level support)
+      // 5. Restore Defenses (with Level & Spatial Map support)
       if (Array.isArray(data.defenses) && this.game.buildingManager) {
         this.game.buildingManager.defenses = data.defenses.map(d => ({
           ...d,
@@ -225,17 +225,21 @@ class SaveManager {
           cooldown: 0,
           aimAngle: 0
         }));
+        if (this.game.buildingManager.rebuildSpatialMaps) {
+          this.game.buildingManager.rebuildSpatialMaps();
+        }
       }
 
       // 6. Restore Harvestables (Ores, Broken Alien Eggs)
-      if (Array.isArray(data.harvestables) && this.game.world && this.game.world.harvestables) {
+      const nodesList = this.game.world ? (this.game.world.resourceNodes || this.game.world.harvestables) : null;
+      if (Array.isArray(data.harvestables) && nodesList) {
         for (let savedH of data.harvestables) {
-          const worldH = this.game.world.harvestables.find(h => h.col === savedH.col && h.row === savedH.row);
+          const worldH = nodesList.find(h => h.col === savedH.col && h.row === savedH.row);
           if (worldH) {
             worldH.hp = savedH.hp;
             worldH.isDestroyed = savedH.isDestroyed;
-            if (worldH.isDestroyed) {
-              this.game.world.tiles[worldH.row][worldH.col] = CONSTANTS.TILES.MOUNTAIN_ROCK;
+            if (worldH.isDestroyed && this.game.world.removeHarvestableFromMap) {
+              this.game.world.removeHarvestableFromMap(worldH);
             }
           }
         }
@@ -325,14 +329,42 @@ class SaveManager {
     }
   }
 
-  clearSave() {
+  openResetConfirmModal() {
+    const modal = document.getElementById('reset-game-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      if (window.audioManager) window.audioManager.playEquip();
+    }
+  }
+
+  closeResetConfirmModal() {
+    const modal = document.getElementById('reset-game-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  }
+
+  resetNewGame() {
     try {
       localStorage.removeItem(this.storageKey);
-      this.showSaveToast('🗑 ĐÃ XÓA DỮ LIỆU LƯU GAME THÀNH CÔNG!');
+      this.lastAutoSaveDay = 0;
+      this.closeResetConfirmModal();
+
+      if (this.game && typeof this.game.resetToNewGame === 'function') {
+        this.game.resetToNewGame();
+      } else {
+        window.location.reload();
+      }
       return true;
     } catch (e) {
+      console.error('Lỗi khi khởi tạo ván mới:', e);
+      window.location.reload();
       return false;
     }
+  }
+
+  clearSave() {
+    return this.resetNewGame();
   }
 
   showSaveToast(text) {

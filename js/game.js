@@ -343,6 +343,11 @@ class GameEngine {
           helpModal.style.display = 'none';
           return;
         }
+        const resetModal = document.getElementById('reset-game-modal');
+        if (resetModal && resetModal.style.display === 'flex') {
+          resetModal.style.display = 'none';
+          return;
+        }
         if (this.buildingManager && this.buildingManager.buildMode) {
           this.buildingManager.exitBuildMode();
           return;
@@ -553,12 +558,13 @@ class GameEngine {
     this.mouse.worldX = this.mouse.screenX / z + this.camera.x;
     this.mouse.worldY = this.mouse.screenY / z + this.camera.y;
 
-    // Check if UI modal is open (Crafting, Inventory, Help, GameOver, TacticalMap)
+    // Check if UI modal is open (Crafting, Inventory, Help, GameOver, TacticalMap, ResetModal)
     if (!this._modalEls) {
       this._modalEls = {
         help: document.getElementById('help-modal'),
         gameover: document.getElementById('gameover-modal'),
-        tacticalMap: document.getElementById('tactical-map-modal')
+        tacticalMap: document.getElementById('tactical-map-modal'),
+        resetGame: document.getElementById('reset-game-modal')
       };
     }
     const isTacticalMapOpen = this._modalEls.tacticalMap && this._modalEls.tacticalMap.style.display === 'flex';
@@ -570,7 +576,8 @@ class GameEngine {
                         (this.inventory && this.inventory.isOpen) ||
                         isTacticalMapOpen ||
                         (this._modalEls.help && this._modalEls.help.style.display === 'flex') ||
-                        (this._modalEls.gameover && this._modalEls.gameover.style.display === 'flex');
+                        (this._modalEls.gameover && this._modalEls.gameover.style.display === 'flex') ||
+                        (this._modalEls.resetGame && this._modalEls.resetGame.style.display === 'flex');
 
     if (isModalOpen) {
       if (this.lab) this.lab.update(dt);
@@ -1155,6 +1162,75 @@ class GameEngine {
         m.y += Math.sin(a) * 120;
         m.applyStun(2.0, this.floatingTexts);
       }
+    }
+  }
+
+  resetToNewGame() {
+    // 1. Close all open modals
+    const modalIds = ['gameover-modal', 'help-modal', 'tactical-map-modal', 'reset-game-modal'];
+    for (const id of modalIds) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    }
+    if (this.inventory && this.inventory.isOpen) {
+      this.inventory.toggleUI();
+    }
+    if (this.lab && this.lab.isOpen) {
+      this.lab.close();
+    }
+
+    // 2. Regenerate World Map, Ores, Flora & Alien Eggs
+    this.world.generate();
+    this.tacticalMapBgCanvas = null;
+    this.buildMinimapCache();
+
+    // 3. Clear active entities & spatial grid
+    this.monsters.length = 0;
+    this.projectiles.length = 0;
+    this.particles.length = 0;
+    this.floatingTexts.length = 0;
+    if (this.monsterGrid) {
+      this.monsterGrid.clear();
+    }
+
+    // 4. Respawn fresh Player at central base plaza
+    const spawnX = 35 * CONSTANTS.TILE_SIZE;
+    const spawnY = 38 * CONSTANTS.TILE_SIZE;
+    this.player = new Player(spawnX, spawnY);
+
+    // 5. Reset Weapons, Inventory, Lab, Pets, Drones, Defenses & Day/Night Cycle
+    this.weapons = new WeaponSystem(this);
+    this.inventory = new InventorySystem(this);
+    this.dayNight = new DayNightSystem(this);
+    this.lab = new LabSystem(this);
+    window.labSystem = this.lab;
+
+    this.petSystem = new PetSystem(this);
+    window.petSystem = this.petSystem;
+
+    this.buildingManager = new BuildingManager(this);
+    window.buildingManager = this.buildingManager;
+
+    this.inventory.updatePlayerStats();
+    this.inventory.renderUI();
+
+    // 6. Respawn Training Dummies & Initial Biome Monsters
+    this.spawnTestEntities();
+
+    // 7. Snap Camera to Player & Refresh HUD
+    this.camera.x = this.player.x - this.camera.width / 2;
+    this.camera.y = this.player.y - this.camera.height / 2;
+    this.clampCamera();
+    this.updateHUD(true);
+
+    if (window.audioManager) {
+      window.audioManager.playDayGong();
+    }
+
+    const msg = '🌱 ĐÃ BẮT ĐẦU VÁN MỚI — NGÀY 1 (08:00 BÌNH MINH)!';
+    this.floatingTexts.push(new FloatingText(this.player.x, this.player.y - 36, msg, '#4ade80', 14, 2.8));
+    if (this.saveManager) {
+      this.saveManager.showSaveToast(msg);
     }
   }
 
