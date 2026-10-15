@@ -122,7 +122,7 @@ class Projectile {
       return false;
     }
 
-    if (this.type === 'acid_spit') {
+    if (this.type === 'acid_spit' || this.type === 'frost_spit') {
       // Check hit player
       const p = world && world.game ? world.game.player : null;
       if (p && !p.isDead && !p.isVaulting && !p.isDashing) {
@@ -253,6 +253,11 @@ class Projectile {
       if (hitTarget) {
         if (hitTarget.takeDamage) {
           hitTarget.takeDamage(this.damage);
+          if (hitTarget.applySlow) {
+            const sf = (this.extra && this.extra.slowFactor) ? this.extra.slowFactor : 0.72;
+            const sd = (this.extra && this.extra.slowDuration) ? this.extra.slowDuration : 1.8;
+            hitTarget.applySlow(sf, sd, 'AXIT LÀM CHẬM');
+          }
           if (hitTarget.addInfection) hitTarget.addInfection(10, 'AXIT ĂN MÒN');
         }
       }
@@ -261,6 +266,27 @@ class Projectile {
           const a = Math.random() * Math.PI * 2;
           const spd = 30 + Math.random() * 50;
           particles.push(new Particle(this.x, this.y, Math.cos(a) * spd, Math.sin(a) * spd, '#84cc16', 3, 0.25));
+        }
+      }
+      window.audioManager.playHit();
+    } else if (this.type === 'frost_spit') {
+      if (hitTarget) {
+        if (hitTarget.takeDamage) {
+          hitTarget.takeDamage(this.damage);
+          if (hitTarget.applySlow) {
+            const sf = (this.extra && this.extra.slowFactor) ? this.extra.slowFactor : 0.50;
+            const sd = (this.extra && this.extra.slowDuration) ? this.extra.slowDuration : 3.0;
+            hitTarget.applySlow(sf, sd, 'TƠ BĂNG HÀN');
+          }
+          if (hitTarget.addInfection) hitTarget.addInfection(6, 'TƠ BĂNG HÀN');
+        }
+      }
+      if (particles.length < 160) {
+        particles.push(new Particle(this.x, this.y, 0, 0, '#38bdf8', 22, 0.3, 'ring'));
+        for (let i = 0; i < 7; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = 35 + Math.random() * 55;
+          particles.push(new Particle(this.x, this.y, Math.cos(a) * spd, Math.sin(a) * spd, (i % 2 === 0) ? '#67e8f9' : '#0284c7', 3.2, 0.28));
         }
       }
       window.audioManager.playHit();
@@ -408,6 +434,19 @@ class Projectile {
       ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#bef264';
       ctx.fillRect(-2, -2, 4, 4);
+    } else if (this.type === 'frost_spit') {
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.moveTo(8, 0);
+      ctx.lineTo(-4, -5);
+      ctx.lineTo(-7, 0);
+      ctx.lineTo(-4, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#e0f2fe';
+      ctx.beginPath();
+      ctx.arc(1, 0, 3.2, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
   }
@@ -415,10 +454,6 @@ class Projectile {
 
 class Monster {
   constructor(x, y, species = 'crawler', customName = null, customHp = null) {
-    this.x = x;
-    this.y = y;
-    this.vx = 0;
-    this.vy = 0;
     this.species = species;
     this.type = species;
 
@@ -436,7 +471,21 @@ class Monster {
     this.isRanged = !!cfg.isRanged;
     this.isBoss = !!cfg.isBoss;
     this.attackRange = cfg.range || (this.isRanged ? 190 : 26);
+    this.slowPlayerFactor = cfg.slowPlayerFactor || (species === 'frost_spitter' ? 0.50 : 0.72);
+    this.slowPlayerDuration = cfg.slowPlayerDuration || (species === 'frost_spitter' ? 3.0 : 1.8);
     this.isDead = false;
+
+    // Ensure monster never spawns inside water, cliffs, or walls
+    if (species !== 'dummy' && window.gameEngine && window.gameEngine.world && window.gameEngine.world.findSafeSpawnPoint) {
+      const safePos = window.gameEngine.world.findSafeSpawnPoint(x, y, this.radius);
+      this.x = safePos.x;
+      this.y = safePos.y;
+    } else {
+      this.x = x;
+      this.y = y;
+    }
+    this.vx = 0;
+    this.vy = 0;
 
     // Crowd Control & Status
     this.stunDuration = 0;
@@ -446,6 +495,15 @@ class Monster {
     this.knockbackVx = 0;
     this.knockbackVy = 0;
     this.knockbackDuration = 0;
+
+    // Smart Corner-Free Steering & Anti-Stuck State
+    this.steerDir = Math.random() < 0.5 ? 1 : -1;
+    this.steerLockTimer = 0;
+    this.unstuckGhostTimer = 0;
+    this.escapeAngle = null;
+    this.anchorX = this.x;
+    this.anchorY = this.y;
+    this.anchorTimer = Math.random() * 0.3;
 
     this.hitFlashTimer = 0;
     this.attackCooldown = 0;
@@ -469,7 +527,7 @@ class Monster {
       game.inventory.addItem('alien_chitin', 1);
       let bonusText = '+1 Giáp Xác Ngoại Lai';
       if (Math.random() < 0.35) {
-        const extraItem = (this.species === 'exploder') ? 'sulfur_dust' : 'iron_ore';
+        const extraItem = (this.species === 'exploder') ? 'sulfur_dust' : (this.species === 'frost_spitter' ? 'quartz_crystal' : 'iron_ore');
         game.inventory.addItem(extraItem, 1);
         const def = CONSTANTS.ITEM_TYPES[extraItem];
         if (def) bonusText += ` & +1 ${def.name}`;
@@ -496,7 +554,7 @@ class Monster {
 
     // Blood / Alien acid splatter (capped for performance)
     if (particles.length < 160) {
-      const bloodColor = (this.species === 'spitter') ? '#84cc16' : (this.species === 'exploder' ? '#ea580c' : '#a855f7');
+      const bloodColor = (this.species === 'spitter') ? '#84cc16' : (this.species === 'frost_spitter' ? '#38bdf8' : (this.species === 'exploder' ? '#ea580c' : '#a855f7'));
       for (let i = 0; i < 4; i++) {
         const a = Math.random() * Math.PI * 2;
         const s = 30 + Math.random() * 50;
@@ -586,6 +644,173 @@ class Monster {
     this.knockbackDuration = duration;
   }
 
+  // Smart Obstacle Avoidance, Bridge Waypoint Routing, Whisker Corner-Sliding & Anti-Stuck Recovery
+  moveSmart(dt, targetX, targetY, world) {
+    if (!world) return;
+    if (this.steerLockTimer > 0) this.steerLockTimer -= dt;
+    if (this.unstuckGhostTimer > 0) this.unstuckGhostTimer -= dt;
+
+    // 1. Rescue if monster ever gets wedged inside a solid/water tile
+    const checkRadius = Math.max(8, (this.unstuckGhostTimer > 0) ? this.radius * 0.55 : this.radius * 0.78);
+    if (world.isColliding(this.x, this.y, checkRadius * 0.75) && world.findSafeSpawnPoint) {
+      const rescued = world.findSafeSpawnPoint(this.x, this.y, this.radius);
+      this.x = rescued.x;
+      this.y = rescued.y;
+    }
+
+    // 2. Route via nearest wooden bridge if separated from target by the river
+    const wp = world.getSmartWaypoint ? world.getSmartWaypoint(this.x, this.y, targetX, targetY) : { x: targetX, y: targetY };
+    const desiredAngle = (this.unstuckGhostTimer > 0 && this.escapeAngle !== null)
+      ? this.escapeAngle
+      : Math.atan2(wp.y - this.y, wp.x - this.x);
+
+    const curSpeed = this.speed * this.slowFactor;
+    const stepDist = curSpeed * dt;
+    const lookDist = Math.max(stepDist, Math.min(18, this.radius + 6));
+
+    // 3. Multi-Angle Whisker Steering to smoothly curve around wall/cliff/water corners
+    let moved = false;
+    const directNx = this.x + Math.cos(desiredAngle) * stepDist;
+    const directNy = this.y + Math.sin(desiredAngle) * stepDist;
+    const directLookX = this.x + Math.cos(desiredAngle) * lookDist;
+    const directLookY = this.y + Math.sin(desiredAngle) * lookDist;
+
+    if (!world.isColliding(directNx, directNy, checkRadius) && !world.isColliding(directLookX, directLookY, checkRadius * 0.85)) {
+      this.x = directNx;
+      this.y = directNy;
+      moved = true;
+    } else {
+      // Test steering whisker angles biased by locked steerDir so monster walks around corners without jittering
+      const offsets = [0.42, 0.82, 1.22, 1.58, 2.02, 2.45];
+      const dirs = [this.steerDir, -this.steerDir];
+
+      for (let dIdx = 0; dIdx < dirs.length && !moved; dIdx++) {
+        const dir = dirs[dIdx];
+        for (let i = 0; i < offsets.length; i++) {
+          const testAngle = desiredAngle + offsets[i] * dir;
+          const nx = this.x + Math.cos(testAngle) * stepDist;
+          const ny = this.y + Math.sin(testAngle) * stepDist;
+          const lx = this.x + Math.cos(testAngle) * lookDist;
+          const ly = this.y + Math.sin(testAngle) * lookDist;
+
+          if (!world.isColliding(nx, ny, checkRadius) && !world.isColliding(lx, ly, checkRadius * 0.8)) {
+            this.x = nx;
+            this.y = ny;
+            if (dIdx === 1 && this.steerLockTimer <= 0) {
+              this.steerDir = dir;
+            }
+            this.steerLockTimer = 0.45;
+            moved = true;
+            break;
+          }
+        }
+      }
+    }
+
+    // 4. Fallback Axis Slide + Corner Chamfer Nudge if tight against a wall
+    if (!moved) {
+      const moveX = Math.cos(desiredAngle) * stepDist;
+      const moveY = Math.sin(desiredAngle) * stepDist;
+      const canX = !world.isColliding(this.x + moveX, this.y, checkRadius);
+      const canY = !world.isColliding(this.x, this.y + moveY, checkRadius);
+
+      if (canX) {
+        this.x += moveX;
+        moved = true;
+      } else {
+        // Blocked in X: apply strong perpendicular slide in Y so it doesn't stall at 90-degree wall faces
+        const slideY = (Math.abs(moveY) > stepDist * 0.45) ? moveY : (stepDist * 0.85 * this.steerDir);
+        if (!world.isColliding(this.x, this.y + slideY, checkRadius)) {
+          this.y += slideY;
+          moved = true;
+        }
+      }
+
+      if (canY && !canX) {
+        // Already slid in Y above if needed, or apply normal moveY
+      } else if (canY) {
+        this.y += moveY;
+        moved = true;
+      } else if (!moved) {
+        // Blocked in Y: apply strong perpendicular slide in X
+        const slideX = (Math.abs(moveX) > stepDist * 0.45) ? moveX : (stepDist * 0.85 * this.steerDir);
+        if (!world.isColliding(this.x + slideX, this.y, checkRadius)) {
+          this.x += slideX;
+          moved = true;
+        }
+      }
+
+      // Bosses crush through player defenses blocking their path
+      if (this.isBoss && world.game && world.game.buildingManager) {
+        const blkStruct = world.game.buildingManager.getStructureAt(this.x + moveX, this.y + moveY, 28);
+        if (blkStruct) world.game.buildingManager.damageStructure(blkStruct, 22 * dt, this);
+      }
+    }
+
+    // 5. Anti-Stuck Watchdog: Detect if wedged in a concave corner and auto-escape
+    this.anchorTimer += dt;
+    if (this.anchorTimer >= 0.45) {
+      const progressDist = Math.hypot(this.x - this.anchorX, this.y - this.anchorY);
+      this.anchorX = this.x;
+      this.anchorY = this.y;
+      this.anchorTimer = 0;
+
+      if (progressDist < 7) {
+        // If blocked by an adjacent player defense structure, attack it immediately
+        if (world.game && world.game.buildingManager) {
+          const adjDef = world.game.buildingManager.getStructureAt(this.x, this.y, this.radius + 26);
+          if (adjDef && adjDef.blocksMovement) {
+            world.game.buildingManager.damageStructure(adjDef, this.damage * 0.65, this);
+          }
+        }
+
+        // Flip steering direction and scan 8 compass directions for an open escape lane
+        this.steerDir *= -1;
+        this.steerLockTimer = 0.75;
+        let bestEscape = desiredAngle + Math.PI * 0.6 * this.steerDir;
+        for (let k = 0; k < 8; k++) {
+          const candAngle = desiredAngle + ((k % 2 === 0 ? 1 : -1) * Math.ceil((k + 1) / 2) * (Math.PI / 4));
+          const testX = this.x + Math.cos(candAngle) * 34;
+          const testY = this.y + Math.sin(candAngle) * 34;
+          if (!world.isColliding(testX, testY, this.radius * 0.6)) {
+            bestEscape = candAngle;
+            break;
+          }
+        }
+        this.escapeAngle = bestEscape;
+        this.unstuckGhostTimer = 0.6;
+        this.x += Math.cos(bestEscape) * 8;
+        this.y += Math.sin(bestEscape) * 8;
+      }
+    }
+
+    // 6. Lightweight Soft Separation so monsters don't stack into a single clump at corners
+    if (world.game && world.game.monsters) {
+      const list = world.game.monsters;
+      const len = list.length;
+      const step = Math.max(1, Math.floor(len / 14));
+      const startIdx = Math.floor(this.pulseTimer * 3) % step;
+      for (let i = startIdx; i < len; i += step) {
+        const other = list[i];
+        if (!other || other === this || other.isDead || other.species === 'dummy') continue;
+        const dx = this.x - other.x;
+        const dy = this.y - other.y;
+        const minDist = (this.radius + other.radius) * 0.78;
+        const dSq = dx * dx + dy * dy;
+        if (dSq > 0.01 && dSq < minDist * minDist) {
+          const d = Math.sqrt(dSq);
+          const push = ((minDist - d) / minDist) * 28 * dt;
+          const px = this.x + (dx / d) * push;
+          const py = this.y + (dy / d) * push;
+          if (!world.isColliding(px, py, checkRadius * 0.8)) {
+            this.x = px;
+            this.y = py;
+          }
+        }
+      }
+    }
+  }
+
   update(dt, player, world) {
     if (this.isDead) return;
 
@@ -604,8 +829,8 @@ class Monster {
       this.knockbackDuration -= dt;
       const nextX = this.x + this.knockbackVx * dt;
       const nextY = this.y + this.knockbackVy * dt;
-      if (!world.isColliding(nextX, this.y, this.radius)) this.x = nextX;
-      if (!world.isColliding(this.x, nextY, this.radius)) this.y = nextY;
+      if (!world.isColliding(nextX, this.y, this.radius * 0.8)) this.x = nextX;
+      if (!world.isColliding(this.x, nextY, this.radius * 0.8)) this.y = nextY;
       this.knockbackVx *= 0.88;
       this.knockbackVy *= 0.88;
       return;
@@ -625,18 +850,24 @@ class Monster {
       targetDist = Math.hypot(player.x - this.x, player.y - this.y);
     }
 
+    // Find the CLOSEST blocking defense structure that intercepts the monster
     if (world && world.game && world.game.buildingManager) {
       const defs = world.game.buildingManager.defenses;
+      let bestDef = null;
+      let bestDefDist = Infinity;
       for (let i = 0; i < defs.length; i++) {
         const d = defs[i];
         if (!d.blocksMovement) continue;
         const distD = Math.hypot(d.x - this.x, d.y - this.y);
-        if (distD < 45 || distD < targetDist * 0.7) {
-          target = d;
-          targetDist = distD;
-          isStructureTarget = true;
-          break;
+        if (distD < bestDefDist && (distD < 52 || distD < targetDist * 0.65)) {
+          bestDef = d;
+          bestDefDist = distD;
         }
+      }
+      if (bestDef) {
+        target = bestDef;
+        targetDist = bestDefDist;
+        isStructureTarget = true;
       }
     }
 
@@ -644,42 +875,41 @@ class Monster {
 
     // 1. KAMIKAZE EXPLODER AI
     if (this.isKamikaze) {
-      if (targetDist <= 28) {
+      if (targetDist <= 30) {
         this.detonate(player, world, world.game ? world.game.particles : [], world.game ? world.game.floatingTexts : []);
         return;
       }
-      const angle = Math.atan2(target.y - this.y, target.x - this.x);
-      const curSpeed = this.speed * this.slowFactor;
-      this.x += Math.cos(angle) * curSpeed * dt;
-      this.y += Math.sin(angle) * curSpeed * dt;
+      this.moveSmart(dt, target.x, target.y, world);
       return;
     }
 
-    // 2. ACID SPITTER AI
+    // 2. RANGED ATTACKERS AI (Acid Spitter & Frost-Web Slowing Spitter)
     if (this.isRanged) {
       if (targetDist <= this.attackRange && this.attackCooldown <= 0) {
-        this.attackCooldown = 1.8;
+        this.attackCooldown = (this.species === 'frost_spitter') ? 1.55 : 1.8;
         const angle = Math.atan2(target.y - this.y, target.x - this.x);
-        const spitSpeed = 260;
+        const spitSpeed = (this.species === 'frost_spitter') ? 295 : 260;
         const vx = Math.cos(angle) * spitSpeed;
         const vy = Math.sin(angle) * spitSpeed;
+        const projType = (this.species === 'frost_spitter') ? 'frost_spit' : 'acid_spit';
         if (world.game && world.game.projectiles) {
-          world.game.projectiles.push(new Projectile(this.x, this.y, vx, vy, this.attackRange + 40, this.damage, 'acid_spit'));
+          world.game.projectiles.push(new Projectile(
+            this.x, this.y, vx, vy,
+            this.attackRange + 45,
+            this.damage,
+            projType,
+            { slowFactor: this.slowPlayerFactor, slowDuration: this.slowPlayerDuration }
+          ));
           window.audioManager.playBowShoot();
         }
-      } else if (targetDist > this.attackRange * 0.8) {
-        const angle = Math.atan2(target.y - this.y, target.x - this.x);
-        const curSpeed = this.speed * this.slowFactor;
-        const moveX = Math.cos(angle) * curSpeed * dt;
-        const moveY = Math.sin(angle) * curSpeed * dt;
-        if (!world.isColliding(this.x + moveX, this.y, this.radius)) this.x += moveX;
-        if (!world.isColliding(this.x, this.y + moveY, this.radius)) this.y += moveY;
+      } else if (targetDist > this.attackRange * 0.78) {
+        this.moveSmart(dt, target.x, target.y, world);
       }
       return;
     }
 
     // 3. MELEE ATTACKERS (Crawler & Titan Behemoth)
-    if (targetDist <= (this.radius + (isStructureTarget ? 16 : 14)) && this.attackCooldown <= 0) {
+    if (targetDist <= (this.radius + (isStructureTarget ? 18 : 15)) && this.attackCooldown <= 0) {
       this.attackCooldown = this.isBoss ? 1.4 : 1.1;
 
       if (isStructureTarget) {
@@ -695,24 +925,7 @@ class Monster {
         }
       }
     } else if (targetDist > 16) {
-      const angle = Math.atan2(target.y - this.y, target.x - this.x);
-      const curSpeed = this.speed * this.slowFactor;
-      const moveX = Math.cos(angle) * curSpeed * dt;
-      const moveY = Math.sin(angle) * curSpeed * dt;
-
-      if (!world.isColliding(this.x + moveX, this.y, this.radius)) {
-        this.x += moveX;
-      } else if (this.isBoss && world.game && world.game.buildingManager) {
-        const blkStruct = world.game.buildingManager.getStructureAt(this.x + moveX, this.y, 24);
-        if (blkStruct) world.game.buildingManager.damageStructure(blkStruct, 15 * dt, this);
-      }
-
-      if (!world.isColliding(this.x, this.y + moveY, this.radius)) {
-        this.y += moveY;
-      } else if (this.isBoss && world.game && world.game.buildingManager) {
-        const blkStruct = world.game.buildingManager.getStructureAt(this.x, this.y + moveY, 24);
-        if (blkStruct) world.game.buildingManager.damageStructure(blkStruct, 15 * dt, this);
-      }
+      this.moveSmart(dt, target.x, target.y, world);
     }
   }
 
@@ -765,6 +978,7 @@ class Monster {
     if (this.species === 'dummy') spriteName = 'monster_dummy';
     else if (this.species === 'exploder') spriteName = 'monster_exploder';
     else if (this.species === 'spitter') spriteName = 'monster_spitter';
+    else if (this.species === 'frost_spitter') spriteName = 'monster_frost_spitter';
     else if (this.species === 'behemoth') {
       spriteName = 'monster_behemoth';
       sprSize = 68;
@@ -842,6 +1056,7 @@ class Monster {
     else if (this.species === 'behemoth') { hpColor = '#c084fc'; speciesTag = '👑 TITAN BEHEMOTH'; }
     else if (this.species === 'exploder') { hpColor = '#f97316'; speciesTag = '💥 Cảm Tử Nổ'; }
     else if (this.species === 'spitter') { hpColor = '#84cc16'; speciesTag = '🧪 Phun Axit'; }
+    else if (this.species === 'frost_spitter') { hpColor = '#38bdf8'; speciesTag = '❄️ Xạ Thủ Băng Hàn (Làm Chậm)'; }
 
     ctx.fillStyle = hpColor;
     ctx.fillRect(sx - barWidth / 2, barY, barWidth * hpPercent, barHeight);
@@ -923,13 +1138,35 @@ class Player {
     this.speedBoostTimer = 0;
     this.speedBoostMultiplier = 1.0;
 
+    // Ranged Monster Slow Debuff State
+    this.slowTimer = 0;
+    this.slowMultiplier = 1.0;
+    this.slowTextCooldown = 0;
+
     // Dash trail ghosts
     this.ghosts = [];
   }
 
   getEffectiveSpeed() {
     let speed = (this.baseSpeed + this.speedBonus) * this.speedBoostMultiplier;
+    if (this.slowTimer > 0) {
+      speed *= this.slowMultiplier;
+    }
     return speed;
+  }
+
+  applySlow(factor = 0.5, duration = 3.0, sourceText = 'ĐẠN LÀM CHẬM') {
+    if (this.isDead || this.isVaulting || this.isDashing) return;
+    this.slowMultiplier = Math.min(this.slowMultiplier, factor);
+    this.slowTimer = Math.max(this.slowTimer, duration);
+
+    if (this.slowTextCooldown <= 0 && window.gameEngine && window.gameEngine.floatingTexts) {
+      this.slowTextCooldown = 1.1;
+      const pct = Math.round((1 - this.slowMultiplier) * 100);
+      window.gameEngine.floatingTexts.push(
+        new FloatingText(this.x, this.y - 34, `❄️ CHẬM -${pct}% TỐC CHẠY (${sourceText})!`, '#38bdf8', 12, 1.2)
+      );
+    }
   }
 
   triggerDash(keys, mouseWorldX, mouseWorldY, particles, floatingTexts) {
@@ -984,6 +1221,7 @@ class Player {
 
     if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if (this.infectionCooldownTimer > 0) this.infectionCooldownTimer -= dt;
+    if (this.slowTextCooldown > 0) this.slowTextCooldown -= dt;
 
     if (this.immunityTimer > 0) {
       this.immunityTimer -= dt;
@@ -1004,6 +1242,20 @@ class Player {
       this.speedBoostTimer -= dt;
       if (this.speedBoostTimer <= 0) {
         this.speedBoostMultiplier = 1.0;
+      }
+    }
+
+    if (this.slowTimer > 0) {
+      this.slowTimer -= dt;
+      if (Math.random() < 0.22 && particles && particles.length < 160) {
+        particles.push(new Particle(this.x + (Math.random() - 0.5) * 18, this.y + 8, 0, -14, '#67e8f9', 2.5, 0.25));
+      }
+      if (this.slowTimer <= 0) {
+        this.slowTimer = 0;
+        this.slowMultiplier = 1.0;
+        if (floatingTexts && floatingTexts.length < 40) {
+          floatingTexts.push(new FloatingText(this.x, this.y - 22, '⚡ ĐÃ THOÁT LÀM CHẬM!', '#4ade80', 11, 0.8));
+        }
       }
     }
 
@@ -1163,11 +1415,19 @@ class Player {
     ctx.ellipse(groundX, groundY, 13 * shadowScale, 5 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = (this.slowTimer > 0) ? 'rgba(6, 182, 212, 0.85)' : 'rgba(56, 189, 248, 0.45)';
+    ctx.lineWidth = (this.slowTimer > 0) ? 2.4 : 1.5;
     ctx.beginPath();
     ctx.ellipse(groundX, groundY, 15 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
     ctx.stroke();
+
+    // Draw Frost-Web Slow Aura around Player when slowed
+    if (this.slowTimer > 0) {
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 20, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     const aimTipX = groundX + Math.cos(this.aimAngle) * 22;
     const aimTipY = groundY + Math.sin(this.aimAngle) * 10;
@@ -1205,6 +1465,23 @@ class Player {
       ctx.beginPath();
       ctx.arc(sx, sy - 2, 22, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.restore();
+    }
+
+    if (this.slowTimer > 0) {
+      ctx.save();
+      ctx.font = 'bold 10px "Segoe UI", Tahoma, sans-serif';
+      ctx.textAlign = 'center';
+      const slowPct = Math.round((1 - this.slowMultiplier) * 100);
+      const badgeTxt = `❄️ CHẬM -${slowPct}% (${this.slowTimer.toFixed(1)}s)`;
+      const tw = ctx.measureText(badgeTxt).width + 10;
+      ctx.fillStyle = 'rgba(8, 47, 73, 0.88)';
+      ctx.fillRect(sx - tw / 2, sy - 39, tw, 14);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx - tw / 2, sy - 39, tw, 14);
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillText(badgeTxt, sx, sy - 29);
       ctx.restore();
     }
 
@@ -1293,6 +1570,8 @@ class Player {
     this.isDead = false;
     this.immunityTimer = 15;
     this.invulnerableTimer = 3;
+    this.slowTimer = 0;
+    this.slowMultiplier = 1.0;
   }
 }
 

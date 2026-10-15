@@ -2569,6 +2569,90 @@ class PixelArt {
       this.cache['monster_spitter'] = canvas;
     }
 
+    // B2. Frost-Web Spitter / Cryo Sniper (48x48 Icy Crystalline Long-Range Slowing Creature)
+    {
+      const W = 48, H = 48;
+      const { canvas, ctx } = this.createCanvas(W, H);
+
+      // 6 Razor Ice-Mantis Stalker Legs
+      ctx.strokeStyle = '#0c4a6e';
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(16, 20); ctx.lineTo(4, 8); ctx.lineTo(2, 16);
+      ctx.moveTo(32, 20); ctx.lineTo(44, 8); ctx.lineTo(46, 16);
+      ctx.moveTo(15, 26); ctx.lineTo(3, 27); ctx.lineTo(2, 34);
+      ctx.moveTo(33, 26); ctx.lineTo(45, 27); ctx.lineTo(46, 34);
+      ctx.moveTo(16, 32); ctx.lineTo(6, 42); ctx.lineTo(4, 46);
+      ctx.moveTo(32, 32); ctx.lineTo(42, 42); ctx.lineTo(44, 46);
+      ctx.stroke();
+
+      // Crystalline Frost Wing-Spines on Shoulders
+      const crestGrad = ctx.createLinearGradient(8, 12, 40, 26);
+      crestGrad.addColorStop(0, '#67e8f9');
+      crestGrad.addColorStop(0.5, '#0284c7');
+      crestGrad.addColorStop(1, '#1e3a8a');
+      ctx.fillStyle = crestGrad;
+      ctx.strokeStyle = '#082f49';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(24, 15);
+      ctx.lineTo(7, 11);
+      ctx.lineTo(12, 24);
+      ctx.lineTo(24, 22);
+      ctx.lineTo(36, 24);
+      ctx.lineTo(41, 11);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Translucent Cryo-Web Sac Abdomen
+      const sacG = ctx.createRadialGradient(22, 29, 2, 24, 32, 12);
+      sacG.addColorStop(0, '#f0f9ff');
+      sacG.addColorStop(0.4, '#38bdf8');
+      sacG.addColorStop(0.8, '#0369a1');
+      sacG.addColorStop(1, '#0f172a');
+      ctx.fillStyle = sacG;
+      ctx.beginPath();
+      ctx.ellipse(24, 32, 10.5, 11.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Glowing Frost-Web Lattice Pattern on Abdomen
+      ctx.strokeStyle = '#bae6fd';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(17, 28); ctx.lineTo(31, 35);
+      ctx.moveTo(31, 28); ctx.lineTo(17, 35);
+      ctx.moveTo(24, 23); ctx.lineTo(24, 40);
+      ctx.stroke();
+
+      // Armored Cryo-Sniper Head & Mandibles
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(24, 13, 6.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Glowing Cryo-Web Orb Charging Between Mandibles
+      ctx.fillStyle = '#e0f2fe';
+      ctx.beginPath();
+      ctx.arc(24, 6.5, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.arc(24, 6.5, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Piercing Neon-Magenta/Cyan Sniper Eyes
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(20.8, 12.2, 1.8, 0, Math.PI * 2);
+      ctx.arc(27.2, 12.2, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      this.cache['monster_frost_spitter'] = canvas;
+    }
+
     // C. Titan Behemoth (68x68 Colossal Armored Siege Juggernaut Boss)
     {
       const W = 68, H = 68;

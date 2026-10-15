@@ -248,18 +248,22 @@ class GameEngine {
     this.monsters.push(new Monster((trainCol + 1.5) * CONSTANTS.TILE_SIZE, (trainRow + 1.5) * CONSTANTS.TILE_SIZE, 'dummy', 'Bù Nhìn Thử Vũ Khí', 150));
     this.monsters.push(new Monster((trainCol - 0.8) * CONSTANTS.TILE_SIZE, (trainRow + 2.2) * CONSTANTS.TILE_SIZE, 'dummy', 'Bù Nhìn Thử Vũ Khí', 150));
 
-    // 2. Alien Crawlers in Mountain biome near eggs
+    // 2. Alien Crawlers & Ranged Frost-Web Spitters in Mountain biome (safe non-water coordinates)
     for (let i = 0; i < 12; i++) {
       const mx = (10 + Math.random() * 80) * CONSTANTS.TILE_SIZE;
-      const my = (6 + Math.random() * 18) * CONSTANTS.TILE_SIZE;
-      this.monsters.push(new Monster(mx, my, 'crawler', 'Xenomorph Crawler', 65));
+      const my = (9 + Math.random() * 15) * CONSTANTS.TILE_SIZE;
+      const safe = this.world.findSafeSpawnPoint(mx, my, 18);
+      const sp = (i % 3 === 0) ? 'frost_spitter' : ((i % 4 === 0) ? 'spitter' : 'crawler');
+      this.monsters.push(new Monster(safe.x, safe.y, sp));
     }
 
-    // 3. Alien Crawlers along Beach
+    // 3. Alien Crawlers & Ranged Frost-Web Spitters along Beach
     for (let i = 0; i < 8; i++) {
       const bx = (15 + Math.random() * 70) * CONSTANTS.TILE_SIZE;
-      const by = (63 + Math.random() * 5) * CONSTANTS.TILE_SIZE;
-      this.monsters.push(new Monster(bx, by, 'crawler', 'Xenomorph Crawler', 55));
+      const by = (62 + Math.random() * 4) * CONSTANTS.TILE_SIZE;
+      const safe = this.world.findSafeSpawnPoint(bx, by, 18);
+      const sp = (i % 3 === 0) ? 'frost_spitter' : 'crawler';
+      this.monsters.push(new Monster(safe.x, safe.y, sp));
     }
   }
 
@@ -832,26 +836,48 @@ class GameEngine {
       }
     }
 
-    // 4. Day/Night Doomsday Clock Widget
+    // 4. Day/Night & Blood Moon (Every 15 Days) Doomsday Clock Widget
     const timeStr = this.dayNight.getTimeFormatted();
     if (vals.timeStr !== timeStr && els.clockTime) {
       vals.timeStr = timeStr;
       els.clockTime.innerText = timeStr;
     }
-    if (vals.dayCount !== this.dayNight.dayCount && els.clockDay) {
-      vals.dayCount = this.dayNight.dayCount;
-      els.clockDay.innerText = `NGÀY SINH TỒN ${this.dayNight.dayCount}`;
-    }
-    if (vals.isNight !== this.dayNight.isNight && els.clockPhase) {
-      vals.isNight = this.dayNight.isNight;
-      if (this.dayNight.isNight) {
-        if (els.phaseIcon) els.phaseIcon.innerText = '💀';
-        if (els.phaseDesc) els.phaseDesc.innerText = 'HUYẾT NGUYỆT: TẬN DIỆT!';
-        els.clockPhase.style.color = '#ef4444';
-      } else {
-        if (els.phaseIcon) els.phaseIcon.innerText = '☀';
-        if (els.phaseDesc) els.phaseDesc.innerText = 'BÌNH MINH HOANG TÀN';
-        els.clockPhase.style.color = '#38bdf8';
+
+    const isBMDay = this.dayNight.isBloodMoonDay ? this.dayNight.isBloodMoonDay() : false;
+    const isBMNight = this.dayNight.isBloodMoonNight ? this.dayNight.isBloodMoonNight() : false;
+    const nextBM = this.dayNight.getNextBloodMoonDay ? this.dayNight.getNextBloodMoonDay() : 15;
+    const clockStateKey = `${this.dayNight.dayCount}_${this.dayNight.isNight}_${isBMDay}`;
+
+    if (vals.clockStateKey !== clockStateKey) {
+      vals.clockStateKey = clockStateKey;
+      if (els.clockDay) {
+        els.clockDay.innerText = isBMDay
+          ? `🩸 TRĂNG MÁU - NGÀY ${this.dayNight.dayCount} 🩸`
+          : `NGÀY SINH TỒN ${this.dayNight.dayCount}`;
+        els.clockDay.style.color = isBMDay ? '#ff4d6d' : '';
+      }
+      if (els.clockPhase) {
+        if (isBMNight) {
+          if (els.phaseIcon) els.phaseIcon.innerText = '🩸';
+          if (els.phaseDesc) els.phaseDesc.innerText = 'TRĂNG MÁU ĐẠI HỌA (X10 QUÁI)!';
+          els.clockPhase.style.color = '#ff1744';
+        } else if (this.dayNight.isNight) {
+          if (els.phaseIcon) els.phaseIcon.innerText = '💀';
+          if (els.phaseDesc) els.phaseDesc.innerText = `ĐÊM TẬN DIỆT (TRĂNG MÁU: NGÀY ${nextBM})`;
+          els.clockPhase.style.color = '#ef4444';
+        } else if (isBMDay) {
+          if (els.phaseIcon) els.phaseIcon.innerText = '🩸';
+          if (els.phaseDesc) els.phaseDesc.innerText = 'ĐÊM NAY: TRĂNG MÁU (X10 QUÁI)!';
+          els.clockPhase.style.color = '#f43f5e';
+        } else {
+          if (els.phaseIcon) els.phaseIcon.innerText = '☀';
+          if (els.phaseDesc) els.phaseDesc.innerText = `BÌNH MINH (TRĂNG MÁU: NGÀY ${nextBM})`;
+          els.clockPhase.style.color = '#38bdf8';
+        }
+      }
+      const isPanicOrBM = ((this.player.hp / this.player.maxHp) * 100 < 38) || isBMNight;
+      if (els.bloodOverlay) {
+        els.bloodOverlay.classList.toggle('active-panic', isPanicOrBM);
       }
     }
 

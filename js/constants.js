@@ -62,6 +62,8 @@ const CONSTANTS = {
   // Day & Night Configuration
   DAY_DURATION_SEC: 120, // 2 minutes per full day/night cycle
   DAY_RATIO: 0.65,       // 65% daytime, 35% nighttime
+  BLOOD_MOON_INTERVAL_DAYS: 15, // Trăng Máu xuất hiện mỗi 15 ngày (Ngày 15, 30, 45...)
+  BLOOD_MOON_MULTIPLIER: 10,    // Quái vật đông gấp 10 lần bình thường vào đêm Trăng Máu
   
   // Player Base Stats
   PLAYER_BASE: {
@@ -741,7 +743,8 @@ const CONSTANTS = {
   MONSTER_SPECIES: {
     crawler: { name: 'Xenomorph Crawler', maxHp: 50, speed: 75, damage: 10, radius: 16, desc: 'Quái vật cơ bản bò nhanh nhẹn' },
     exploder: { name: 'Quái Cảm Tử (Kamikaze)', maxHp: 40, speed: 110, damage: 45, radius: 15, isKamikaze: true, desc: 'Lao nhanh phát nổ phá tan tường chắn' },
-    spitter: { name: 'Quái Phun Axit', maxHp: 65, speed: 55, damage: 14, range: 190, radius: 17, isRanged: true, desc: 'Bắn đạn axit ăn mòn từ xa' },
+    spitter: { name: 'Quái Phun Axit', maxHp: 65, speed: 55, damage: 14, range: 190, radius: 17, isRanged: true, slowPlayerFactor: 0.72, slowPlayerDuration: 1.8, desc: 'Bắn đạn axit ăn mòn và làm chậm nhẹ từ xa' },
+    frost_spitter: { name: 'Quái Xạ Thủ Băng Hàn', maxHp: 75, speed: 62, damage: 12, range: 245, radius: 17, isRanged: true, slowPlayerFactor: 0.50, slowPlayerDuration: 3.0, desc: 'Bắn đạn tơ băng kết tinh từ xa làm chậm 50% tốc độ di chuyển của nhân vật' },
     behemoth: { name: 'Quái Khổng Lồ (Behemoth)', maxHp: 280, speed: 45, damage: 32, radius: 26, isBoss: true, desc: 'Quái khổng lồ phá hủy mọi công trình' }
   },
 

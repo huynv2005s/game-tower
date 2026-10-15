@@ -101,14 +101,30 @@ class WorldMap {
       }
     }
 
-    // 3. Wooden Bridges across the River in Plains
-    const bridgeRows = [34, 48];
+    // 3. Wooden Bridges across the River in Mountains & Plains
+    const bridgeRows = [19, 34, 48];
+    this.bridgeCrossings = [];
     bridgeRows.forEach(br => {
+      let minBridgeC = this.cols;
+      let maxBridgeC = 0;
       for (let c = 0; c < this.cols; c++) {
-        if (this.tiles[br][c] === CONSTANTS.TILES.RIVER_WATER) {
+        if (this.tiles[br][c] === CONSTANTS.TILES.RIVER_WATER || this.tiles[br + 1][c] === CONSTANTS.TILES.RIVER_WATER) {
           this.tiles[br][c] = CONSTANTS.TILES.WOODEN_BRIDGE;
           this.tiles[br + 1][c] = CONSTANTS.TILES.WOODEN_BRIDGE;
+          if (c < minBridgeC) minBridgeC = c;
+          if (c > maxBridgeC) maxBridgeC = c;
         }
+      }
+      if (minBridgeC <= maxBridgeC) {
+        const centerCol = (minBridgeC + maxBridgeC + 1) * 0.5;
+        this.bridgeCrossings.push({
+          row: br,
+          col: centerCol,
+          x: centerCol * this.tileSize,
+          y: (br + 1) * this.tileSize,
+          westEntryX: (minBridgeC - 1.2) * this.tileSize,
+          eastEntryX: (maxBridgeC + 2.2) * this.tileSize
+        });
       }
     });
 
@@ -563,6 +579,76 @@ class WorldMap {
 
     return false;
   }
+
+  // Find a valid non-colliding land position near (x, y) so monsters never spawn stuck in water/cliffs
+  findSafeSpawnPoint(x, y, radius = 18) {
+    const pad = radius + 8;
+    const cx = Math.max(pad, Math.min(this.width - pad, x));
+    const cy = Math.max(pad, Math.min(this.height - pad, y));
+    if (!this.isColliding(cx, cy, radius)) {
+      return { x: cx, y: cy };
+    }
+
+    for (let dist = 16; dist <= 288; dist += 16) {
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const tx = Math.max(pad, Math.min(this.width - pad, cx + Math.cos(angle) * dist));
+        const ty = Math.max(pad, Math.min(this.height - pad, cy + Math.sin(angle) * dist));
+        if (!this.isColliding(tx, ty, radius)) {
+          return { x: tx, y: ty };
+        }
+      }
+    }
+    return { x: 35 * this.tileSize, y: 38 * this.tileSize };
+  }
+
+  // Smart Waypoint Routing: guides monsters over wooden bridges when the river separates them from their target
+  getSmartWaypoint(x, y, targetX, targetY) {
+    if (!this.bridgeCrossings || this.bridgeCrossings.length === 0) {
+      return { x: targetX, y: targetY };
+    }
+
+    // Sample points along the straight line between monster and target to see if RIVER_WATER blocks the path
+    let crossesRiver = false;
+    const steps = 8;
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const sx = x + (targetX - x) * t;
+      const sy = y + (targetY - y) * t;
+      const tile = this.getTile(Math.floor(sx / this.tileSize), Math.floor(sy / this.tileSize));
+      if (tile === CONSTANTS.TILES.RIVER_WATER) {
+        crossesRiver = true;
+        break;
+      }
+    }
+
+    if (!crossesRiver) {
+      return { x: targetX, y: targetY };
+    }
+
+    // Pick the nearest bridge crossing
+    let bestBridge = this.bridgeCrossings[0];
+    let bestScore = Infinity;
+    for (let i = 0; i < this.bridgeCrossings.length; i++) {
+      const b = this.bridgeCrossings[i];
+      const score = Math.abs(y - b.y) + Math.abs(targetY - b.y) * 0.35;
+      if (score < bestScore) {
+        bestScore = score;
+        bestBridge = b;
+      }
+    }
+
+    // If the monster is not yet aligned with the bridge row, guide it to the bridge entrance on its side of the river first
+    if (Math.abs(y - bestBridge.y) > 22) {
+      const entryX = (x < bestBridge.x) ? bestBridge.westEntryX : bestBridge.eastEntryX;
+      return { x: entryX, y: bestBridge.y };
+    }
+
+    // Once aligned with the bridge row, walk straight across to the other side of the bridge
+    const exitX = (targetX < bestBridge.x) ? bestBridge.westEntryX : bestBridge.eastEntryX;
+    return { x: exitX, y: bestBridge.y };
+  }
+
 
   // Find harvestable near point
   getHarvestableAt(x, y, reach = 50) {
